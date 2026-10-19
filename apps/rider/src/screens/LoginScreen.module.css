@@ -1,0 +1,9 @@
+.page { min-height: 100vh; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 80px 16px 32px; }
+.hero { text-align: center; color: var(--text); margin-bottom: 32px; }
+.logo { font-size: 72px; }
+.hero h1 { font-size: 28px; font-weight: 800; margin-top: 8px; }
+.hero p { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+.card { background: var(--surface); border-radius: 16px; padding: 24px; width: 100%; max-width: 400px; border: 1px solid var(--border); }
+.form { display: flex; flex-direction: column; gap: 14px; }
+.label { font-size: 13px; font-weight: 600; color: var(--text-muted); display: block; margin-bottom: 6px; }
+.error { font-size: 12px; color: var(--danger); margin-top: 4px; }

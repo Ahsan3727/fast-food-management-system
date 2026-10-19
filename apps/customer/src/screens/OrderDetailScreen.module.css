@@ -1,0 +1,32 @@
+.page { background: var(--bg); min-height: 100vh; padding-bottom: 100px; }
+.loading { padding: 16px; min-height: 100vh; }
+.header { display: flex; align-items: center; gap: 12px; padding: calc(var(--safe-top) + 12px) 16px 12px; background: white; border-bottom: 1px solid var(--border); }
+.header h1 { font-size: 18px; font-weight: 700; }
+.time { font-size: 12px; color: var(--text-muted); }
+.back { background: none; border: 1.5px solid var(--border); border-radius: 10px; width: 36px; height: 36px; font-size: 18px; cursor: pointer; flex-shrink: 0; }
+.tracker { background: white; padding: 20px 16px; border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 0; }
+.step { display: flex; align-items: center; gap: 12px; position: relative; padding-bottom: 16px; }
+.step:last-child { padding-bottom: 0; }
+.stepDot { width: 36px; height: 36px; border-radius: 50%; border: 2px solid var(--border); background: white; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; transition: all 0.3s; }
+.stepDone { background: #dcfce7; border-color: var(--success); }
+.stepActive { background: var(--primary); border-color: var(--primary); animation: pulse 2s infinite; }
+@keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(249,115,22,0.4); } 50% { box-shadow: 0 0 0 8px rgba(249,115,22,0); } }
+.stepLabel { font-size: 14px; font-weight: 500; color: var(--text-muted); }
+.stepLabelActive { font-weight: 700; color: var(--text); }
+.stepLine { position: absolute; left: 17px; top: 36px; width: 2px; height: 16px; background: var(--border); }
+.stepLineDone { background: var(--success); }
+.cancelledBanner { margin: 16px; background: #fee2e2; border-radius: 14px; padding: 16px; text-align: center; font-weight: 700; color: var(--danger); }
+.section { background: white; margin: 12px 16px 0; border-radius: 14px; padding: 16px; border: 1px solid var(--border); }
+.sectionTitle { font-size: 14px; font-weight: 700; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+.itemRow { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.itemEmoji { font-size: 24px; }
+.itemInfo { flex: 1; }
+.itemName { font-size: 14px; font-weight: 600; }
+.itemMeta { font-size: 12px; color: var(--text-muted); }
+.itemPrice { font-weight: 700; font-size: 14px; }
+.totalRow { display: flex; justify-content: space-between; font-weight: 700; font-size: 16px; border-top: 1px solid var(--border); padding-top: 10px; margin-top: 4px; }
+.address { font-size: 15px; line-height: 1.5; }
+.landmark { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+.actions { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.trackBtn { width: 100%; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }
+.cancelBtn { width: 100%; padding: 14px; background: white; color: var(--danger); border: 1.5px solid var(--danger); border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }

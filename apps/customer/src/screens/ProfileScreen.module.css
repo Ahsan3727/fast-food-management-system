@@ -1,0 +1,13 @@
+.page { background: var(--bg); min-height: 100vh; padding-bottom: 90px; }
+.header { background: var(--primary); padding: calc(var(--safe-top) + 24px) 16px 32px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.avatar { width: 72px; height: 72px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 32px; font-weight: 800; color: white; border: 3px solid rgba(255,255,255,0.5); }
+.name { font-size: 20px; font-weight: 700; color: white; }
+.phone { font-size: 14px; color: rgba(255,255,255,0.8); }
+.list { background: white; margin: 16px; border-radius: 14px; border: 1px solid var(--border); overflow: hidden; }
+.item { display: flex; align-items: center; gap: 14px; padding: 16px; cursor: pointer; font-size: 15px; font-weight: 500; border-bottom: 1px solid var(--border); transition: background 0.1s; }
+.item:last-child { border-bottom: none; }
+.item:hover { background: var(--bg); }
+.item span:first-child { font-size: 22px; }
+.item span:nth-child(2) { flex: 1; }
+.chevron { color: var(--text-muted); font-size: 20px; }
+.logoutBtn { display: block; margin: 16px auto; padding: 12px 32px; background: white; color: var(--danger); border: 1.5px solid var(--danger); border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }

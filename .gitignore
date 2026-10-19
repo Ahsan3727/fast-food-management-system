@@ -1,0 +1,45 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build outputs
+dist/
+build/
+.next/
+
+# Environment - NEVER commit real secrets
+.env
+.env.*
+!.env.example
+
+# Android keystores - NEVER COMMIT
+keystores/
+*.jks
+*.keystore
+android/keystore.properties
+
+# Firebase service accounts
+google-services.json
+*-service-account.json
+
+# Reference repos (read-only)
+reference/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Testing
+coverage/
+
+# Turbo cache
+.turbo/
+
+# IDE
+.idea/
+*.swp

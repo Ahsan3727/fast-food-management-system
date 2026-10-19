@@ -1,0 +1,18 @@
+.page { background: var(--bg); min-height: 100vh; padding-bottom: 80px; }
+.header { padding: calc(var(--safe-top) + 16px) 16px 16px; background: white; border-bottom: 1px solid var(--border); }
+.header h1 { font-size: 22px; font-weight: 700; }
+.list { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.skeleton { height: 110px; border-radius: 14px; }
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; min-height: 60vh; font-size: 48px; text-align: center; }
+.empty p { font-size: 18px; font-weight: 600; color: var(--text-muted); }
+.groupLabel { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin: 8px 0 4px; }
+.card { background: white; border-radius: 14px; border: 1px solid var(--border); padding: 14px; cursor: pointer; box-shadow: var(--shadow); transition: transform 0.15s; }
+.card:hover { transform: translateY(-1px); }
+.cardActive { border-color: var(--primary); background: linear-gradient(135deg, #fff7ed, white); }
+.cardTop { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+.orderNum { font-weight: 700; font-size: 16px; }
+.orderTime { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.cardBottom { display: flex; justify-content: space-between; }
+.itemCount { font-size: 13px; color: var(--text-muted); }
+.total { font-weight: 700; font-size: 15px; }
+.trackBtn { width: 100%; margin-top: 12px; padding: 10px; border: 1.5px solid var(--primary); border-radius: 10px; background: #fff7ed; color: var(--primary); font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; }

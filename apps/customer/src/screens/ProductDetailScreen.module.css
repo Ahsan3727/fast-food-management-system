@@ -1,0 +1,21 @@
+.page { background: var(--bg); min-height: 100vh; }
+.loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+.hero { height: 280px; display: flex; align-items: center; justify-content: center; position: relative; }
+.back { position: absolute; top: calc(var(--safe-top) + 12px); left: 16px; background: rgba(255,255,255,0.9); border: none; border-radius: 10px; width: 36px; height: 36px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.heroImg { width: 100%; height: 100%; object-fit: cover; }
+.heroEmoji { font-size: 100px; }
+.content { padding: 20px 16px 100px; }
+.name { font-size: 24px; font-weight: 800; }
+.desc { font-size: 14px; color: var(--text-muted); margin-top: 8px; line-height: 1.5; }
+.section { margin-top: 20px; }
+.sectionLabel { font-size: 13px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 10px; }
+.optionRow { display: flex; flex-wrap: wrap; gap: 8px; }
+.option { padding: 10px 16px; border: 2px solid var(--border); border-radius: 12px; background: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; text-align: center; transition: all 0.15s; }
+.optionActive { border-color: var(--primary); background: #fff7ed; color: var(--primary); }
+.optionPrice { font-size: 12px; font-weight: 700; color: var(--primary); }
+.qtyRow { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; }
+.qtyControls { display: flex; align-items: center; gap: 16px; }
+.qtyBtn { width: 36px; height: 36px; border-radius: 10px; border: 2px solid var(--border); background: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+.qtyVal { font-size: 18px; font-weight: 700; min-width: 24px; text-align: center; }
+.addBtn { width: 100%; margin-top: 24px; padding: 16px; background: var(--primary); color: white; border: none; border-radius: 14px; font-size: 17px; font-weight: 700; cursor: pointer; font-family: 'Inter', sans-serif; transition: background 0.15s; }
+.addBtn:hover { background: var(--primary-dark); }

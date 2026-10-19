@@ -1,0 +1,24 @@
+.page { background: var(--bg); min-height: 100vh; padding-bottom: 100px; }
+.empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; min-height: 100vh; text-align: center; padding: 24px; }
+.emptyEmoji { font-size: 72px; }
+.emptyText { font-size: 18px; font-weight: 600; color: var(--text-muted); }
+.header { display: flex; align-items: center; gap: 12px; padding: calc(var(--safe-top) + 12px) 16px 12px; background: white; border-bottom: 1px solid var(--border); }
+.header h1 { flex: 1; font-size: 20px; font-weight: 700; }
+.back { background: none; border: 1.5px solid var(--border); border-radius: 10px; width: 36px; height: 36px; font-size: 18px; cursor: pointer; }
+.clearBtn { background: none; border: none; color: var(--danger); font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+.list { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.row { background: white; border-radius: 14px; border: 1px solid var(--border); padding: 14px; display: flex; align-items: center; gap: 12px; }
+.rowEmoji { font-size: 36px; width: 48px; text-align: center; flex-shrink: 0; }
+.rowInfo { flex: 1; min-width: 0; }
+.rowName { font-weight: 600; font-size: 15px; }
+.rowMeta { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.rowPrice { font-weight: 700; color: var(--primary); margin-top: 4px; font-size: 14px; }
+.rowControls { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.qtyBtn { width: 30px; height: 30px; border-radius: 8px; border: 1.5px solid var(--border); background: white; font-size: 18px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.qty { font-weight: 700; font-size: 16px; min-width: 20px; text-align: center; }
+.summary { margin: 16px; background: white; border-radius: 14px; padding: 16px; border: 1px solid var(--border); }
+.summaryRow { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 10px; color: var(--text-muted); }
+.summaryTotal { display: flex; justify-content: space-between; font-size: 17px; font-weight: 700; border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
+.priceNote { font-size: 11px; color: var(--text-muted); margin-top: 8px; text-align: center; }
+.freeHint { font-size: 12px; color: var(--success); font-weight: 500; margin-bottom: 4px; }
+.footer { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 480px; padding: 16px; padding-bottom: calc(16px + var(--safe-bottom)); background: white; border-top: 1px solid var(--border); }

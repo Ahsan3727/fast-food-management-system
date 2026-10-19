@@ -1,0 +1,16 @@
+.page { background: var(--bg); min-height: 100vh; padding-bottom: 32px; display: flex; flex-direction: column; }
+.loading { display: flex; align-items: center; justify-content: center; min-height: 100vh; font-size: 16px; color: var(--text-muted); }
+.header { display: flex; align-items: center; gap: 12px; padding: calc(var(--safe-top) + 12px) 16px 12px; background: var(--surface); border-bottom: 1px solid var(--border); }
+.header h1 { font-size: 18px; font-weight: 700; }
+.status { font-size: 12px; color: var(--primary); font-weight: 600; text-transform: uppercase; }
+.back { background: none; border: 1.5px solid var(--border); border-radius: 10px; width: 36px; height: 36px; font-size: 18px; cursor: pointer; color: var(--text); }
+.mapWrap { height: 280px; flex-shrink: 0; }
+.card { margin: 12px 16px 0; background: var(--surface); border-radius: 14px; padding: 14px; border: 1px solid var(--border); display: flex; flex-direction: column; gap: 10px; }
+.infoRow { display: flex; justify-content: space-between; align-items: flex-start; font-size: 14px; gap: 12px; }
+.address { color: var(--text-muted); font-size: 13px; text-align: right; flex: 1; }
+.amount { font-weight: 700; font-size: 16px; color: var(--success); }
+.items { display: flex; flex-wrap: wrap; gap: 6px; }
+.itemChip { background: var(--surface2); border-radius: 8px; padding: 4px 10px; font-size: 12px; font-weight: 600; }
+.actions { padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+.deliverSection { display: flex; flex-direction: column; gap: 10px; }
+.deliverLabel { font-size: 14px; font-weight: 600; text-align: center; color: var(--text-muted); }

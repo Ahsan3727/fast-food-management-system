@@ -1,0 +1,11 @@
+.page { background: var(--bg); min-height: 100vh; text-align: center; padding-bottom: 32px; }
+.header { display: flex; align-items: center; gap: 12px; padding: calc(var(--safe-top) + 12px) 16px 12px; background: var(--surface); border-bottom: 1px solid var(--border); text-align: left; }
+.header h1 { font-size: 20px; font-weight: 700; }
+.back { background: none; border: 1.5px solid var(--border); border-radius: 10px; width: 36px; height: 36px; font-size: 18px; cursor: pointer; color: var(--text); }
+.avatar { width: 80px; height: 80px; border-radius: 50%; background: var(--primary); color: white; font-size: 36px; font-weight: 800; display: flex; align-items: center; justify-content: center; margin: 32px auto 12px; }
+.name { font-size: 22px; font-weight: 700; }
+.phone { font-size: 14px; color: var(--text-muted); margin-top: 4px; }
+.list { background: var(--surface); margin: 24px 16px 0; border-radius: 14px; border: 1px solid var(--border); overflow: hidden; }
+.item { display: flex; justify-content: space-between; padding: 16px; font-size: 15px; font-weight: 500; cursor: pointer; border-bottom: 1px solid var(--border); }
+.item:last-child { border-bottom: none; }
+.logout { margin: 16px auto; display: block; padding: 12px 32px; background: transparent; color: var(--danger); border: 1.5px solid var(--danger); border-radius: 12px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
