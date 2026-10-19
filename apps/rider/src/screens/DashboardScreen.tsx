@@ -5,7 +5,7 @@ import { io, Socket } from 'socket.io-client';
 import { useRiderAuthStore } from '@/store/auth.store';
 import { SocketEvents } from '@fastfood/shared-types';
 import { formatMoneyCompact } from '@fastfood/utils';
-import api from '@/lib/api';
+import api, { SOCKET_URL } from '@/lib/api';
 import toast from 'react-hot-toast';
 import styles from './DashboardScreen.module.css';
 
@@ -53,7 +53,7 @@ export default function DashboardScreen() {
   useEffect(() => {
     if (!accessToken) return;
 
-    const socket = io(import.meta.env.VITE_SOCKET_URL ?? 'http://localhost:5000', {
+    const socket = io(SOCKET_URL, {
       auth: { token: accessToken },
       transports: ['websocket'],
     });

@@ -5,7 +5,7 @@ import { io, Socket } from 'socket.io-client';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { useAuthStore } from '@/store/auth.store';
 import { SocketEvents } from '@fastfood/shared-types';
-import api from '@/lib/api';
+import api, { SOCKET_URL } from '@/lib/api';
 import L from 'leaflet';
 import styles from './TrackOrderScreen.module.css';
 
@@ -47,7 +47,7 @@ export default function TrackOrderScreen() {
   useEffect(() => {
     if (!accessToken || !id) return;
 
-    const socket = io(import.meta.env.VITE_SOCKET_URL ?? 'http://localhost:5000', {
+    const socket = io(SOCKET_URL, {
       auth: { token: accessToken },
       transports: ['websocket'],
     });

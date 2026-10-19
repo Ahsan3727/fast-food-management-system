@@ -26,7 +26,7 @@ export async function startLocationTracking(
   if (isNative()) {
     try {
       // Try background geolocation first (works with screen off)
-      const mod = await import('@capacitor-community/background-geolocation');
+      const mod: any = await import('@capacitor-community/background-geolocation');
       bgPlugin = mod.BackgroundGeolocation;
 
       await bgPlugin.addListener('location', (loc: { latitude: number; longitude: number }) => {

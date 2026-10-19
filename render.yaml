@@ -1,0 +1,58 @@
+# Render deployment configuration
+# This deploys ONLY the API (NestJS backend)
+# Frontend apps go to Vercel separately
+
+services:
+  - type: web
+    name: fastfood-api
+    runtime: node
+    region: singapore  # Change to: oregon, frankfurt, ohio, singapore — pick closest to your users
+    plan: free          # Free tier ($0). Upgrade to "starter" ($7/month) when in production for 24/7 uptime without sleep
+    rootDir: apps/api
+    buildCommand: npm install && npm run build
+    startCommand: node dist/main
+    healthCheckPath: /v1/health
+    autoDeploy: true    # Auto redeploy on every GitHub push to main branch
+
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000    # Render assigns this automatically, but set it explicitly
+
+      # ── Secrets — set these in Render dashboard, NOT here ──
+      - key: MONGO_URI
+        sync: false     # "sync: false" means you must set it manually in the dashboard
+
+      - key: JWT_SECRET
+        sync: false
+
+      - key: JWT_REFRESH_SECRET
+        sync: false
+
+      - key: REDIS_URL
+        sync: false
+
+      - key: FCM_SERVICE_ACCOUNT_JSON
+        sync: false
+
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+
+      - key: CLOUDINARY_API_KEY
+        sync: false
+
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+
+      # ── Non-secret config — safe to set here ──
+      - key: JWT_EXPIRES_IN
+        value: 15m
+
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+
+      # IMPORTANT: Add your Vercel URLs here after deploying frontend
+      # Format: https://your-customer.vercel.app,https://your-rider.vercel.app,https://your-admin.vercel.app,https://localhost
+      - key: CORS_ORIGINS
+        sync: false

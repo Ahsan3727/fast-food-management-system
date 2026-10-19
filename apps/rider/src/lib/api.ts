@@ -1,7 +1,10 @@
 import axios from 'axios';
 import { useRiderAuthStore } from '@/store/auth.store';
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000/v1';
+const RAW_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000/v1';
+export const API_ORIGIN = RAW_URL.replace(/\/v1\/?$/, '');
+export const BASE_URL = RAW_URL.endsWith('/v1') ? RAW_URL : `${RAW_URL.replace(/\/$/, '')}/v1`;
+export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? API_ORIGIN;
 
 export const api = axios.create({
   baseURL: BASE_URL,

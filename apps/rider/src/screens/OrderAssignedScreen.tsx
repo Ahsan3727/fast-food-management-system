@@ -6,7 +6,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { useRiderAuthStore } from '@/store/auth.store';
 import { SocketEvents } from '@fastfood/shared-types';
 import { formatMoneyCompact } from '@fastfood/utils';
-import api from '@/lib/api';
+import api, { SOCKET_URL } from '@/lib/api';
 import toast from 'react-hot-toast';
 import L from 'leaflet';
 import styles from './OrderAssignedScreen.module.css';
@@ -36,7 +36,7 @@ export default function OrderAssignedScreen() {
   useEffect(() => {
     if (!accessToken || !id) return;
 
-    const socket = io(import.meta.env.VITE_SOCKET_URL ?? 'http://localhost:5000', {
+    const socket = io(SOCKET_URL, {
       auth: { token: accessToken },
       transports: ['websocket'],
     });

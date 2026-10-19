@@ -4,7 +4,7 @@ import { io } from 'socket.io-client';
 import { useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { useAdminStore } from '@/store/admin.store';
-import api from '@/lib/api';
+import api, { SOCKET_URL } from '@/lib/api';
 
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
@@ -29,7 +29,7 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
   // Real-time new order notifications
   useEffect(() => {
     if (!accessToken) return;
-    const socket = io(import.meta.env.VITE_SOCKET_URL ?? 'http://localhost:5000', {
+    const socket = io(SOCKET_URL, {
       auth: { token: accessToken },
       transports: ['websocket'],
     });
