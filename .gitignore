@@ -7,6 +7,9 @@ node_modules/
 dist/
 build/
 .next/
+!apps/api/dist/**
+!packages/shared-types/dist/**
+!packages/utils/dist/**
 
 # Environment - NEVER commit real secrets
 .env
