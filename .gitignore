@@ -4,12 +4,11 @@ node_modules/
 .pnp.js
 
 # Build outputs
-dist/
+apps/customer/dist/
+apps/rider/dist/
+apps/admin/dist/
 build/
 .next/
-!apps/api/dist/**
-!packages/shared-types/dist/**
-!packages/utils/dist/**
 
 # Environment - NEVER commit real secrets
 .env
