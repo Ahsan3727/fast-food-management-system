@@ -9,7 +9,7 @@ export const LoginSchema = z.object({
   phone: z.string().min(10).max(15).optional(),
   email: z.string().email().optional(),
   password: z.string().min(6),
-}).refine((d) => d.phone ?? d.email, {
+}).refine((d: { phone?: string; email?: string }) => d.phone ?? d.email, {
   message: 'Either phone or email is required',
 });
 
