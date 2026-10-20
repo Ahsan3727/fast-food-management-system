@@ -43,8 +43,8 @@ async function bootstrap() {
   app.setGlobalPrefix('v1');
 
   const port = process.env.PORT ?? 5000;
-  await app.listen(port);
-  console.log(`🚀 FastFood API running on http://localhost:${port}/v1`);
+  await app.listen(port, '0.0.0.0');
+  console.log(`🚀 FastFood API running on http://0.0.0.0:${port}/v1`);
 }
 
 bootstrap();
