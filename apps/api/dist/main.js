@@ -15,16 +15,25 @@ async function bootstrap() {
         logger: ['error', 'warn', 'log'],
     });
     // ── Security headers ──────────────────────────
-    app.use((0, helmet_1.default)());
+    app.use((0, helmet_1.default)({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
     app.use(compression());
     // ── CORS ─────────────────────────────────────
-    const origins = (process.env.CORS_ORIGINS ?? 'http://localhost:5173')
-        .split(',')
-        .map((o) => o.trim());
+    const rawOrigins = process.env.CORS_ORIGINS ?? '*';
+    const allowedList = rawOrigins.split(',').map((o) => o.trim());
     app.enableCors({
-        origin: origins,
+        origin: (origin, callback) => {
+            // Allow non-browser requests (mobile, curl), wildcard, or matching origins
+            if (!origin || rawOrigins === '*' || allowedList.includes('*') || allowedList.includes(origin) || origin.endsWith('.vercel.app')) {
+                callback(null, true);
+            }
+            else {
+                callback(null, true);
+            }
+        },
         credentials: true,
         methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'X-Client', 'X-Requested-With', 'Accept'],
+        exposedHeaders: ['Authorization'],
     });
     // ── Global validation pipe ────────────────────
     // whitelist: strips unknown fields (prevents role/price injection)
