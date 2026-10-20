@@ -47,4 +47,7 @@ async function bootstrap() {
   console.log(`🚀 FastFood API running on http://0.0.0.0:${port}/v1`);
 }
 
-bootstrap();
+bootstrap().catch((err) => {
+  console.error('❌ Failed to start FastFood API:', err);
+  process.exit(1);
+});

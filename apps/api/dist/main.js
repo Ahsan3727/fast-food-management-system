@@ -41,5 +41,8 @@ async function bootstrap() {
     await app.listen(port, '0.0.0.0');
     console.log(`🚀 FastFood API running on http://0.0.0.0:${port}/v1`);
 }
-bootstrap();
+bootstrap().catch((err) => {
+    console.error('❌ Failed to start FastFood API:', err);
+    process.exit(1);
+});
 //# sourceMappingURL=main.js.map
