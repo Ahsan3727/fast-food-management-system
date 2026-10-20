@@ -8,6 +8,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
+      'zod': resolve(__dirname, './node_modules/zod'),
       '@fastfood/shared-types': resolve(__dirname, '../../packages/shared-types/src/index.ts'),
       '@fastfood/utils': resolve(__dirname, '../../packages/utils/src/index.ts'),
     },

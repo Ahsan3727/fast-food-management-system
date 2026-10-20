@@ -37,7 +37,7 @@
     "react-router-dom": "^6.27.0",
     "socket.io-client": "^4.8.0",
     "uuid": "^14.0.3",
-    "zod": "^3.25.76",
+    "zod": "^3.23.8",
     "zustand": "^5.0.0"
   },
   "devDependencies": {
