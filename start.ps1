@@ -17,7 +17,8 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot
 # Start Admin Dashboard
 Write-Host "Starting Admin Dashboard on port 5175..." -ForegroundColor Cyan
 Start-Process powershell -ArgumentList "-NoExit", "-Command", "cd '$PSScriptRoot\apps\admin'; npx vite --port 5175 --force" -WindowStyle Normal
-
+  
+  
 Start-Sleep 5
 Write-Host ""
 Write-Host "✅ All services started!" -ForegroundColor Green
