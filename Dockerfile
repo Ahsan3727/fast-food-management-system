@@ -5,6 +5,7 @@ WORKDIR /app
 
 ENV NODE_ENV=production
 ENV PORT=5000
+ENV NODE_PATH=/app/apps/api/node_modules
 
 # Install dumb-init to handle process signals cleanly
 RUN apt-get update && apt-get install -y --no-install-recommends dumb-init && rm -rf /var/lib/apt/lists/*
@@ -12,7 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends dumb-init && rm
 # Copy pre-compiled shared packages
 COPY packages/ ./packages/
 
-# Install ONLY production dependencies for the API (skips heavy devDependencies and compilers)
+# Install dependencies for shared-types (zod)
+WORKDIR /app/packages/shared-types
+RUN npm install --omit=dev --no-audit
+
+# Install ONLY production dependencies for the API
 WORKDIR /app/apps/api
 COPY apps/api/package.json apps/api/package-lock.json ./
 RUN npm ci --omit=dev --no-audit
