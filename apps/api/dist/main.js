@@ -32,8 +32,7 @@ async function bootstrap() {
         },
         credentials: true,
         methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'X-Client', 'X-Requested-With', 'Accept'],
-        exposedHeaders: ['Authorization'],
+        exposedHeaders: ['Authorization', 'idempotency-key', 'Idempotency-Key'],
     });
     // ── Global validation pipe ────────────────────
     // whitelist: strips unknown fields (prevents role/price injection)
