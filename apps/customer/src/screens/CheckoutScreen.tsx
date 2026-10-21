@@ -1,33 +1,82 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useCartStore } from '@/store/cart.store';
-import { useAuthStore } from '@/store/auth.store';
 import { formatMoneyCompact } from '@fastfood/utils';
+import { Icon } from '@/components/Icon';
 import { v4 as uuidv4 } from 'uuid';
-import styles from './CheckoutScreen.module.css';
 
 interface CheckoutForm {
   addressLine: string;
   landmark?: string;
-  lat: string;
-  lng: string;
+  lat: number;
+  lng: number;
 }
 
 export default function CheckoutScreen() {
   const navigate = useNavigate();
-  const { items, clear } = useCartStore();
-  const { user } = useAuthStore();
+  const { items, clear, displayTotalPaisa } = useCartStore();
   const [loading, setLoading] = useState(false);
+  const [pin, setPin] = useState<{ x: number; y: number }>({ x: 34, y: 58 });
+  const [locConfirmed, setLocConfirmed] = useState(true);
 
-  const { register, handleSubmit, formState: { errors } } = useForm<CheckoutForm>({
+  const subtotalPaisa = displayTotalPaisa();
+  const deliveryPaisa = subtotalPaisa >= 100000 ? 0 : 10000;
+  const totalWithDelivery = subtotalPaisa + deliveryPaisa;
+
+  const {
+    register,
+    handleSubmit,
+    setValue,
+    watch,
+    formState: { errors },
+  } = useForm<CheckoutForm>({
     defaultValues: {
-      lat: '31.5204',
-      lng: '74.3587',
+      addressLine: '',
+      landmark: '',
+      lat: 31.5204,
+      lng: 74.3587,
     },
   });
+
+  const addressValue = watch('addressLine');
+
+  useEffect(() => {
+    if (items.length === 0) {
+      navigate('/cart', { replace: true });
+    }
+  }, [items.length, navigate]);
+
+  const handleUseMyLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+    toast('Detecting location...', { icon: '📍' });
+    navigator.geolocation.getCurrentPosition(
+      pos => {
+        setValue('lat', pos.coords.latitude);
+        setValue('lng', pos.coords.longitude);
+        setPin({ x: 42, y: 64 });
+        setLocConfirmed(true);
+        if (!addressValue) {
+          setValue('addressLine', 'Current GPS Location, Lahore');
+        }
+        toast.success('Location updated');
+      },
+      () => {
+        toast.error('Could not retrieve GPS location');
+      },
+      { timeout: 10000 }
+    );
+  };
+
+  const handleFillSaved = (addr: string) => {
+    setValue('addressLine', addr);
+    setLocConfirmed(true);
+  };
 
   const onSubmit = async (values: CheckoutForm) => {
     if (items.length === 0) {
@@ -49,19 +98,19 @@ export default function CheckoutScreen() {
             addOns: i.addOns,
           })),
           deliveryAddress: {
-            lat: parseFloat(values.lat),
-            lng: parseFloat(values.lng),
+            lat: Number(values.lat) || 31.5204,
+            lng: Number(values.lng) || 74.3587,
             addressLine: values.addressLine,
-            landmark: values.landmark,
+            landmark: values.landmark || undefined,
           },
           payment: { method: 'cod' },
         },
-        { headers: { 'idempotency-key': idempotencyKey } },
+        { headers: { 'idempotency-key': idempotencyKey } }
       );
 
-      clear(); // Clear cart only after successful order
+      clear();
       toast.success(`Order #${order.orderNumber} placed!`);
-      navigate(`/orders/${order._id}`, { replace: true });
+      navigate(`/orders/${order._id}/track`, { replace: true });
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? 'Failed to place order');
     } finally {
@@ -69,86 +118,400 @@ export default function CheckoutScreen() {
     }
   };
 
-  if (items.length === 0) {
-    navigate('/cart', { replace: true });
-    return null;
-  }
-
-  const displayTotal = items.reduce((s, i) => s + i.unitPricePaisa * i.quantity, 0);
+  if (items.length === 0) return null;
 
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <button className={styles.back} onClick={() => navigate(-1)}>←</button>
-        <h1>Checkout</h1>
-      </div>
-
-      <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
-        {/* Order summary */}
-        <div className={styles.section}>
-          <p className={styles.sectionTitle}>Order Summary</p>
-          {items.map(item => (
-            <div key={`${item.menuItemId}:${item.sizeLabel}`} className={styles.summaryRow}>
-              <span>{item.name} × {item.quantity}</span>
-              <span>{formatMoneyCompact(item.unitPricePaisa * item.quantity)}</span>
-            </div>
-          ))}
-          <div className={styles.summaryTotal}>
-            <span>Total (est.)</span>
-            <span>{formatMoneyCompact(displayTotal)}</span>
-          </div>
-          <p className={styles.priceNote}>Server will validate exact price</p>
-        </div>
-
-        {/* Delivery address */}
-        <div className={styles.section}>
-          <p className={styles.sectionTitle}>Delivery Address</p>
-
-          <div className={styles.fieldGroup}>
-            <label className="label">Address</label>
-            <textarea
-              className={`input ${styles.textarea}`}
-              placeholder="House #, Street, Area, City"
-              rows={3}
-              {...register('addressLine', { required: 'Address is required', minLength: { value: 10, message: 'Please enter a full address' } })}
-            />
-            {errors.addressLine && <p className="error-text">{errors.addressLine.message}</p>}
-          </div>
-
-          <div className={styles.fieldGroup}>
-            <label className="label">Landmark (optional)</label>
-            <input className="input" placeholder="Near mosque, school, etc." {...register('landmark')} />
-          </div>
-
-          <div className={styles.coordRow}>
-            <div className={styles.coordField}>
-              <label className="label">Latitude</label>
-              <input className="input" type="number" step="any" {...register('lat', { required: true })} />
-            </div>
-            <div className={styles.coordField}>
-              <label className="label">Longitude</label>
-              <input className="input" type="number" step="any" {...register('lng', { required: true })} />
-            </div>
-          </div>
-          <p className={styles.coordHint}>📍 Coordinates auto-filled — or enter your location</p>
-        </div>
-
-        {/* Payment */}
-        <div className={styles.section}>
-          <p className={styles.sectionTitle}>Payment</p>
-          <div className={styles.paymentOption}>
-            <span className={styles.paymentIcon}>💵</span>
-            <div>
-              <p className={styles.paymentName}>Cash on Delivery</p>
-              <p className={styles.paymentDesc}>Pay when your order arrives</p>
-            </div>
-            <span className={styles.paymentCheck}>✓</span>
-          </div>
-        </div>
-
-        <button type="submit" className="btn-primary" disabled={loading} style={{ margin: '0 16px 32px' }}>
-          {loading ? 'Placing order…' : `Place Order · ${formatMoneyCompact(displayTotal)}`}
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        background: 'var(--bg)',
+        color: 'var(--text)',
+      }}
+    >
+      {/* Header */}
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '16px 20px',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--surface)',
+        }}
+      >
+        <button
+          onClick={() => navigate(-1)}
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: '50%',
+            background: 'none',
+            border: 'none',
+            display: 'grid',
+            placeItems: 'center',
+            color: 'var(--text)',
+            cursor: 'pointer',
+          }}
+          aria-label="Back"
+        >
+          <Icon name="left" size={20} />
         </button>
+        <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>Checkout</h1>
+      </header>
+
+      <form onSubmit={handleSubmit(onSubmit)} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ flex: 1, padding: 16, overflowY: 'auto' }}>
+          {/* Deliver To Section */}
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
+              Deliver to
+            </h2>
+
+            {/* Map Preview Graphic */}
+            <div
+              style={{
+                position: 'relative',
+                height: 180,
+                borderRadius: 14,
+                overflow: 'hidden',
+                background: 'var(--sunken)',
+                border: '1px solid var(--border)',
+                marginBottom: 10,
+              }}
+            >
+              <svg
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+                viewBox="0 0 300 200"
+                preserveAspectRatio="none"
+              >
+                <path
+                  d="M0 60H300M0 140H300M80 0V200M210 0V200M0 190 300 20"
+                  stroke="var(--border)"
+                  strokeWidth="8"
+                  fill="none"
+                />
+              </svg>
+
+              {/* Restaurant Pin */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: '78%',
+                  top: '26%',
+                  width: 32,
+                  height: 32,
+                  borderRadius: '50%',
+                  background: 'var(--action)',
+                  color: '#fff',
+                  display: 'grid',
+                  placeItems: 'center',
+                  transform: 'translate(-50%, -50%)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                }}
+                title="Restaurant"
+              >
+                <Icon name="store" size={16} />
+              </div>
+
+              {/* Customer Home Pin */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: `${pin.x}%`,
+                  top: `${pin.y}%`,
+                  width: 34,
+                  height: 34,
+                  borderRadius: '50%',
+                  background: '#1d4ed8',
+                  color: '#fff',
+                  display: 'grid',
+                  placeItems: 'center',
+                  transform: 'translate(-50%, -50%)',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
+                }}
+                title="Delivery Location"
+              >
+                <Icon name="pin" size={18} />
+              </div>
+
+              <span
+                style={{
+                  position: 'absolute',
+                  right: 8,
+                  bottom: 6,
+                  fontSize: 11,
+                  background: 'rgba(0,0,0,0.4)',
+                  padding: '2px 6px',
+                  borderRadius: 4,
+                  color: '#fff',
+                }}
+              >
+                Interactive Pin
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleUseMyLocation}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 14px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <Icon name="locate" size={16} />
+                Use my location
+              </button>
+            </div>
+
+            {/* Address Input */}
+            <div style={{ marginTop: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>
+                Street Address *
+              </label>
+              <textarea
+                rows={2}
+                placeholder="House / Flat #, Street, Area name..."
+                style={{
+                  width: '100%',
+                  padding: 12,
+                  borderRadius: 10,
+                  border: `1px solid ${errors.addressLine ? 'var(--bad)' : 'var(--border)'}`,
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  fontSize: 14,
+                  outline: 'none',
+                  resize: 'none',
+                }}
+                {...register('addressLine', {
+                  required: 'Delivery address is required',
+                  minLength: {
+                    value: 10,
+                    message: 'Please enter a full address (at least 10 characters)',
+                  },
+                })}
+              />
+              {errors.addressLine && (
+                <p style={{ fontSize: 12, color: 'var(--bad)', margin: '4px 0 0' }}>
+                  {errors.addressLine.message}
+                </p>
+              )}
+            </div>
+
+            {/* Landmark Input */}
+            <div style={{ marginTop: 10 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>
+                Landmark <span style={{ fontSize: 12, fontWeight: 400, color: 'var(--subtle)' }}>(optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Near mosque, park, or market..."
+                style={{
+                  width: '100%',
+                  height: 42,
+                  padding: '0 12px',
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  fontSize: 14,
+                  outline: 'none',
+                }}
+                {...register('landmark')}
+              />
+            </div>
+
+            {/* Saved Address Chips */}
+            <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={() => handleFillSaved('House 14, Street 6, Gulberg III, Lahore')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <Icon name="home" size={14} /> Home
+              </button>
+              <button
+                type="button"
+                onClick={() => handleFillSaved('Office 3B, MM Alam Road, Gulberg, Lahore')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 999,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <Icon name="store" size={14} /> Work
+              </button>
+            </div>
+          </div>
+
+          {/* Payment Method */}
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
+              Payment Method
+            </h2>
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '14px 16px',
+                borderRadius: 12,
+                border: '2px solid var(--action)',
+                background: 'var(--sunken)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div
+                  style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 10,
+                    background: 'var(--action)',
+                    color: '#fff',
+                    display: 'grid',
+                    placeItems: 'center',
+                  }}
+                >
+                  <Icon name="cash" size={20} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
+                    Cash on Delivery (COD)
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--subtle)' }}>
+                    Pay {formatMoneyCompact(totalWithDelivery)} in cash upon delivery
+                  </div>
+                </div>
+              </div>
+              <div
+                style={{
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  background: 'var(--action)',
+                  color: '#fff',
+                  display: 'grid',
+                  placeItems: 'center',
+                }}
+              >
+                <Icon name="check" size={12} />
+              </div>
+            </div>
+          </div>
+
+          {/* Order Summary */}
+          <div
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 14,
+              padding: 16,
+              marginBottom: 16,
+            }}
+          >
+            <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 12px', color: 'var(--text)' }}>
+              Order Breakdown
+            </h3>
+
+            {items.map(item => (
+              <div
+                key={`${item.menuItemId}:${item.sizeLabel || ''}`}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  fontSize: 13,
+                  color: 'var(--muted)',
+                  marginBottom: 6,
+                }}
+              >
+                <span>
+                  {item.quantity}x {item.name}
+                  {item.sizeLabel ? ` (${item.sizeLabel})` : ''}
+                </span>
+                <span style={{ fontWeight: 600, color: 'var(--text)' }}>
+                  {formatMoneyCompact(item.unitPricePaisa * item.quantity)}
+                </span>
+              </div>
+            ))}
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--muted)', marginTop: 8, paddingTop: 8, borderTop: '1px solid var(--border)' }}>
+              <span>Delivery Fee</span>
+              <span style={{ fontWeight: 600, color: deliveryPaisa === 0 ? 'var(--ok)' : 'var(--text)' }}>
+                {deliveryPaisa === 0 ? 'FREE' : formatMoneyCompact(deliveryPaisa)}
+              </span>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 16, fontWeight: 800, marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border)', color: 'var(--text)' }}>
+              <span>Total to Pay</span>
+              <span style={{ color: 'var(--action)' }}>{formatMoneyCompact(totalWithDelivery)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Sticky Foot */}
+        <div
+          style={{
+            padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
+            background: 'var(--surface)',
+            borderTop: '1px solid var(--border)',
+            boxShadow: '0 -4px 16px rgba(0,0,0,0.06)',
+          }}
+        >
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              height: 48,
+              borderRadius: 12,
+              background: 'var(--action)',
+              color: '#fff',
+              fontSize: 15,
+              fontWeight: 700,
+              border: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              opacity: loading ? 0.7 : 1,
+            }}
+          >
+            {loading ? 'Placing order...' : `Place Order · ${formatMoneyCompact(totalWithDelivery)}`}
+          </button>
+        </div>
       </form>
     </div>
   );

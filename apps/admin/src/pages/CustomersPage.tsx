@@ -1,83 +1,196 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { formatDateTime } from '@fastfood/utils';
+import { Icon } from '@/components/Icon';
 import toast from 'react-hot-toast';
 
 export default function CustomersPage() {
   const [search, setSearch] = useState('');
   const qc = useQueryClient();
 
-  const { data = [], isLoading } = useQuery({
+  const { data: rawCustomers = [], isLoading } = useQuery({
     queryKey: ['customers'],
     queryFn: () => api.get('/users?role=customer').then(r => r.data?.users ?? []),
+    refetchInterval: 30_000,
   });
 
-  const suspend = useMutation({
-    mutationFn: ({ id, val }: { id: string; val: boolean }) => api.patch(`/users/${id}`, { isSuspended: val }),
-    onSuccess: () => { toast.success('Updated'); qc.invalidateQueries({ queryKey: ['customers'] }); },
-    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed'),
+  const suspendMutation = useMutation({
+    mutationFn: ({ id, val }: { id: string; val: boolean }) =>
+      api.patch(`/users/${id}`, { isSuspended: val }),
+    onSuccess: (_, vars) => {
+      toast.success(vars.val ? 'Customer suspended' : 'Customer activated');
+      qc.invalidateQueries({ queryKey: ['customers'] });
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? 'Action failed');
+    },
   });
 
-  const customers = (data as any[]).filter(c =>
-    !search || c.name?.toLowerCase().includes(search.toLowerCase()) || c.phone?.includes(search)
-  );
+  const customers: any[] = Array.isArray(rawCustomers) ? rawCustomers : [];
+
+  const filtered = customers.filter(c => {
+    if (!search) return true;
+    const term = search.toLowerCase();
+    return c.name?.toLowerCase().includes(term) || c.phone?.includes(term) || c.email?.toLowerCase().includes(term);
+  });
 
   return (
-    <div>
-      <div className="flex-between" style={{ marginBottom: 20 }}>
-        <h1 className="page-title" style={{ marginBottom: 0 }}>Customers</h1>
-        <input className="input" style={{ width: 260 }} placeholder="Search name or phone…" value={search} onChange={e => setSearch(e.target.value)} />
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 16 }}>
+        <div>
+          <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>Registered Customers</h1>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+            Manage customer accounts, addresses, and access permissions
+          </p>
+        </div>
+
+        <div style={{ position: 'relative', width: 280 }}>
+          <input
+            type="search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search name, phone, email..."
+            style={{
+              width: '100%',
+              minHeight: 40,
+              padding: '0 14px 0 36px',
+              borderRadius: 'var(--r-md)',
+              border: '1px solid var(--border-strong)',
+              background: 'var(--bg-surface)',
+              color: 'var(--text)',
+              fontSize: 14,
+            }}
+          />
+          <Icon name="search" size={16} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-subtle)' }} />
+        </div>
       </div>
 
-      <div style={{ marginBottom: 16, color: 'var(--text-muted)', fontSize: 13 }}>
-        {customers.length} customer{customers.length !== 1 ? 's' : ''} found
-      </div>
-
-      <div className="card" style={{ padding: 0 }}>
-        <div className="table-wrap">
-          <table>
+      {/* Customers Table */}
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
             <thead>
-              <tr><th>Customer</th><th>Phone</th><th>Email</th><th>Joined</th><th>Status</th><th>Actions</th></tr>
+              <tr style={{ background: 'var(--bg-sunken)', borderBottom: '1px solid var(--border)' }}>
+                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Customer
+                </th>
+                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Phone
+                </th>
+                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Saved Address
+                </th>
+                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Joined Date
+                </th>
+                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Account Status
+                </th>
+                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
+                  Actions
+                </th>
+              </tr>
             </thead>
             <tbody>
-              {isLoading
-                ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>Loading…</td></tr>
-                : customers.length === 0
-                  ? <tr><td colSpan={6} style={{ textAlign: 'center', padding: 40, color: 'var(--text-muted)' }}>No customers found</td></tr>
-                  : customers.map((c: any) => (
-                    <tr key={c._id}>
-                      <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <div style={{ width: 36, height: 36, borderRadius: '50%', background: 'var(--info)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 15, flexShrink: 0 }}>
-                            {c.name?.[0]?.toUpperCase() ?? '?'}
-                          </div>
-                          <div>
-                            <div className="font-bold">{c.name}</div>
-                            {c.isSuspended && <span style={{ fontSize: 10, background: 'rgba(239,68,68,0.15)', color: 'var(--danger)', padding: '1px 6px', borderRadius: 4 }}>SUSPENDED</span>}
-                          </div>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>
+                    Loading customers…
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>
+                    No customers found.
+                  </td>
+                </tr>
+              ) : (
+                filtered.map((c: any) => (
+                  <tr key={c._id} style={{ borderBottom: '1px solid var(--border)' }}>
+                    <td style={{ padding: '14px 16px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: '50%',
+                            background: 'var(--chip-bg)',
+                            color: 'var(--chip-fg)',
+                            fontWeight: 800,
+                            display: 'grid',
+                            placeItems: 'center',
+                          }}
+                        >
+                          {c.name?.[0]?.toUpperCase() || 'C'}
                         </div>
-                      </td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{c.phone ?? '—'}</td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{c.email ?? '—'}</td>
-                      <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>
-                        {new Date(c.createdAt).toLocaleDateString('en-PK', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </td>
-                      <td>
-                        <span className={`badge ${c.isSuspended ? 'badge-cancelled' : 'badge-delivered'}`}>
-                          {c.isSuspended ? 'Suspended' : 'Active'}
-                        </span>
-                      </td>
-                      <td>
-                        <button
-                          className={`btn btn-sm ${c.isSuspended ? 'btn-success' : 'btn-danger'}`}
-                          onClick={() => { if (confirm(`${c.isSuspended ? 'Restore' : 'Suspend'} ${c.name}?`)) suspend.mutate({ id: c._id, val: !c.isSuspended }); }}
-                          disabled={suspend.isPending}>
-                          {c.isSuspended ? '✅ Restore' : '🚫 Suspend'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-              }
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 14 }}>{c.name}</div>
+                          {c.email && <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{c.email}</div>}
+                        </div>
+                      </div>
+                    </td>
+
+                    <td style={{ padding: '14px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+                      {c.phone ? (
+                        <a href={`tel:${c.phone}`} style={{ color: 'var(--link)', textDecoration: 'none' }}>
+                          {c.phone}
+                        </a>
+                      ) : (
+                        '—'
+                      )}
+                    </td>
+
+                    <td style={{ padding: '14px 16px', fontSize: 13, color: 'var(--text-muted)', maxWidth: 220 }}>
+                      <span className="truncate" style={{ display: 'block' }}>
+                        {c.savedAddress?.addressLine || 'None saved'}
+                      </span>
+                    </td>
+
+                    <td style={{ padding: '14px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
+                      {formatDateTime(c.createdAt)}
+                    </td>
+
+                    <td style={{ padding: '14px 16px' }}>
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          fontSize: 12,
+                          fontWeight: 700,
+                          padding: '2px 10px',
+                          borderRadius: 'var(--r-pill)',
+                          background: c.isSuspended ? 'var(--danger-bg)' : 'var(--success-bg)',
+                          color: c.isSuspended ? 'var(--danger)' : 'var(--success)',
+                        }}
+                      >
+                        {c.isSuspended ? 'Suspended' : 'Active'}
+                      </span>
+                    </td>
+
+                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => suspendMutation.mutate({ id: c._id, val: !c.isSuspended })}
+                        disabled={suspendMutation.isPending}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: 'var(--r-sm)',
+                          border: '1px solid var(--border)',
+                          background: c.isSuspended ? 'var(--success-bg)' : 'var(--danger-bg)',
+                          color: c.isSuspended ? 'var(--success)' : 'var(--danger)',
+                          fontSize: 12,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {c.isSuspended ? 'Activate' : 'Suspend'}
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

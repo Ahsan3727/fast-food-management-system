@@ -1,158 +1,202 @@
+import React from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { BarChart, Bar, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
+import {
+  AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend,
+} from 'recharts';
 import api from '@/lib/api';
 import { formatMoneyCompact } from '@fastfood/utils';
 
-const COLORS = ['#f97316', '#3b82f6', '#22c55e', '#f59e0b', '#a78bfa', '#ec4899'];
+const CHART_PALETTE = ['#F97316', '#60A5FA', '#4ADE80', '#FBBF24', '#A78BFA', '#F472B6'];
 
 export default function AnalyticsPage() {
-  const { data: orders = [] } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => api.get('/orders?limit=500').then(r => r.data?.orders ?? r.data ?? []),
+  const { data: rawOrders = [] } = useQuery({
+    queryKey: ['orders-analytics-raw'],
+    queryFn: () => api.get('/orders?limit=300').then(r => r.data?.orders ?? r.data ?? []),
+    staleTime: 60_000,
   });
 
-  const { data: menu = [] } = useQuery({
-    queryKey: ['menu'], queryFn: () => api.get('/menu').then(r => r.data),
+  const { data: serverAnalytics } = useQuery({
+    queryKey: ['orders-analytics-server'],
+    queryFn: () => api.get('/orders/analytics?days=30').then(r => r.data),
+    staleTime: 60_000,
   });
 
-  const all = orders as any[];
+  const all: any[] = Array.isArray(rawOrders) ? rawOrders : [];
+  const delivered = all.filter(o => o.status === 'DELIVERED');
+  const totalRevenue = delivered.reduce((s, o) => s + (o.totalPaisa || 0), 0);
+  const avgOrderValue = delivered.length > 0 ? Math.round(totalRevenue / delivered.length) : 0;
 
-  // ── Revenue last 30 days ─────────────────────────────────
-  const revenueData = Array.from({ length: 30 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (29 - i));
+  // ── 30-Day Revenue Trend ─────────────────────────────────
+  const revenueTrend = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (29 - i));
     const label = d.toLocaleDateString('en-PK', { month: 'short', day: 'numeric' });
-    const day = all.filter(o => new Date(o.createdAt).toDateString() === d.toDateString() && o.status === 'DELIVERED');
-    return { date: label, revenue: Math.round(day.reduce((s, o) => s + o.totalPaisa, 0) / 100), orders: day.length };
+    const dayMatches = delivered.filter(
+      o => new Date(o.createdAt).toDateString() === d.toDateString(),
+    );
+    const dayRevenue = dayMatches.reduce((sum, o) => sum + (o.totalPaisa || 0), 0);
+    return {
+      date: label,
+      revenue: Math.round(dayRevenue / 100),
+      orders: dayMatches.length,
+    };
   });
 
-  // ── Order status breakdown (pie) ─────────────────────────
-  const statusCount: Record<string, number> = {};
-  all.forEach(o => { statusCount[o.status] = (statusCount[o.status] ?? 0) + 1; });
-  const statusData = Object.entries(statusCount).map(([name, value]) => ({ name: name.replace('_', ' '), value }));
+  // ── Order Status Breakdown (Pie) ─────────────────────────
+  const statusMap: Record<string, number> = {};
+  all.forEach(o => {
+    statusMap[o.status] = (statusMap[o.status] || 0) + 1;
+  });
+  const pieData = Object.entries(statusMap).map(([status, count]) => ({
+    name: status.replace(/_/g, ' '),
+    value: count,
+  }));
 
-  // ── Top selling items ────────────────────────────────────
-  const itemCount: Record<string, { name: string; qty: number; revenue: number }> = {};
-  all.filter(o => o.status === 'DELIVERED').forEach(o => {
+  // ── Top Selling Items (With lineTotalPaisa fix N1) ───────
+  const itemMap: Record<string, { name: string; qty: number; revenuePaisa: number }> = {};
+  delivered.forEach(o => {
     o.items?.forEach((it: any) => {
-      if (!itemCount[it.menuItemId ?? it.name]) itemCount[it.menuItemId ?? it.name] = { name: it.name, qty: 0, revenue: 0 };
-      itemCount[it.menuItemId ?? it.name].qty += it.quantity;
-      itemCount[it.menuItemId ?? it.name].revenue += it.totalPaisa ?? 0;
+      const key = it.menuItemId || it.nameSnapshot || it.name;
+      if (!itemMap[key]) {
+        itemMap[key] = {
+          name: it.nameSnapshot || it.name || 'Menu Item',
+          qty: 0,
+          revenuePaisa: 0,
+        };
+      }
+      const lineTotal = it.lineTotalPaisa ?? it.totalPaisa ?? (it.unitPricePaisa ? it.unitPricePaisa * it.quantity : 0);
+      itemMap[key].qty += it.quantity || 1;
+      itemMap[key].revenuePaisa += lineTotal;
     });
   });
-  const topItems = Object.values(itemCount).sort((a, b) => b.qty - a.qty).slice(0, 8);
+  const topItems = Object.values(itemMap).sort((a, b) => b.qty - a.qty).slice(0, 7);
 
-  // ── Hourly order heatmap ─────────────────────────────────
+  // ── Hourly Distribution ──────────────────────────────────
   const hourlyData = Array.from({ length: 24 }, (_, h) => {
     const count = all.filter(o => new Date(o.createdAt).getHours() === h).length;
     return { hour: `${h}:00`, orders: count };
   });
 
-  // ── Summary stats ────────────────────────────────────────
-  const delivered = all.filter(o => o.status === 'DELIVERED');
-  const totalRevenue = delivered.reduce((s, o) => s + o.totalPaisa, 0);
-  const avgOrderValue = delivered.length > 0 ? totalRevenue / delivered.length : 0;
-
   return (
-    <div>
-      <h1 className="page-title">Analytics</h1>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Title */}
+      <div>
+        <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>Business Analytics</h1>
+        <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+          Live insights into revenue trends, peak order hours, and popular menu items
+        </p>
+      </div>
 
-      {/* KPI cards */}
-      <div className="stat-grid" style={{ marginBottom: 24 }}>
-        <div className="stat-card">
-          <div className="stat-label">Total Revenue</div>
-          <div className="stat-value text-primary">{formatMoneyCompact(totalRevenue)}</div>
-          <div className="stat-delta text-muted">From {delivered.length} deliveries</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Avg Order Value</div>
-          <div className="stat-value">{formatMoneyCompact(Math.round(avgOrderValue))}</div>
-          <div className="stat-delta text-muted">Per delivered order</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Total Orders</div>
-          <div className="stat-value">{all.length}</div>
-          <div className="stat-delta text-success">{delivered.length} delivered</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-label">Cancellation Rate</div>
-          <div className="stat-value text-danger">
-            {all.length > 0 ? Math.round((all.filter(o => ['CANCELLED', 'REJECTED', 'DELIVERY_FAILED'].includes(o.status)).length / all.length) * 100) : 0}%
+      {/* KPI Cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16 }}>
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>30-Day Revenue</div>
+          <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--action-bg)', margin: '4px 0' }}>
+            {formatMoneyCompact(totalRevenue)}
           </div>
-          <div className="stat-delta text-muted">Cancelled + failed</div>
+          <div style={{ fontSize: 12, color: 'var(--text-subtle)' }}>Delivered orders only</div>
+        </div>
+
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Delivered Orders</div>
+          <div style={{ fontSize: 28, fontWeight: 800, margin: '4px 0' }}>{delivered.length}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-subtle)' }}>out of {all.length} total orders</div>
+        </div>
+
+        <div className="card" style={{ padding: 20 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Average Ticket Size</div>
+          <div style={{ fontSize: 28, fontWeight: 800, margin: '4px 0' }}>
+            {formatMoneyCompact(avgOrderValue)}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-subtle)' }}>Average per delivered basket</div>
         </div>
       </div>
 
-      {/* Revenue trend (30 days) */}
-      <div className="card" style={{ marginBottom: 20 }}>
-        <div className="card-title">Revenue Trend — Last 30 Days (Rs.)</div>
-        <ResponsiveContainer width="100%" height={240}>
-          <AreaChart data={revenueData}>
+      {/* Row 1: Revenue Trend Chart */}
+      <div className="card" style={{ padding: 20 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Revenue History — Last 30 Days (PKR)</h2>
+        <ResponsiveContainer width="100%" height={260}>
+          <AreaChart data={revenueTrend} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
             <defs>
-              <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%"  stopColor="#f97316" stopOpacity={0.4} />
-                <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
+              <linearGradient id="emberGradient" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="5%" stopColor="#C2410C" stopOpacity={0.4} />
+                <stop offset="95%" stopColor="#C2410C" stopOpacity={0.0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="date" tick={{ fill: '#9ca3af', fontSize: 10 }} interval={4} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#f9fafb', fontSize: 13 }} />
-            <Area type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={2} fill="url(#revGrad)" name="Revenue (Rs.)" />
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.6} />
+            <XAxis dataKey="date" tick={{ fill: 'var(--text-subtle)', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: 'var(--text-subtle)', fontSize: 11 }} axisLine={false} tickLine={false} />
+            <Tooltip contentStyle={{ background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} />
+            <Area type="monotone" dataKey="revenue" stroke="#C2410C" strokeWidth={2.5} fill="url(#emberGradient)" />
           </AreaChart>
         </ResponsiveContainer>
       </div>
 
-      <div className="grid-2" style={{ marginBottom: 20 }}>
-        {/* Order status pie */}
-        <div className="card">
-          <div className="card-title">Order Status Breakdown</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <PieChart>
-              <Pie data={statusData} cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={3} dataKey="value">
-                {statusData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-              </Pie>
-              <Tooltip contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#f9fafb', fontSize: 12 }} />
-              <Legend iconType="circle" iconSize={8} formatter={(v) => <span style={{ color: '#9ca3af', fontSize: 11 }}>{v}</span>} />
-            </PieChart>
-          </ResponsiveContainer>
+      {/* Row 2: Top Items & Status Breakdown */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: 20 }}>
+        {/* Top Selling Items Table */}
+        <div className="card" style={{ padding: 20 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 14 }}>Top Selling Menu Items</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {topItems.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-subtle)' }}>No completed orders yet</div>
+            ) : (
+              topItems.map((item, idx) => (
+                <div
+                  key={idx}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    borderRadius: 'var(--r-sm)',
+                    background: 'var(--bg-sunken)',
+                    border: '1px solid var(--border)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontWeight: 800, color: 'var(--text-subtle)', width: 16 }}>{idx + 1}</span>
+                    <b style={{ fontSize: 14 }}>{item.name}</b>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>{formatMoneyCompact(item.revenuePaisa)}</div>
+                    <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>{item.qty} sold</span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
 
-        {/* Hourly heatmap */}
-        <div className="card">
-          <div className="card-title">Orders by Hour of Day</div>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={hourlyData} margin={{ top: 4, right: 8, bottom: 0, left: -20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="hour" tick={{ fill: '#9ca3af', fontSize: 9 }} interval={3} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#9ca3af', fontSize: 10 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#f9fafb', fontSize: 12 }} />
-              <Bar dataKey="orders" fill="#3b82f6" radius={[4, 4, 0, 0]} name="Orders" />
-            </BarChart>
+        {/* Status Distribution Pie */}
+        <div className="card" style={{ padding: 20 }}>
+          <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 14 }}>Order Status Distribution</h2>
+          <ResponsiveContainer width="100%" height={260}>
+            <PieChart>
+              <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={85} label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                {pieData.map((_, index) => (
+                  <Cell key={`cell-${index}`} fill={CHART_PALETTE[index % CHART_PALETTE.length]} />
+                ))}
+              </Pie>
+              <Tooltip contentStyle={{ background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} />
+            </PieChart>
           </ResponsiveContainer>
         </div>
       </div>
 
-      {/* Top selling items */}
-      <div className="card">
-        <div className="card-title">Top Selling Items (by Quantity)</div>
-        {topItems.length === 0
-          ? <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '20px 0' }}>No delivered orders yet</p>
-          : <div className="table-wrap">
-            <table>
-              <thead><tr><th>#</th><th>Item</th><th>Qty Sold</th><th>Revenue</th></tr></thead>
-              <tbody>
-                {topItems.map((item, i) => (
-                  <tr key={i}>
-                    <td style={{ color: 'var(--text-muted)', fontWeight: 700 }}>#{i + 1}</td>
-                    <td className="font-bold">{item.name}</td>
-                    <td><span style={{ fontWeight: 700, color: 'var(--info)' }}>{item.qty}</span></td>
-                    <td className="text-primary font-bold">{formatMoneyCompact(item.revenue)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        }
+      {/* Row 3: Hourly Orders Bar Chart */}
+      <div className="card" style={{ padding: 20 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 14 }}>Orders by Hour of Day (Rush Hours)</h2>
+        <ResponsiveContainer width="100%" height={200}>
+          <BarChart data={hourlyData} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" opacity={0.6} />
+            <XAxis dataKey="hour" tick={{ fill: 'var(--text-subtle)', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: 'var(--text-subtle)', fontSize: 10 }} axisLine={false} tickLine={false} />
+            <Tooltip contentStyle={{ background: 'var(--bg-raised)', border: '1px solid var(--border)', borderRadius: 8, color: 'var(--text)' }} />
+            <Bar dataKey="orders" fill="var(--action-bg)" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );

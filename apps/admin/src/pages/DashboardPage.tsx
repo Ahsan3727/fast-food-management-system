@@ -1,151 +1,435 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import React, { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { OrderStatus } from '@fastfood/shared-types';
 import { formatMoneyCompact } from '@fastfood/utils';
-import { useNavigate } from 'react-router-dom';
+import { StatusBadge } from '@/components/StatusBadge';
+import { OrderDrawer } from '@/components/OrderDrawer';
+import { Icon } from '@/components/Icon';
+import toast from 'react-hot-toast';
 
 export default function DashboardPage() {
-  const navigate = useNavigate();
   const qc = useQueryClient();
+  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
+  const [search, setSearch] = useState('');
 
-  const { data: orders = [] } = useQuery({
+  // Orders Query
+  const { data: rawOrders = [], isLoading } = useQuery({
     queryKey: ['orders'],
     queryFn: () => api.get('/orders?limit=100').then(r => r.data?.orders ?? r.data ?? []),
-    refetchInterval: 15_000,
+    refetchInterval: 10_000,
   });
 
-  const { data: menu = [] } = useQuery({
-    queryKey: ['menu'],
-    queryFn: () => api.get('/menu').then(r => r.data),
-  });
-
+  // Riders Query
   const { data: riders = [] } = useQuery({
     queryKey: ['riders-all'],
     queryFn: () => api.get('/users?role=rider').then(r => r.data?.users ?? []),
+    refetchInterval: 15_000,
   });
 
-  // Compute stats from orders
-  const today = new Date().toDateString();
-  const todayOrders = (orders as any[]).filter(o => new Date(o.createdAt).toDateString() === today);
-  const todayRevenue = todayOrders.filter(o => o.status === 'DELIVERED').reduce((s: number, o: any) => s + o.totalPaisa, 0);
-  const activeOrders = (orders as any[]).filter(o => !['DELIVERED', 'CANCELLED', 'REJECTED', 'DELIVERY_FAILED'].includes(o.status));
-  const onlineRiders = (riders as any[]).filter((r: any) => r.isOnline);
+  // Status transition mutation
+  const transitionMutation = useMutation({
+    mutationFn: ({ id, status, note }: { id: string; status: OrderStatus; note?: string }) =>
+      api.patch(`/orders/${id}/status`, { status, note }),
+    onSuccess: (_, vars) => {
+      toast.success(`Order status updated to ${vars.status}`);
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      // Keep selected order updated in drawer if open
+      if (selectedOrder?._id === vars.id) {
+        setSelectedOrder((prev: any) => (prev ? { ...prev, status: vars.status } : null));
+      }
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.message ?? 'Failed to update status');
+    },
+  });
 
-  // Last 7 days revenue chart data
-  const chartData = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(); d.setDate(d.getDate() - (6 - i));
-    const label = d.toLocaleDateString('en-PK', { weekday: 'short' });
-    const dayOrders = (orders as any[]).filter(o =>
-      new Date(o.createdAt).toDateString() === d.toDateString() && o.status === 'DELIVERED'
+  const orders: any[] = Array.isArray(rawOrders) ? rawOrders : [];
+  const onlineRiders = (riders as any[]).filter(r => r.isOnline);
+
+  // Compute Dashboard Metrics
+  const todayStr = new Date().toDateString();
+  const todayOrders = orders.filter(o => new Date(o.createdAt).toDateString() === todayStr);
+  const todayRevenue = todayOrders
+    .filter(o => o.status === OrderStatus.DELIVERED)
+    .reduce((sum, o) => sum + (o.totalPaisa || 0), 0);
+  const activeOrders = orders.filter(
+    o => ![OrderStatus.DELIVERED, OrderStatus.CANCELLED, OrderStatus.REJECTED, OrderStatus.DELIVERY_FAILED].includes(o.status),
+  );
+
+  // Filter orders by search
+  const filteredOrders = orders.filter(o => {
+    if (!search) return true;
+    const term = search.toLowerCase();
+    return (
+      o.orderNumber?.toLowerCase().includes(term) ||
+      o.customerName?.toLowerCase().includes(term) ||
+      o.customerPhone?.toLowerCase().includes(term)
     );
-    const revenue = dayOrders.reduce((s: number, o: any) => s + o.totalPaisa, 0);
-    return { day: label, revenue: Math.round(revenue / 100) };
   });
 
-  // Recent orders (last 8)
-  const recent = [...(orders as any[])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 8);
+  // Group into Kanban Columns
+  const placedOrders = filteredOrders.filter(o => o.status === OrderStatus.PLACED);
+  const kitchenOrders = filteredOrders.filter(o => [OrderStatus.ACCEPTED, OrderStatus.PREPARING].includes(o.status));
+  const readyOrders = filteredOrders.filter(o => o.status === OrderStatus.READY);
+  const transitOrders = filteredOrders.filter(o =>
+    [OrderStatus.RIDER_ASSIGNED, OrderStatus.PICKED_UP].includes(o.status),
+  );
+
+  // Helper for order age in minutes
+  const getOrderAgeMinutes = (dateStr: string) => {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    return Math.max(0, Math.floor(diffMs / 60000));
+  };
+
+  const renderKanbanCard = (order: any, nextStatus?: OrderStatus, nextLabel?: string) => {
+    const ageMins = getOrderAgeMinutes(order.createdAt);
+    const ageColor = ageMins > 20 ? 'var(--danger)' : ageMins > 10 ? 'var(--warning)' : 'var(--text-muted)';
+
+    return (
+      <div
+        key={order._id}
+        onClick={() => setSelectedOrder(order)}
+        style={{
+          background: 'var(--bg-surface)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--r-md)',
+          padding: 16,
+          boxShadow: 'var(--shadow-1)',
+          cursor: 'pointer',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          transition: 'transform var(--dur-press), box-shadow var(--dur-fast)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <b style={{ fontSize: 16, fontWeight: 800 }}>#{order.orderNumber}</b>
+          <span style={{ fontSize: 12, fontWeight: 700, color: ageColor, display: 'flex', alignItems: 'center', gap: 4 }}>
+            <Icon name="clock" size={13} />
+            {ageMins}m ago
+          </span>
+        </div>
+
+        <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+          <div style={{ fontWeight: 600, color: 'var(--text)' }}>
+            {order.customerName || 'Customer'}
+          </div>
+          <div>
+            {order.items?.length || 0} items · {formatMoneyCompact(order.totalPaisa)}
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+          <StatusBadge status={order.status} />
+          {nextStatus && nextLabel && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                transitionMutation.mutate({ id: order._id, status: nextStatus });
+              }}
+              style={{
+                minHeight: 32,
+                padding: '0 12px',
+                borderRadius: 'var(--r-sm)',
+                background: 'var(--action-bg)',
+                color: 'var(--action-fg)',
+                border: 'none',
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              {nextLabel}
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div>
-      {/* Stats */}
-      <div className="stat-grid">
-        <div className="stat-card">
-          <div className="stat-label">Today's Revenue</div>
-          <div className="stat-value text-primary">{formatMoneyCompact(todayRevenue)}</div>
-          <div className="stat-delta delta-up">From delivered orders</div>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+      {/* Top Metrics Row */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 16,
+        }}
+      >
+        <div className="card" style={{ padding: 18 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Today's Revenue</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--action-bg)', margin: '4px 0' }}>
+            {formatMoneyCompact(todayRevenue)}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-subtle)' }}>From delivered COD orders</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Active Orders</div>
-          <div className="stat-value">{activeOrders.length}</div>
-          <div className="stat-delta" style={{ color: activeOrders.length > 0 ? 'var(--warning)' : 'var(--text-muted)' }}>
-            {activeOrders.length > 0 ? `${activeOrders.length} need attention` : 'All clear'}
+
+        <div className="card" style={{ padding: 18 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Active Orders</div>
+          <div style={{ fontSize: 26, fontWeight: 800, margin: '4px 0' }}>{activeOrders.length}</div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 600,
+              color: activeOrders.length > 0 ? 'var(--warning)' : 'var(--success)',
+            }}
+          >
+            {activeOrders.length > 0 ? `${activeOrders.length} in kitchen / dispatch` : 'All caught up'}
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Today's Orders</div>
-          <div className="stat-value">{todayOrders.length}</div>
-          <div className="stat-delta text-muted">{todayOrders.filter(o => o.status === 'DELIVERED').length} delivered</div>
+
+        <div className="card" style={{ padding: 18 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Today's Completed</div>
+          <div style={{ fontSize: 26, fontWeight: 800, margin: '4px 0' }}>
+            {todayOrders.filter(o => o.status === OrderStatus.DELIVERED).length}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-subtle)' }}>of {todayOrders.length} total placed</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-label">Online Riders</div>
-          <div className="stat-value text-success">{onlineRiders.length}</div>
-          <div className="stat-delta text-muted">of {riders.length} total</div>
+
+        <div className="card" style={{ padding: 18 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-muted)' }}>Online Riders</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--success)', margin: '4px 0' }}>
+            {onlineRiders.length}
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--text-subtle)' }}>of {riders.length} registered riders</div>
         </div>
       </div>
 
-      <div className="grid-2">
-        {/* Revenue chart */}
-        <div className="card">
-          <div className="card-title">Revenue — Last 7 Days (Rs.)</div>
-          <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
-              <defs>
-                <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%"  stopColor="#f97316" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="#f97316" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="day" tick={{ fill: '#9ca3af', fontSize: 12 }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fill: '#9ca3af', fontSize: 11 }} axisLine={false} tickLine={false} />
-              <Tooltip contentStyle={{ background: '#1f2937', border: '1px solid #374151', borderRadius: 8, color: '#f9fafb' }} />
-              <Area type="monotone" dataKey="revenue" stroke="#f97316" strokeWidth={2} fill="url(#colorRev)" />
-            </AreaChart>
-          </ResponsiveContainer>
+      {/* Control bar: search + live pulse */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0 }}>Live Order Board</h2>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 12,
+              fontWeight: 700,
+              color: 'var(--success)',
+              background: 'var(--success-bg)',
+              padding: '2px 10px',
+              borderRadius: 'var(--r-pill)',
+            }}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'currentColor', animation: 'pulse 2s infinite' }} />
+            Realtime
+          </span>
         </div>
 
-        {/* Active orders live feed */}
-        <div className="card">
-          <div className="flex-between" style={{ marginBottom: 16 }}>
-            <div className="card-title" style={{ marginBottom: 0 }}>🔴 Live Orders</div>
-            <button className="btn btn-ghost btn-sm" onClick={() => navigate('/orders')}>View all →</button>
+        <div style={{ position: 'relative', minWidth: 260 }}>
+          <input
+            type="search"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search order #, customer..."
+            style={{
+              width: '100%',
+              minHeight: 40,
+              padding: '0 14px 0 36px',
+              borderRadius: 'var(--r-md)',
+              border: '1px solid var(--border-strong)',
+              background: 'var(--bg-surface)',
+              color: 'var(--text)',
+              fontSize: 14,
+            }}
+          />
+          <Icon name="search" size={16} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-subtle)' }} />
+        </div>
+      </div>
+
+      {/* 4-Column Live Kanban Board */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, minmax(240px, 1fr))',
+          gap: 16,
+          alignItems: 'start',
+          overflowX: 'auto',
+          paddingBottom: 16,
+        }}
+      >
+        {/* Column 1: New Orders */}
+        <div
+          style={{
+            background: 'var(--bg-sunken)',
+            borderRadius: 'var(--r-lg)',
+            padding: 14,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            minHeight: 400,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <b style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>
+              1. New Orders
+            </b>
+            <span
+              style={{
+                background: 'var(--chip-bg)',
+                color: 'var(--chip-fg)',
+                borderRadius: 'var(--r-pill)',
+                padding: '1px 8px',
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              {placedOrders.length}
+            </span>
           </div>
-          {activeOrders.length === 0
-            ? <p style={{ color: 'var(--text-muted)', fontSize: 14, textAlign: 'center', padding: '20px 0' }}>No active orders right now</p>
-            : activeOrders.slice(0, 5).map((o: any) => (
-              <div key={o._id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
-                <div>
-                  <span style={{ fontWeight: 700 }}>#{o.orderNumber}</span>
-                  <span style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 8 }}>{o.items?.length} item(s)</span>
-                </div>
-                <span className={`badge badge-${o.status.toLowerCase().replace('_', '-')}`}>{o.status.replace('_', ' ')}</span>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {placedOrders.length > 0 ? (
+              placedOrders.map(o => renderKanbanCard(o, OrderStatus.ACCEPTED, 'Accept'))
+            ) : (
+              <div style={{ padding: '32px 12px', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13 }}>
+                No new orders
               </div>
-            ))
-          }
+            )}
+          </div>
+        </div>
+
+        {/* Column 2: Kitchen (Accepted & Preparing) */}
+        <div
+          style={{
+            background: 'var(--bg-sunken)',
+            borderRadius: 'var(--r-lg)',
+            padding: 14,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            minHeight: 400,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <b style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>
+              2. Kitchen
+            </b>
+            <span
+              style={{
+                background: 'var(--bg-surface)',
+                color: 'var(--text)',
+                borderRadius: 'var(--r-pill)',
+                padding: '1px 8px',
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              {kitchenOrders.length}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {kitchenOrders.length > 0 ? (
+              kitchenOrders.map(o =>
+                renderKanbanCard(
+                  o,
+                  o.status === OrderStatus.ACCEPTED ? OrderStatus.PREPARING : OrderStatus.READY,
+                  o.status === OrderStatus.ACCEPTED ? 'Start Cooking' : 'Ready for Rider',
+                ),
+              )
+            ) : (
+              <div style={{ padding: '32px 12px', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13 }}>
+                Kitchen idle
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Column 3: Finding Rider */}
+        <div
+          style={{
+            background: 'var(--bg-sunken)',
+            borderRadius: 'var(--r-lg)',
+            padding: 14,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            minHeight: 400,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <b style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>
+              3. Finding Rider
+            </b>
+            <span
+              style={{
+                background: 'var(--bg-surface)',
+                color: 'var(--text)',
+                borderRadius: 'var(--r-pill)',
+                padding: '1px 8px',
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              {readyOrders.length}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {readyOrders.length > 0 ? (
+              readyOrders.map(o => renderKanbanCard(o))
+            ) : (
+              <div style={{ padding: '32px 12px', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13 }}>
+                No orders waiting for riders
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Column 4: On the Way */}
+        <div
+          style={{
+            background: 'var(--bg-sunken)',
+            borderRadius: 'var(--r-lg)',
+            padding: 14,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 12,
+            minHeight: 400,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <b style={{ fontSize: 14, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--text-muted)' }}>
+              4. In Delivery
+            </b>
+            <span
+              style={{
+                background: 'var(--bg-surface)',
+                color: 'var(--text)',
+                borderRadius: 'var(--r-pill)',
+                padding: '1px 8px',
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              {transitOrders.length}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {transitOrders.length > 0 ? (
+              transitOrders.map(o => renderKanbanCard(o))
+            ) : (
+              <div style={{ padding: '32px 12px', textAlign: 'center', color: 'var(--text-subtle)', fontSize: 13 }}>
+                No orders currently in transit
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Recent orders table */}
-      <div className="card mt-16">
-        <div className="flex-between" style={{ marginBottom: 16 }}>
-          <div className="card-title" style={{ marginBottom: 0 }}>Recent Orders</div>
-          <button className="btn btn-ghost btn-sm" onClick={() => navigate('/orders')}>All orders →</button>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Order</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th><th>Time</th>
-              </tr>
-            </thead>
-            <tbody>
-              {recent.map((o: any) => (
-                <tr key={o._id}>
-                  <td><span className="font-bold">#{o.orderNumber}</span></td>
-                  <td style={{ color: 'var(--text-muted)' }}>{o.customerName ?? 'Customer'}</td>
-                  <td>{o.items?.length ?? '?'}</td>
-                  <td className="font-bold">{formatMoneyCompact(o.totalPaisa)}</td>
-                  <td><span className={`badge badge-${o.status.toLowerCase().replace('_', '-')}`}>{o.status.replace('_', ' ')}</span></td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: 12 }}>{new Date(o.createdAt).toLocaleTimeString('en-PK', { hour: '2-digit', minute: '2-digit' })}</td>
-                </tr>
-              ))}
-              {recent.length === 0 && (
-                <tr><td colSpan={6} style={{ textAlign: 'center', color: 'var(--text-muted)', padding: 32 }}>No orders yet</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Slide-over Order Detail Drawer */}
+      <OrderDrawer
+        order={selectedOrder}
+        onClose={() => setSelectedOrder(null)}
+        onTransition={async (orderId, status, note) => {
+          await transitionMutation.mutateAsync({ id: orderId, status, note });
+        }}
+      />
     </div>
   );
 }

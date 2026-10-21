@@ -40,4 +40,15 @@ export declare const SocketEvents: {
     readonly CONNECT_ERROR: "connect_error";
 };
 export type SocketEventName = (typeof SocketEvents)[keyof typeof SocketEvents];
+export interface StatusMeta {
+    label: string;
+    tone: 'blue' | 'indigo' | 'amber' | 'teal' | 'purple' | 'orange' | 'green' | 'stone' | 'red' | 'rose';
+    icon: string;
+    step: number;
+    isActive: boolean;
+    customerDescription: string;
+    riderDescription: string;
+}
+export declare const STATUS_META: Record<OrderStatus, StatusMeta>;
+export declare const CATEGORY_TILES: readonly ["#FED7AA", "#FDE68A", "#FCE7F3", "#D9F99D", "#BAE6FD", "#FECDD3", "#DDD6FE", "#99F6E4"];
 //# sourceMappingURL=enums.d.ts.map

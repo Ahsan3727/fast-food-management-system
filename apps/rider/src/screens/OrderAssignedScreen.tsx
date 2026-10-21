@@ -4,35 +4,66 @@ import { useEffect, useRef, useState } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { useRiderAuthStore } from '@/store/auth.store';
-import { SocketEvents } from '@fastfood/shared-types';
+import { SocketEvents, OrderStatus } from '@fastfood/shared-types';
 import { formatMoneyCompact } from '@fastfood/utils';
 import api, { SOCKET_URL } from '@/lib/api';
+import { Icon } from '@/components/Icon';
+import { StatusBadge } from '@/components/StatusBadge';
 import toast from 'react-hot-toast';
 import L from 'leaflet';
-import styles from './OrderAssignedScreen.module.css';
 
-const restaurantIcon = L.divIcon({ html: '<span style="font-size:28px">🏪</span>', iconSize: [28, 28], iconAnchor: [14, 28], className: '' });
-const dropIcon = L.divIcon({ html: '<span style="font-size:28px">🏠</span>', iconSize: [28, 28], iconAnchor: [14, 28], className: '' });
+const restaurantIcon = L.divIcon({
+  html: '<div style="width:34px;height:34px;border-radius:50%;background:#c2410c;color:#fff;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 4px 10px rgba(0,0,0,0.3);font-size:16px">🏪</div>',
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+  className: '',
+});
 
-const RESTAURANT_LAT = parseFloat(import.meta.env.VITE_RESTAURANT_LAT ?? '31.5204');
-const RESTAURANT_LNG = parseFloat(import.meta.env.VITE_RESTAURANT_LNG ?? '74.3587');
+const dropIcon = L.divIcon({
+  html: '<div style="width:34px;height:34px;border-radius:50% 50% 50% 4px;background:#1d4ed8;color:#fff;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 4px 10px rgba(0,0,0,0.3);transform:rotate(-45deg)"><span style="transform:rotate(45deg);font-size:16px">🏠</span></div>',
+  iconSize: [34, 34],
+  iconAnchor: [17, 34],
+  className: '',
+});
+
+const RESTAURANT_LAT = 31.5204;
+const RESTAURANT_LNG = 74.3587;
+
+const FAILED_REASONS = [
+  'Customer unreachable / Phone switched off',
+  'Incorrect / Incomplete delivery address',
+  'Customer refused to accept order',
+  'Customer refused to pay cash on delivery',
+  'Customer cancelled at doorstep',
+  'Other delivery issue',
+];
 
 export default function OrderAssignedScreen() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { accessToken } = useRiderAuthStore();
   const socketRef = useRef<Socket | null>(null);
+
   const [otpInput, setOtpInput] = useState('');
-  const [delivering, setDelivering] = useState(false);
   const [cashCollected, setCashCollected] = useState('');
+  const [delivering, setDelivering] = useState(false);
+  const [showFailedModal, setShowFailedModal] = useState(false);
+  const [failedReason, setFailedReason] = useState(FAILED_REASONS[0]);
 
   const { data: order, refetch } = useQuery({
     queryKey: ['order', id],
     queryFn: () => api.get(`/orders/${id}`).then(r => r.data),
-    refetchInterval: 10_000,
+    refetchInterval: 10000,
   });
 
-  // Emit location every 5s while on this screen
+  // Pre-fill cash collected with order total if not edited
+  useEffect(() => {
+    if (order?.totalPaisa && !cashCollected) {
+      setCashCollected(String((order.totalPaisa / 100).toFixed(0)));
+    }
+  }, [order?.totalPaisa]); // eslint-disable-line
+
+  // Emit rider live GPS coordinates every 4s
   useEffect(() => {
     if (!accessToken || !id) return;
 
@@ -51,9 +82,9 @@ export default function OrderAssignedScreen() {
 
     if ('geolocation' in navigator) {
       watchId = navigator.geolocation.watchPosition(
-        (pos) => {
+        pos => {
           const now = Date.now();
-          if (now - lastEmit < 4000) return; // 4s rate limit
+          if (now - lastEmit < 4000) return;
           lastEmit = now;
           socket.emit(SocketEvents.RIDER_LOCATION_EMIT, {
             orderId: id,
@@ -61,8 +92,8 @@ export default function OrderAssignedScreen() {
             lng: pos.coords.longitude,
           });
         },
-        (err) => console.warn('Geolocation:', err),
-        { enableHighAccuracy: true, maximumAge: 3000 },
+        err => console.warn('Geolocation:', err),
+        { enableHighAccuracy: true, maximumAge: 3000 }
       );
     }
 
@@ -74,120 +105,550 @@ export default function OrderAssignedScreen() {
 
   const markPickedUp = async () => {
     try {
-      await api.patch(`/orders/${id}/status`, { status: 'PICKED_UP' });
-      toast.success('Marked as picked up!');
+      await api.patch(`/orders/${id}/status`, { status: OrderStatus.PICKED_UP });
+      toast.success('Picked up! Heading to customer doorstep', { icon: '🛵' });
       refetch();
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Failed');
+      toast.error(err?.response?.data?.message ?? 'Failed to update status');
     }
   };
 
   const markDelivered = async () => {
-    if (!otpInput.trim()) { toast.error('Enter the OTP'); return; }
-    const cash = parseFloat(cashCollected) * 100; // convert Rs → paisa
-    if (isNaN(cash)) { toast.error('Enter cash collected amount'); return; }
+    if (!otpInput.trim()) {
+      toast.error('Please enter the customer OTP');
+      return;
+    }
+    const cash = parseFloat(cashCollected) * 100;
+    if (isNaN(cash) || cash < 0) {
+      toast.error('Please enter valid cash collected amount');
+      return;
+    }
 
     setDelivering(true);
     try {
-      await api.post(`/orders/${id}/deliver`, { otp: otpInput, cashCollectedPaisa: Math.round(cash) });
-      toast.success('🎉 Delivered!');
+      await api.post(`/orders/${id}/deliver`, {
+        otp: otpInput.trim(),
+        cashCollectedPaisa: Math.round(cash),
+      });
+      toast.success('Order Delivered & Cash Collected!', {
+        icon: '🎉',
+        style: { background: 'var(--ok)', color: '#fff', fontWeight: 700 },
+      });
       navigate('/', { replace: true });
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Delivery failed');
+      toast.error(err?.response?.data?.message ?? 'Invalid OTP or delivery failure');
     } finally {
       setDelivering(false);
     }
   };
 
-  const markFailed = async () => {
+  const submitFailedDelivery = async () => {
     try {
-      await api.patch(`/orders/${id}/status`, { status: 'DELIVERY_FAILED', note: 'Customer unavailable' });
+      await api.patch(`/orders/${id}/status`, {
+        status: OrderStatus.DELIVERY_FAILED,
+        reason: failedReason,
+      });
+      toast.error('Order marked as delivery failed');
+      setShowFailedModal(false);
       navigate('/', { replace: true });
-    } catch { toast.error('Failed'); }
+    } catch {
+      toast.error('Failed to update status');
+    }
   };
 
-  if (!order) return <div className={styles.loading}>Loading…</div>;
+  if (!order) {
+    return (
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100vh',
+          background: 'var(--bg)',
+          color: 'var(--subtle)',
+        }}
+      >
+        Loading assignment details...
+      </div>
+    );
+  }
 
   const dropLat = order.deliveryAddress?.lat ?? RESTAURANT_LAT;
   const dropLng = order.deliveryAddress?.lng ?? RESTAURANT_LNG;
+  const isPickedUp = order.status === OrderStatus.PICKED_UP;
 
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <button className={styles.back} onClick={() => navigate('/')}>←</button>
-        <div>
-          <h1>Order #{order.orderNumber}</h1>
-          <p className={styles.status}>{order.status.replace('_', ' ')}</p>
-        </div>
-      </div>
-
-      {/* Map */}
-      <div className={styles.mapWrap}>
-        <MapContainer center={[RESTAURANT_LAT, RESTAURANT_LNG]} zoom={13} style={{ height: '100%', width: '100%' }} zoomControl={false}>
-          <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-          <Marker position={[RESTAURANT_LAT, RESTAURANT_LNG]} icon={restaurantIcon}>
-            <Popup>Pickup: Restaurant</Popup>
-          </Marker>
-          <Marker position={[dropLat, dropLng]} icon={dropIcon}>
-            <Popup>Drop: Customer</Popup>
-          </Marker>
-        </MapContainer>
-      </div>
-
-      {/* Order info */}
-      <div className={styles.card}>
-        <div className={styles.infoRow}>
-          <span>🏠 Drop Address</span>
-          <span className={styles.address}>{order.deliveryAddress?.addressLine}</span>
-        </div>
-        <div className={styles.infoRow}>
-          <span>💰 Amount</span>
-          <span className={styles.amount}>{formatMoneyCompact(order.totalPaisa)}</span>
-        </div>
-
-        {/* Items */}
-        <div className={styles.items}>
-          {order.items?.map((item: any, i: number) => (
-            <span key={i} className={styles.itemChip}>{item.name} ×{item.quantity}</span>
-          ))}
-        </div>
-      </div>
-
-      {/* Action buttons based on status */}
-      <div className={styles.actions}>
-        {order.status === 'RIDER_ASSIGNED' && (
-          <button className="btn-primary" onClick={markPickedUp}>
-            📦 Mark as Picked Up
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        background: 'var(--bg)',
+        color: 'var(--text)',
+      }}
+    >
+      {/* Header */}
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '16px 20px',
+          borderBottom: '1px solid var(--border)',
+          background: 'var(--surface)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: '50%',
+              background: 'none',
+              border: 'none',
+              display: 'grid',
+              placeItems: 'center',
+              color: 'var(--text)',
+              cursor: 'pointer',
+            }}
+            aria-label="Back"
+          >
+            <Icon name="left" size={20} />
           </button>
-        )}
+          <div>
+            <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
+              Order #{order.orderNumber}
+            </h1>
+            <div style={{ fontSize: 12, color: 'var(--subtle)', marginTop: 2 }}>
+              {isPickedUp ? 'Phase 2: Delivering to Customer' : 'Phase 1: Head to Restaurant'}
+            </div>
+          </div>
+        </div>
 
-        {order.status === 'PICKED_UP' && (
-          <div className={styles.deliverSection}>
-            <p className={styles.deliverLabel}>Enter customer OTP to confirm delivery</p>
-            <input
-              className="input"
-              placeholder="6-digit OTP"
-              maxLength={6}
-              value={otpInput}
-              onChange={e => setOtpInput(e.target.value)}
-              style={{ letterSpacing: 8, fontSize: 22, textAlign: 'center' }}
+        <StatusBadge status={order.status} />
+      </header>
+
+      {/* Main Content */}
+      <div style={{ flex: 1, padding: 16, overflowY: 'auto' }}>
+        {/* Leaflet Map Preview */}
+        <div
+          style={{
+            position: 'relative',
+            height: 200,
+            borderRadius: 16,
+            overflow: 'hidden',
+            border: '1px solid var(--border)',
+            marginBottom: 16,
+          }}
+        >
+          <MapContainer
+            center={[RESTAURANT_LAT, RESTAURANT_LNG]}
+            zoom={13}
+            style={{ height: '100%', width: '100%' }}
+            zoomControl={false}
+          >
+            <TileLayer
+              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+              attribution="&copy; OpenStreetMap"
             />
-            <input
-              className="input"
-              placeholder="Cash collected (Rs.)"
-              type="number"
-              value={cashCollected}
-              onChange={e => setCashCollected(e.target.value)}
+            <Marker position={[RESTAURANT_LAT, RESTAURANT_LNG]} icon={restaurantIcon}>
+              <Popup>Pickup: FastFood Kitchen</Popup>
+            </Marker>
+            <Marker position={[dropLat, dropLng]} icon={dropIcon}>
+              <Popup>Drop: Customer</Popup>
+            </Marker>
+          </MapContainer>
+
+          <div
+            style={{
+              position: 'absolute',
+              top: 10,
+              left: 10,
+              zIndex: 1000,
+              background: 'rgba(28,25,23,0.85)',
+              color: '#fff',
+              padding: '4px 10px',
+              borderRadius: 8,
+              fontSize: 11,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <span
+              style={{
+                width: 6,
+                height: 6,
+                borderRadius: '50%',
+                background: '#4ade80',
+              }}
             />
-            <button className="btn-success" onClick={markDelivered} disabled={delivering}>
-              {delivering ? 'Confirming…' : '✅ Confirm Delivery'}
-            </button>
-            <button className="btn-danger" onClick={markFailed} style={{ marginTop: 8 }}>
-              ❌ Delivery Failed
-            </button>
+            {isPickedUp ? 'Heading to Customer Drop' : 'Heading to Kitchen Pickup'}
+          </div>
+        </div>
+
+        {/* Phase 1: Restaurant Pickup Information */}
+        {!isPickedUp && (
+          <div
+            style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: 16,
+              padding: 16,
+              marginBottom: 16,
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--action)', letterSpacing: '0.04em' }}>
+              Pickup Location
+            </div>
+            <h2 style={{ fontSize: 16, fontWeight: 800, margin: '4px 0 2px', color: 'var(--text)' }}>
+              FastFood Kitchen
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 12px' }}>
+              Main Boulevard, Gulberg, Lahore
+            </p>
+
+            <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--subtle)', marginBottom: 6 }}>
+                Items to Pick Up ({order.items?.length || 0}):
+              </div>
+              {order.items?.map((item: any, i: number) => (
+                <div
+                  key={i}
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontSize: 13,
+                    color: 'var(--text)',
+                    padding: '4px 0',
+                  }}
+                >
+                  <span style={{ fontWeight: 600 }}>
+                    {item.quantity}x {item.name}
+                  </span>
+                  <span style={{ color: 'var(--muted)' }}>
+                    {item.sizeLabel ? `(${item.sizeLabel})` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
+
+        {/* Phase 2: Customer Delivery Information & COD Banner */}
+        {isPickedUp && (
+          <>
+            {/* COD Cash Banner */}
+            <div
+              style={{
+                background: 'var(--action)',
+                color: '#fff',
+                borderRadius: 16,
+                padding: 18,
+                marginBottom: 16,
+                boxShadow: '0 4px 16px rgba(194,65,12,0.3)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <Icon name="cash" size={18} />
+                <span>Cash to Collect</span>
+              </div>
+              <div style={{ fontSize: 32, fontWeight: 800, marginTop: 4, letterSpacing: '-0.02em' }}>
+                {formatMoneyCompact(order.totalPaisa)}
+              </div>
+              <div style={{ fontSize: 12, opacity: 0.9, marginTop: 2 }}>
+                Collect exact cash from customer before handing over the food package.
+              </div>
+            </div>
+
+            {/* Customer Address Details */}
+            <div
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 16,
+                padding: 16,
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--subtle)', letterSpacing: '0.04em' }}>
+                    Customer Destination
+                  </div>
+                  <h3 style={{ fontSize: 15, fontWeight: 700, margin: '4px 0 2px', color: 'var(--text)' }}>
+                    {order.customer?.name || 'Customer'}
+                  </h3>
+                  <p style={{ fontSize: 13, color: 'var(--muted)', margin: 0 }}>
+                    {order.deliveryAddress?.addressLine}
+                  </p>
+                  {order.deliveryAddress?.landmark && (
+                    <p style={{ fontSize: 12, color: 'var(--subtle)', marginTop: 2 }}>
+                      Landmark: {order.deliveryAddress.landmark}
+                    </p>
+                  )}
+                </div>
+
+                {order.customer?.phone && (
+                  <a
+                    href={`tel:${order.customer.phone}`}
+                    style={{
+                      padding: '8px 12px',
+                      borderRadius: 10,
+                      background: 'var(--sunken)',
+                      border: '1px solid var(--border)',
+                      color: 'var(--text)',
+                      fontSize: 12,
+                      fontWeight: 600,
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 4,
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <Icon name="phone" size={14} /> Call
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Doorstep OTP Verification Input */}
+            <div
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                borderRadius: 16,
+                padding: 18,
+                marginBottom: 16,
+              }}
+            >
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
+                Customer Doorstep OTP Code *
+              </label>
+              <p style={{ fontSize: 12, color: 'var(--subtle)', margin: '0 0 10px' }}>
+                Ask the customer for their 4-digit code shown in their app.
+              </p>
+              <input
+                type="text"
+                placeholder="• • • •"
+                maxLength={6}
+                value={otpInput}
+                onChange={e => setOtpInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: 52,
+                  borderRadius: 12,
+                  border: '2px solid var(--border)',
+                  background: 'var(--sunken)',
+                  color: 'var(--text)',
+                  fontSize: 24,
+                  fontWeight: 800,
+                  letterSpacing: '0.4em',
+                  textAlign: 'center',
+                  outline: 'none',
+                  marginBottom: 12,
+                }}
+              />
+
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+                Cash Amount Collected (Rs.)
+              </label>
+              <input
+                type="number"
+                value={cashCollected}
+                onChange={e => setCashCollected(e.target.value)}
+                style={{
+                  width: '100%',
+                  height: 44,
+                  borderRadius: 10,
+                  border: '1px solid var(--border)',
+                  background: 'var(--surface)',
+                  color: 'var(--text)',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  padding: '0 12px',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          </>
+        )}
       </div>
+
+      {/* Sticky Bottom Actions */}
+      <div
+        style={{
+          padding: '12px 16px calc(12px + env(safe-area-inset-bottom, 0px))',
+          background: 'var(--surface)',
+          borderTop: '1px solid var(--border)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 10,
+          boxShadow: '0 -4px 16px rgba(0,0,0,0.06)',
+        }}
+      >
+        {!isPickedUp ? (
+          <button
+            onClick={markPickedUp}
+            style={{
+              width: '100%',
+              height: 52,
+              borderRadius: 14,
+              border: 'none',
+              background: 'var(--action)',
+              color: '#fff',
+              fontSize: 16,
+              fontWeight: 800,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              boxShadow: '0 4px 16px rgba(194,65,12,0.35)',
+            }}
+          >
+            <Icon name="package" size={20} />
+            Confirm Pickup at Restaurant
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={markDelivered}
+              disabled={delivering}
+              style={{
+                width: '100%',
+                height: 52,
+                borderRadius: 14,
+                border: 'none',
+                background: 'var(--ok)',
+                color: '#fff',
+                fontSize: 16,
+                fontWeight: 800,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 8,
+                cursor: delivering ? 'not-allowed' : 'pointer',
+                opacity: delivering ? 0.7 : 1,
+                boxShadow: '0 4px 16px rgba(22,163,74,0.3)',
+              }}
+            >
+              <Icon name="check" size={20} />
+              {delivering ? 'Verifying OTP...' : 'Verify OTP & Complete Delivery'}
+            </button>
+
+            <button
+              onClick={() => setShowFailedModal(true)}
+              style={{
+                width: '100%',
+                height: 40,
+                borderRadius: 10,
+                border: 'none',
+                background: 'none',
+                color: 'var(--bad)',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Delivery Failed...
+            </button>
+          </>
+        )}
+      </div>
+
+      {/* Reason-Gated Delivery Failed Modal */}
+      {showFailedModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.7)',
+            display: 'flex',
+            alignItems: 'flex-end',
+            justifyContent: 'center',
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 480,
+              background: 'var(--raised)',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 24,
+              boxShadow: '0 -12px 32px rgba(0,0,0,0.3)',
+            }}
+          >
+            <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 6px', color: 'var(--text)' }}>
+              Report Delivery Issue
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--subtle)', margin: '0 0 16px' }}>
+              Select the exact reason why this order could not be handed over.
+            </p>
+
+            <div style={{ display: 'grid', gap: 8, marginBottom: 20 }}>
+              {FAILED_REASONS.map(r => (
+                <button
+                  key={r}
+                  onClick={() => setFailedReason(r)}
+                  style={{
+                    padding: '12px 14px',
+                    borderRadius: 10,
+                    border: `1px solid ${failedReason === r ? 'var(--bad)' : 'var(--border)'}`,
+                    background: failedReason === r ? 'var(--bad-bg)' : 'transparent',
+                    color: 'var(--text)',
+                    fontSize: 13,
+                    fontWeight: failedReason === r ? 700 : 500,
+                    textAlign: 'left',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {r}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => setShowFailedModal(false)}
+                style={{
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 12,
+                  border: '1px solid var(--border)',
+                  background: 'transparent',
+                  color: 'var(--muted)',
+                  fontSize: 14,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                Back to Order
+              </button>
+              <button
+                onClick={submitFailedDelivery}
+                style={{
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 12,
+                  border: 'none',
+                  background: 'var(--bad)',
+                  color: '#fff',
+                  fontSize: 14,
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                }}
+              >
+                Confirm Failure
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

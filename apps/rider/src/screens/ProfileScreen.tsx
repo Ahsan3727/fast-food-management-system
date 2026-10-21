@@ -1,31 +1,206 @@
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useRiderAuthStore } from '@/store/auth.store';
-import styles from './ProfileScreen.module.css';
 import api from '@/lib/api';
-import toast from 'react-hot-toast';
+import { Icon } from '@/components/Icon';
+import RiderBottomNav from '@/components/RiderBottomNav';
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
   const { rider, logout } = useRiderAuthStore();
 
-  const handleLogout = async () => {
-    try { await api.post('/auth/logout'); } finally { logout(); navigate('/login', { replace: true }); }
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (localStorage.getItem('ember_rider_theme') as 'dark' | 'light') || 'light';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('ember_rider_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
   };
 
+  const handleLogout = async () => {
+    try {
+      await api.post('/auth/logout');
+    } catch {
+      // ignore
+    } finally {
+      logout();
+      navigate('/login', { replace: true });
+    }
+  };
+
+  const initial = rider?.name?.[0]?.toUpperCase() ?? 'R';
+
   return (
-    <div className={styles.page}>
-      <div className={styles.header}>
-        <button className={styles.back} onClick={() => navigate('/')}>←</button>
-        <h1>Profile</h1>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        background: 'var(--bg)',
+        color: 'var(--text)',
+      }}
+    >
+      <div style={{ flex: 1, padding: '24px 20px', overflowY: 'auto' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 20px', color: 'var(--text)' }}>
+          Rider Profile
+        </h1>
+
+        {/* User Card */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 16,
+            padding: 16,
+            borderRadius: 16,
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            marginBottom: 24,
+          }}
+        >
+          <div
+            style={{
+              width: 56,
+              height: 56,
+              borderRadius: '50%',
+              background: '#fed7aa',
+              color: '#1c1917',
+              display: 'grid',
+              placeItems: 'center',
+              fontWeight: 800,
+              fontSize: 22,
+              flexShrink: 0,
+            }}
+          >
+            {initial}
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+              {rider?.name || 'Rider'}
+            </h2>
+            <p style={{ fontSize: 13, color: 'var(--subtle)', margin: '2px 0 0' }}>
+              {rider?.phone || 'Delivery Partner'}
+            </p>
+          </div>
+        </div>
+
+        {/* Actions Menu */}
+        <div
+          style={{
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: 16,
+            overflow: 'hidden',
+            marginBottom: 24,
+          }}
+        >
+          {/* Earnings link */}
+          <button
+            onClick={() => navigate('/earnings')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              padding: '16px',
+              border: 'none',
+              background: 'none',
+              color: 'var(--text)',
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Icon name="cash" size={18} style={{ color: 'var(--action)' }} />
+              <span>Earnings History & Ledger</span>
+            </div>
+            <Icon name="right" size={16} style={{ color: 'var(--subtle)' }} />
+          </button>
+
+          {/* Theme switch */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              width: '100%',
+              padding: '14px 16px',
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              <Icon name={theme === 'dark' ? 'moon' : 'sun'} size={18} style={{ color: 'var(--muted)' }} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>
+                Dark Theme
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={toggleTheme}
+              style={{
+                width: 44,
+                height: 26,
+                borderRadius: 999,
+                background: theme === 'dark' ? 'var(--action)' : 'var(--strong)',
+                border: 'none',
+                position: 'relative',
+                cursor: 'pointer',
+                transition: 'background 0.2s ease',
+                padding: 0,
+              }}
+              aria-label="Toggle dark mode"
+            >
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 3,
+                  left: theme === 'dark' ? 21 : 3,
+                  width: 20,
+                  height: 20,
+                  borderRadius: '50%',
+                  background: '#fff',
+                  transition: 'left 0.2s cubic-bezier(0.2,0,0,1)',
+                }}
+              />
+            </button>
+          </div>
+
+          {/* Sign Out */}
+          <button
+            onClick={handleLogout}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 12,
+              width: '100%',
+              padding: '16px',
+              border: 'none',
+              background: 'none',
+              color: 'var(--bad)',
+              fontSize: 14,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            <Icon name="out" size={18} />
+            <span>Sign Out</span>
+          </button>
+        </div>
+
+        <p style={{ fontSize: 12, color: 'var(--subtle)', textAlign: 'center' }}>
+          FastFood Rider Portal · Ember Design System
+        </p>
       </div>
-      <div className={styles.avatar}>{rider?.name?.[0]?.toUpperCase() ?? '?'}</div>
-      <p className={styles.name}>{rider?.name}</p>
-      <p className={styles.phone}>{rider?.phone}</p>
-      <div className={styles.list}>
-        <div className={styles.item} onClick={() => toast('Settings coming soon')}>⚙️ Settings <span>›</span></div>
-        <div className={styles.item} onClick={() => toast('Help coming soon')}>❓ Help <span>›</span></div>
-      </div>
-      <button className={styles.logout} onClick={handleLogout}>Sign Out</button>
+
+      <RiderBottomNav active="profile" />
     </div>
   );
 }

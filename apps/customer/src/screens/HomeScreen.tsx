@@ -4,157 +4,393 @@ import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { useCartStore } from '@/store/cart.store';
 import BottomNav from '@/components/BottomNav';
+import CartBar from '@/components/CartBar';
+import { StatusBadge } from '@/components/StatusBadge';
+import { Icon } from '@/components/Icon';
 import { formatMoneyCompact } from '@fastfood/utils';
-import styles from './HomeScreen.module.css';
-
-function CategoryChip({ name, icon, onClick }: { name: string; icon: string; onClick: () => void }) {
-  return (
-    <button className={styles.chip} onClick={onClick}>
-      <span className={styles.chipIcon}>{icon}</span>
-      <span className={styles.chipLabel}>{name}</span>
-    </button>
-  );
-}
-
-function MenuItemCard({ item, onAdd }: { item: any; onAdd: () => void }) {
-  const navigate = useNavigate();
-  return (
-    <div className={styles.itemCard} onClick={() => navigate(`/menu/${item._id}`)}>
-      <div className={styles.itemImage} style={{ background: item.color ?? '#fed7aa' }}>
-        {item.image
-          ? <img src={item.image} alt={item.name} className={styles.itemImg} />
-          : <span className={styles.itemEmoji}>{item.emoji ?? '🍔'}</span>
-        }
-      </div>
-      <div className={styles.itemInfo}>
-        <p className={styles.itemName}>{item.name}</p>
-        <p className={styles.itemPrice}>
-          {formatMoneyCompact(item.basePrice)}
-        </p>
-      </div>
-      <button className={styles.addBtn} onClick={(e) => { e.stopPropagation(); onAdd(); }}>+</button>
-    </div>
-  );
-}
+import { STATUS_META, OrderStatus } from '@fastfood/shared-types';
 
 export default function HomeScreen() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { addItem, totalItems, displayTotalPaisa } = useCartStore();
+  const { addItem, totalItems } = useCartStore();
 
-  const { data: categories = [] } = useQuery({
+  const { data: categories = [] } = useQuery<any[]>({
     queryKey: ['categories'],
     queryFn: () => api.get('/menu/categories').then(r => r.data),
   });
 
-  const { data: menuItems = [], isLoading } = useQuery({
+  const { data: menuItems = [], isLoading } = useQuery<any[]>({
     queryKey: ['menu'],
     queryFn: () => api.get('/menu').then(r => r.data),
   });
 
-  const cartCount = totalItems();
-  const cartTotal = displayTotalPaisa();
+  const { data: myOrders = [] } = useQuery<any[]>({
+    queryKey: ['my-orders'],
+    queryFn: () => api.get('/orders/my').then(r => r.data),
+    staleTime: 10000,
+  });
 
-  const promos = [
-    { label: 'Fresh today', desc: 'Up to 30% off', emoji: '🥗', bg: '#fed7aa' },
-    { label: 'Hot deals', desc: 'Burgers from Rs. 350', emoji: '🍔', bg: '#fde68a' },
-    { label: 'New arrivals', desc: 'Desserts & more', emoji: '🍰', bg: '#fce7f3' },
-  ];
+  const activeOrder = myOrders.find(
+    o => STATUS_META[o.status as OrderStatus]?.isActive
+  );
+
+  const cartCount = totalItems();
+  const firstName = user?.name ? user.name.split(' ')[0] : 'there';
 
   return (
-    <div className={styles.page}>
-      {/* Header */}
-      <div className={styles.header}>
-        <div>
-          <p className={styles.greeting}>Hello, {user?.name?.split(' ')[0]} 👋</p>
-          <p className={styles.subGreeting}>What are you craving today?</p>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        minHeight: '100vh',
+        background: 'var(--bg)',
+        color: 'var(--text)',
+      }}
+    >
+      <div style={{ flex: 1, padding: 16, overflowY: 'auto' }}>
+        {/* Header */}
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            justifyContent: 'space-between',
+            marginBottom: 16,
+          }}
+        >
+          <div>
+            <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, color: 'var(--text)', letterSpacing: '-0.02em' }}>
+              Hi, {firstName}
+            </h1>
+            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '2px 0 0' }}>
+              What are you craving today?
+            </p>
+          </div>
+
+          <button
+            onClick={() => navigate('/cart')}
+            style={{
+              position: 'relative',
+              width: 44,
+              height: 44,
+              borderRadius: '50%',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              display: 'grid',
+              placeItems: 'center',
+              color: 'var(--text)',
+              cursor: 'pointer',
+            }}
+            aria-label="View Cart"
+          >
+            <Icon name="bag" size={20} />
+            {cartCount > 0 && (
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 2,
+                  right: 2,
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: 9,
+                  background: 'var(--action)',
+                  color: '#fff',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  display: 'grid',
+                  placeItems: 'center',
+                  padding: '0 4px',
+                }}
+              >
+                {cartCount}
+              </span>
+            )}
+          </button>
         </div>
-        <button className={styles.cartBtn} onClick={() => navigate('/cart')}>
-          🛒
-          {cartCount > 0 && <span className={styles.cartBadge}>{cartCount}</span>}
-        </button>
-      </div>
 
-      {/* Search bar */}
-      <div className={styles.searchWrap}>
-        <button className={styles.searchBar} onClick={() => navigate('/search')}>
-          <span>🔍</span>
-          <span className={styles.searchPlaceholder}>Search food, burgers, pizza…</span>
+        {/* Search bar button */}
+        <button
+          onClick={() => navigate('/menu')}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            width: '100%',
+            height: 46,
+            padding: '0 14px',
+            border: '1px solid var(--border)',
+            borderRadius: 12,
+            background: 'var(--surface)',
+            color: 'var(--subtle)',
+            fontSize: 14,
+            cursor: 'pointer',
+            marginBottom: 16,
+            textAlign: 'left',
+          }}
+        >
+          <Icon name="search" size={18} />
+          <span>Search burgers, pizza, drinks...</span>
         </button>
-      </div>
 
-      <div className={styles.content}>
-        {/* Promo carousel */}
-        <div className={styles.promoRow}>
-          {promos.map((p, i) => (
-            <div key={i} className={styles.promoCard} style={{ background: p.bg }}>
-              <div>
-                <p className={styles.promoLabel}>{p.label}</p>
-                <p className={styles.promoDesc}>{p.desc}</p>
+        {/* Live Active Order Strip */}
+        {activeOrder && (
+          <button
+            onClick={() => navigate(`/orders/${activeOrder._id}/track`)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 12,
+              width: '100%',
+              padding: '12px 16px',
+              borderRadius: 14,
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderLeft: '4px solid var(--action)',
+              marginBottom: 16,
+              cursor: 'pointer',
+              textAlign: 'left',
+            }}
+          >
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontWeight: 800, fontSize: 14, color: 'var(--text)' }}>
+                  Order #{activeOrder.orderNumber}
+                </span>
+                <StatusBadge status={activeOrder.status} size="sm" />
               </div>
-              <span className={styles.promoEmoji}>{p.emoji}</span>
+              <p style={{ fontSize: 12, color: 'var(--subtle)', margin: 0, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                {activeOrder.items?.map((i: any) => `${i.quantity}x ${i.name}`).join(', ') || 'In progress'}
+              </p>
             </div>
-          ))}
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                color: 'var(--action)',
+                fontWeight: 700,
+                fontSize: 13,
+                flexShrink: 0,
+              }}
+            >
+              Track <Icon name="right" size={14} />
+            </span>
+          </button>
+        )}
+
+        {/* Categories Section */}
+        <div style={{ marginBottom: 20 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text)' }}>Categories</h2>
+            <button
+              onClick={() => navigate('/menu')}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'var(--action)',
+                fontSize: 13,
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              See all
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: 8,
+              overflowX: 'auto',
+              paddingBottom: 4,
+              scrollbarWidth: 'none',
+            }}
+          >
+            {categories.map((cat: any) => (
+              <button
+                key={cat._id}
+                onClick={() => navigate(`/menu?cat=${cat._id}`)}
+                style={{
+                  flexShrink: 0,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  height: 38,
+                  padding: '0 14px',
+                  borderRadius: 999,
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <span>{cat.icon || '🍽️'}</span>
+                <span>{cat.name}</span>
+              </button>
+            ))}
+          </div>
         </div>
 
-        {/* Categories */}
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Categories</h2>
-          <button onClick={() => navigate('/menu')} className={styles.seeAll}>See all →</button>
-        </div>
-        <div className={styles.categoryRow}>
-          {(categories.length > 0 ? categories : [
-            { _id: '1', name: 'Burgers', icon: '🍔' },
-            { _id: '2', name: 'Pizza', icon: '🍕' },
-            { _id: '3', name: 'Drinks', icon: '🥤' },
-            { _id: '4', name: 'Desserts', icon: '🍰' },
-          ]).map((cat: any) => (
-            <CategoryChip
-              key={cat._id}
-              name={cat.name}
-              icon={cat.icon ?? '🍽️'}
-              onClick={() => navigate(`/menu?category=${cat._id}`)}
-            />
-          ))}
-        </div>
+        {/* Menu Favourites Section */}
+        <div>
+          <div style={{ marginBottom: 12 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+              Menu Favourites
+            </h2>
+          </div>
 
-        {/* Menu Grid */}
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>🔥 Popular</h2>
-        </div>
-        {isLoading
-          ? <div className={styles.grid}>
-              {[1,2,3,4,5,6].map(i => <div key={i} className={`skeleton ${styles.skeletonCard}`} />)}
-            </div>
-          : <div className={styles.grid}>
-              {(menuItems as any[]).slice(0, 12).map((item: any) => (
-                <MenuItemCard
-                  key={item._id}
-                  item={item}
-                  onAdd={() => addItem({
-                    menuItemId: item._id,
-                    name: item.name,
-                    image: item.image,
-                    emoji: item.emoji,
-                    addOns: [],
-                    unitPricePaisa: item.basePrice,
-                    quantity: 1,
-                  })}
+          {isLoading ? (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[1, 2, 3, 4].map(n => (
+                <div
+                  key={n}
+                  style={{
+                    height: 180,
+                    borderRadius: 14,
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    opacity: 0.5,
+                  }}
                 />
               ))}
             </div>
-        }
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {menuItems.slice(0, 10).map((item: any) => (
+                <article
+                  key={item._id}
+                  style={{
+                    background: 'var(--surface)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 14,
+                    padding: 8,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <button
+                    onClick={() => navigate(`/menu/${item._id}`)}
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      padding: 0,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      width: '100%',
+                    }}
+                  >
+                    <div
+                      style={{
+                        position: 'relative',
+                        aspectRatio: '4/3',
+                        borderRadius: 10,
+                        background: 'var(--sunken)',
+                        display: 'grid',
+                        placeItems: 'center',
+                        fontSize: 40,
+                        overflow: 'hidden',
+                        marginBottom: 8,
+                      }}
+                    >
+                      {item.imageUrl ? (
+                        <img
+                          src={item.imageUrl}
+                          alt={item.name}
+                          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
+                      ) : (
+                        item.emoji || '🍔'
+                      )}
+                      {!item.isAvailable && (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: 6,
+                            left: 6,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            padding: '2px 6px',
+                            borderRadius: 999,
+                            background: '#1c1917',
+                            color: '#fff',
+                          }}
+                        >
+                          Sold out
+                        </span>
+                      )}
+                    </div>
+
+                    <h3
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 700,
+                        color: 'var(--text)',
+                        margin: '0 0 4px',
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden',
+                      }}
+                    >
+                      {item.name}
+                    </h3>
+                  </button>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      marginTop: 6,
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, fontSize: 13, color: 'var(--action)' }}>
+                      {formatMoneyCompact(item.basePrice)}
+                    </span>
+
+                    <button
+                      disabled={!item.isAvailable}
+                      onClick={e => {
+                        e.stopPropagation();
+                        addItem({
+                          menuItemId: item._id,
+                          name: item.name,
+                          image: item.imageUrl,
+                          emoji: item.emoji,
+                          addOns: [],
+                          unitPricePaisa: item.basePrice,
+                          quantity: 1,
+                        });
+                      }}
+                      style={{
+                        width: 36,
+                        height: 36,
+                        borderRadius: '50%',
+                        background: item.isAvailable ? 'var(--action)' : 'var(--sunken)',
+                        color: item.isAvailable ? '#fff' : 'var(--subtle)',
+                        border: 'none',
+                        display: 'grid',
+                        placeItems: 'center',
+                        cursor: item.isAvailable ? 'pointer' : 'not-allowed',
+                      }}
+                      title={item.isAvailable ? 'Add to cart' : 'Sold out'}
+                      aria-label={`Add ${item.name}`}
+                    >
+                      <Icon name="plus" size={16} />
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Cart summary bar */}
-      {cartCount > 0 && (
-        <div className={styles.cartBar} onClick={() => navigate('/cart')}>
-          <span className={styles.cartBarCount}>{cartCount} items</span>
-          <span className={styles.cartBarText}>View Cart</span>
-          <span className={styles.cartBarTotal}>{formatMoneyCompact(cartTotal)}</span>
-        </div>
-      )}
-
+      <CartBar />
       <BottomNav active="home" />
     </div>
   );

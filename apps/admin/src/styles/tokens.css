@@ -1,0 +1,170 @@
+/* ============================================================
+   FastFood — Ember Design System Tokens (§6, §15)
+   ============================================================ */
+
+:root {
+  /* Brand — Ember Scale */
+  --ember-50: #FFF7ED;
+  --ember-100: #FFEDD5;
+  --ember-200: #FED7AA;
+  --ember-400: #FB923C;
+  --flame: #F97316;
+  --ember-700: #C2410C;
+  --ember-800: #9A3412;
+  --ember-900: #7C2D12;
+
+  /* Neutrals — Stone Scale */
+  --stone-0: #FFFFFF;
+  --stone-50: #FAFAF9;
+  --stone-100: #F5F5F4;
+  --stone-200: #E7E5E4;
+  --stone-300: #D6D3D1;
+  --stone-400: #A8A29E;
+  --stone-500: #78716C;
+  --stone-600: #57534E;
+  --stone-700: #44403C;
+  --stone-800: #292524;
+  --stone-900: #1C1917;
+  --stone-950: #0C0A09;
+
+  /* Typography */
+  --font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* Spacing */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Radii */
+  --r-xs: 4px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 24px;
+  --r-pill: 999px;
+
+  /* Animation Durations & Easing */
+  --dur-press: 100ms;
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-slow: 400ms;
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0, 1);
+
+  /* Light Theme Semantic Roles */
+  color-scheme: light;
+  --bg-page: var(--stone-50);
+  --bg-surface: var(--stone-0);
+  --bg-raised: var(--stone-0);
+  --bg-sunken: var(--stone-100);
+  --bg-overlay: rgba(12, 10, 9, 0.5);
+
+  --text: var(--stone-900);
+  --text-muted: var(--stone-600);
+  --text-subtle: var(--stone-500);
+
+  --border: var(--stone-200);
+  --border-strong: var(--stone-500);
+
+  /* Ember #C2410C ensures WCAG AA contrast (5.18:1 on white) */
+  --action-bg: var(--ember-700);
+  --action-bg-hover: var(--ember-800);
+  --action-fg: #FFFFFF;
+
+  --link: var(--ember-700);
+  --focus: #1D4ED8;
+
+  --success: #15803D;
+  --success-bg: #F0FDF4;
+
+  --warning: #B45309;
+  --warning-bg: #FFFBEB;
+
+  --danger: #B91C1C;
+  --danger-bg: #FEF2F2;
+  --danger-solid: #B91C1C;
+  --on-danger: #FFFFFF;
+
+  --chip-bg: var(--ember-100);
+  --chip-fg: var(--ember-800);
+
+  --map-bg: var(--stone-100);
+  --map-road: #FFFFFF;
+
+  --shadow-1: 0 1px 2px rgba(28, 25, 23, 0.06), 0 1px 1px rgba(28, 25, 23, 0.04);
+  --shadow-2: 0 4px 12px rgba(28, 25, 23, 0.08);
+  --shadow-3: 0 12px 32px rgba(28, 25, 23, 0.16);
+}
+
+/* ── Dark Theme Overrides (Admin Defaults to Dark or Light per data-theme) ─── */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-page: var(--stone-950);
+  --bg-surface: var(--stone-900);
+  --bg-raised: var(--stone-800);
+  --bg-sunken: #141210;
+  --bg-overlay: rgba(0, 0, 0, 0.6);
+
+  --text: var(--stone-50);
+  --text-muted: var(--stone-300);
+  --text-subtle: var(--stone-400);
+
+  --border: var(--stone-700);
+  --border-strong: var(--stone-500);
+
+  --action-bg: var(--flame);
+  --action-bg-hover: var(--ember-400);
+  --action-fg: var(--stone-900);
+
+  --link: var(--ember-400);
+  --focus: #93C5FD;
+
+  --success: #4ADE80;
+  --success-bg: rgba(34, 197, 94, 0.16);
+
+  --warning: #FBBF24;
+  --warning-bg: rgba(245, 158, 11, 0.16);
+
+  --danger: #F87171;
+  --danger-bg: rgba(239, 68, 68, 0.16);
+  --danger-solid: #F87171;
+  --on-danger: var(--stone-900);
+
+  --chip-bg: rgba(249, 115, 22, 0.18);
+  --chip-fg: #FDBA74;
+
+  --map-bg: #141210;
+  --map-road: var(--stone-700);
+
+  --shadow-1: none;
+  --shadow-2: 0 0 0 1px var(--stone-700);
+  --shadow-3: 0 12px 32px rgba(0, 0, 0, 0.5);
+}
+
+/* ── Order Status Tones (Light Theme) ───────────────────────── */
+[data-tone='blue']   { --b-fg: #1D4ED8; --b-bg: #EFF6FF; }
+[data-tone='indigo'] { --b-fg: #4338CA; --b-bg: #EEF2FF; }
+[data-tone='amber']  { --b-fg: #92400E; --b-bg: #FEF3C7; }
+[data-tone='teal']   { --b-fg: #0F766E; --b-bg: #F0FDFA; }
+[data-tone='purple'] { --b-fg: #7E22CE; --b-bg: #FAF5FF; }
+[data-tone='orange'] { --b-fg: #9A3412; --b-bg: #FFEDD5; }
+[data-tone='green']  { --b-fg: #15803D; --b-bg: #F0FDF4; }
+[data-tone='stone']  { --b-fg: #44403C; --b-bg: #F5F5F4; }
+[data-tone='red']    { --b-fg: #B91C1C; --b-bg: #FEF2F2; }
+[data-tone='rose']   { --b-fg: #9F1239; --b-bg: #FFF1F2; }
+
+/* ── Order Status Tones (Dark Theme) ────────────────────────── */
+[data-theme='dark'] [data-tone='blue']   { --b-fg: #93C5FD; --b-bg: rgba(59, 130, 246, 0.16); }
+[data-theme='dark'] [data-tone='indigo'] { --b-fg: #A5B4FC; --b-bg: rgba(99, 102, 241, 0.16); }
+[data-theme='dark'] [data-tone='amber']  { --b-fg: #FCD34D; --b-bg: rgba(245, 158, 11, 0.16); }
+[data-theme='dark'] [data-tone='teal']   { --b-fg: #5EEAD4; --b-bg: rgba(20, 184, 166, 0.16); }
+[data-theme='dark'] [data-tone='purple'] { --b-fg: #D8B4FE; --b-bg: rgba(168, 85, 247, 0.16); }
+[data-theme='dark'] [data-tone='orange'] { --b-fg: #FDBA74; --b-bg: rgba(249, 115, 22, 0.16); }
+[data-theme='dark'] [data-tone='green']  { --b-fg: #86EFAC; --b-bg: rgba(34, 197, 94, 0.16); }
+[data-theme='dark'] [data-tone='stone']  { --b-fg: #D6D3D1; --b-bg: rgba(168, 162, 158, 0.16); }
+[data-theme='dark'] [data-tone='red']    { --b-fg: #FCA5A5; --b-bg: rgba(239, 68, 68, 0.16); }
+[data-theme='dark'] [data-tone='rose']   { --b-fg: #FDA4AF; --b-bg: rgba(244, 63, 94, 0.16); }
