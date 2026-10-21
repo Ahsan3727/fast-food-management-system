@@ -59,6 +59,10 @@ export class UsersService {
     await this.userModel.findByIdAndUpdate(id, { $set: { isSuspended: false } }).exec();
   }
 
+  async setOnlineStatus(id: string, isOnline: boolean): Promise<void> {
+    await this.userModel.findByIdAndUpdate(id, { $set: { isOnline } }).exec();
+  }
+
   // Find all riders who are currently online (for delivery dispatch)
   async findOnlineRiders(): Promise<UserDocument[]> {
     return this.userModel

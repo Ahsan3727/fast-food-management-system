@@ -8,6 +8,7 @@ import { MenuModule } from '../menu/menu.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { RealtimeModule } from '../../realtime/realtime.module';
 import { UsersModule } from '../users/users.module';
+import { RidersModule } from '../riders/riders.module';
 import { RIDER_DISPATCH_QUEUE } from '../../jobs/rider-dispatch.processor';
 
 @Module({
@@ -17,6 +18,7 @@ import { RIDER_DISPATCH_QUEUE } from '../../jobs/rider-dispatch.processor';
     NotificationsModule,
     RealtimeModule,
     UsersModule,
+    RidersModule,
     // BullMQ queue — Optional: if Redis isn't available the @Optional() in service prevents crash
     BullModule.registerQueue({ name: RIDER_DISPATCH_QUEUE }),
   ],

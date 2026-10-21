@@ -12,7 +12,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.RidersModule = exports.RiderSchema = exports.Rider = void 0;
+exports.RidersModule = exports.RidersService = exports.RiderSchema = exports.Rider = void 0;
 const common_1 = require("@nestjs/common");
 const common_2 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
@@ -23,6 +23,8 @@ const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
 const roles_guard_1 = require("../auth/guards/roles.guard");
 const roles_decorator_1 = require("../auth/decorators/roles.decorator");
 const shared_types_1 = require("@fastfood/shared-types");
+const users_module_1 = require("../users/users.module");
+const users_service_1 = require("../users/users.service");
 let Rider = class Rider {
     userId; // links to users collection
     isOnline;
@@ -54,10 +56,13 @@ exports.RiderSchema.index({ userId: 1 }, { unique: true });
 // ── Rider Service ────────────────────────────
 let RidersService = class RidersService {
     riderModel;
-    constructor(riderModel) {
+    usersService;
+    constructor(riderModel, usersService) {
         this.riderModel = riderModel;
+        this.usersService = usersService;
     }
     async setOnlineStatus(userId, isOnline) {
+        await this.usersService.setOnlineStatus(userId, isOnline);
         return this.riderModel.findOneAndUpdate({ userId }, { $set: { isOnline } }, { upsert: true, new: true });
     }
     async getDashboard(userId) {
@@ -75,10 +80,12 @@ let RidersService = class RidersService {
         await this.riderModel.findOneAndUpdate({ userId }, { $set: { unsettledCashPaisa: 0 } });
     }
 };
-RidersService = __decorate([
+exports.RidersService = RidersService;
+exports.RidersService = RidersService = __decorate([
     (0, common_2.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(Rider.name)),
-    __metadata("design:paramtypes", [mongoose_4.Model])
+    __metadata("design:paramtypes", [mongoose_4.Model,
+        users_service_1.UsersService])
 ], RidersService);
 // ── Rider Controller ─────────────────────────
 let RidersController = class RidersController {
@@ -135,7 +142,10 @@ let RidersModule = class RidersModule {
 exports.RidersModule = RidersModule;
 exports.RidersModule = RidersModule = __decorate([
     (0, common_1.Module)({
-        imports: [mongoose_2.MongooseModule.forFeature([{ name: Rider.name, schema: exports.RiderSchema }])],
+        imports: [
+            mongoose_2.MongooseModule.forFeature([{ name: Rider.name, schema: exports.RiderSchema }]),
+            users_module_1.UsersModule,
+        ],
         providers: [RidersService],
         controllers: [RidersController],
         exports: [RidersService],

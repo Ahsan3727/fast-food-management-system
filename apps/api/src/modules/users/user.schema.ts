@@ -27,6 +27,9 @@ export class User {
   @Prop({ default: false })
   isSuspended: boolean;
 
+  @Prop({ default: false })
+  isOnline: boolean;
+
   @Prop()
   fcmToken?: string;
 

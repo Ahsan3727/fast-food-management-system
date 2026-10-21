@@ -120,6 +120,10 @@ let OrdersController = class OrdersController {
     transition(req, id, dto) {
         return this.ordersService.transition(id, dto.status, req.user.sub, req.user.role, dto.note);
     }
+    // ── Admin / Staff: analytics summary ─────────────────
+    getAnalytics(days = 30) {
+        return this.ordersService.getAnalytics(+days);
+    }
     // ── Any authenticated: get by ID ──────────────────────
     getById(req, id) {
         return this.ordersService.getById(id, req.user.sub, req.user.role);
@@ -222,6 +226,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, String, TransitionDto]),
     __metadata("design:returntype", void 0)
 ], OrdersController.prototype, "transition", null);
+__decorate([
+    (0, common_1.Get)('analytics'),
+    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(shared_types_1.Role.ADMIN, shared_types_1.Role.STAFF),
+    __param(0, (0, common_1.Query)('days')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object]),
+    __metadata("design:returntype", void 0)
+], OrdersController.prototype, "getAnalytics", null);
 __decorate([
     (0, common_1.Get)(':id'),
     __param(0, (0, common_1.Request)()),

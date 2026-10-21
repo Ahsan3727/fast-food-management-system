@@ -70,6 +70,10 @@ export declare class OrdersController {
     }> & {
         __v: number;
     }>;
+    getAnalytics(days?: number): Promise<{
+        revenueData: any[];
+        statusData: any[];
+    }>;
     getById(req: any, id: string): Promise<import("mongoose").FlattenMaps<import("./order.schema").OrderDocument> & Required<{
         _id: import("mongoose").Types.ObjectId;
     }> & {

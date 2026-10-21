@@ -24,6 +24,7 @@ const menu_service_1 = require("../menu/menu.service");
 const notifications_service_1 = require("../notifications/notifications.service");
 const realtime_gateway_1 = require("../../realtime/realtime.gateway");
 const users_service_1 = require("../users/users.service");
+const riders_module_1 = require("../riders/riders.module");
 const rider_dispatch_processor_1 = require("../../jobs/rider-dispatch.processor");
 let orderCounter = 1000;
 let OrdersService = class OrdersService {
@@ -32,14 +33,30 @@ let OrdersService = class OrdersService {
     notifications;
     gateway;
     usersService;
+    ridersService;
     dispatchQueue;
-    constructor(orderModel, menuService, notifications, gateway, usersService, dispatchQueue) {
+    constructor(orderModel, menuService, notifications, gateway, usersService, ridersService, dispatchQueue) {
         this.orderModel = orderModel;
         this.menuService = menuService;
         this.notifications = notifications;
         this.gateway = gateway;
         this.usersService = usersService;
+        this.ridersService = ridersService;
         this.dispatchQueue = dispatchQueue;
+    }
+    async onModuleInit() {
+        try {
+            const latest = await this.orderModel.findOne({}, { orderNumber: 1 }).sort({ createdAt: -1 }).lean();
+            if (latest?.orderNumber) {
+                const match = latest.orderNumber.match(/\d+$/);
+                if (match) {
+                    orderCounter = Math.max(orderCounter, parseInt(match[0], 10));
+                }
+            }
+        }
+        catch {
+            // Keep default counter if collection is empty or initial connection
+        }
     }
     // ── Create Order ───────────────────────────────────────
     async create(customerId, body) {
@@ -167,6 +184,10 @@ let OrdersService = class OrdersService {
         order.payment.status = shared_types_1.PaymentStatus.COLLECTED;
         order.statusHistory.push({ status: shared_types_1.OrderStatus.DELIVERED, by: riderId, at: new Date() });
         const saved = await order.save();
+        // If Cash On Delivery, record cash collected by rider in rider ledger
+        if (saved.payment?.method === shared_types_1.PaymentMethod.COD || !saved.payment?.method) {
+            await this.ridersService.addUnsettledCash(riderId, saved.totalPaisa);
+        }
         // Notify customer
         const customer = await this.usersService.findById(saved.customerId.toString());
         if (customer?.fcmToken) {
@@ -298,12 +319,13 @@ exports.OrdersService = OrdersService;
 exports.OrdersService = OrdersService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(order_schema_1.Order.name)),
-    __param(5, (0, common_1.Optional)()),
-    __param(5, (0, bullmq_1.InjectQueue)(rider_dispatch_processor_1.RIDER_DISPATCH_QUEUE)),
+    __param(6, (0, common_1.Optional)()),
+    __param(6, (0, bullmq_1.InjectQueue)(rider_dispatch_processor_1.RIDER_DISPATCH_QUEUE)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         menu_service_1.MenuService,
         notifications_service_1.NotificationsService,
         realtime_gateway_1.RealtimeGateway,
-        users_service_1.UsersService, Object])
+        users_service_1.UsersService,
+        riders_module_1.RidersService, Object])
 ], OrdersService);
 //# sourceMappingURL=orders.service.js.map

@@ -9,6 +9,7 @@ export declare class User {
     role: Role;
     isActive: boolean;
     isSuspended: boolean;
+    isOnline: boolean;
     fcmToken?: string;
     savedAddress?: {
         lat: number;

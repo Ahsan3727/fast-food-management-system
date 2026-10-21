@@ -57,10 +57,6 @@ export default function LoginPage() {
           <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center', padding: '12px 0', fontSize: 15 }} disabled={loading}>
             {loading ? 'Signing in…' : 'Sign In'}
           </button>
-
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center' }}>
-            Default admin: +923001111111 / admin123456
-          </p>
         </form>
       </div>
     </div>

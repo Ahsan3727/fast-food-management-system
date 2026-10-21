@@ -17,5 +17,17 @@ export declare class UsersController {
     }): Promise<{
         ok: boolean;
     }>;
+    listUsers(role?: string, page?: number, limit?: number): Promise<{
+        users: (import("mongoose").FlattenMaps<import("./user.schema").UserDocument> & Required<{
+            _id: import("mongoose").Types.ObjectId;
+        }> & {
+            __v: number;
+        })[];
+    }>;
+    updateStatus(id: string, body: {
+        isSuspended?: boolean;
+    }): Promise<{
+        user: import("./user.schema").UserDocument;
+    }>;
 }
 //# sourceMappingURL=users.controller.d.ts.map

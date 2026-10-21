@@ -20,6 +20,7 @@ let User = class User {
     role;
     isActive;
     isSuspended;
+    isOnline;
     fcmToken;
     savedAddress;
 };
@@ -53,6 +54,10 @@ __decorate([
     (0, mongoose_1.Prop)({ default: false }),
     __metadata("design:type", Boolean)
 ], User.prototype, "isSuspended", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: false }),
+    __metadata("design:type", Boolean)
+], User.prototype, "isOnline", void 0);
 __decorate([
     (0, mongoose_1.Prop)(),
     __metadata("design:type", String)

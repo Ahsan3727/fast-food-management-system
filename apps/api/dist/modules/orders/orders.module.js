@@ -17,6 +17,7 @@ const menu_module_1 = require("../menu/menu.module");
 const notifications_module_1 = require("../notifications/notifications.module");
 const realtime_module_1 = require("../../realtime/realtime.module");
 const users_module_1 = require("../users/users.module");
+const riders_module_1 = require("../riders/riders.module");
 const rider_dispatch_processor_1 = require("../../jobs/rider-dispatch.processor");
 let OrdersModule = class OrdersModule {
 };
@@ -29,6 +30,7 @@ exports.OrdersModule = OrdersModule = __decorate([
             notifications_module_1.NotificationsModule,
             realtime_module_1.RealtimeModule,
             users_module_1.UsersModule,
+            riders_module_1.RidersModule,
             // BullMQ queue — Optional: if Redis isn't available the @Optional() in service prevents crash
             bullmq_1.BullModule.registerQueue({ name: rider_dispatch_processor_1.RIDER_DISPATCH_QUEUE }),
         ],

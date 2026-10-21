@@ -112,6 +112,14 @@ export class OrdersController {
     return this.ordersService.transition(id, dto.status, req.user.sub, req.user.role as Role, dto.note);
   }
 
+  // ── Admin / Staff: analytics summary ─────────────────
+  @Get('analytics')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.STAFF)
+  getAnalytics(@Query('days') days = 30) {
+    return this.ordersService.getAnalytics(+days);
+  }
+
   // ── Any authenticated: get by ID ──────────────────────
   @Get(':id')
   getById(@Request() req: any, @Param('id') id: string) {

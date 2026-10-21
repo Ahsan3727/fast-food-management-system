@@ -14,6 +14,7 @@ export declare class UsersService {
     clearFcmToken(userId: string): Promise<void>;
     suspendUser(id: string): Promise<void>;
     activateUser(id: string): Promise<void>;
+    setOnlineStatus(id: string, isOnline: boolean): Promise<void>;
     findOnlineRiders(): Promise<UserDocument[]>;
     listAll(role?: string, page?: number, limit?: number): Promise<(import("mongoose").FlattenMaps<UserDocument> & Required<{
         _id: import("mongoose").Types.ObjectId;

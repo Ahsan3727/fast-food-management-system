@@ -16,6 +16,9 @@ exports.UsersController = void 0;
 const common_1 = require("@nestjs/common");
 const users_service_1 = require("./users.service");
 const jwt_auth_guard_1 = require("../auth/guards/jwt-auth.guard");
+const roles_guard_1 = require("../auth/guards/roles.guard");
+const roles_decorator_1 = require("../auth/decorators/roles.decorator");
+const shared_types_1 = require("@fastfood/shared-types");
 const users_dto_1 = require("./users.dto");
 let UsersController = class UsersController {
     usersService;
@@ -38,6 +41,22 @@ let UsersController = class UsersController {
     async updateFcmToken(req, body) {
         await this.usersService.saveFcmToken(req.user.sub, body.fcmToken);
         return { ok: true };
+    }
+    // ── Admin: list users by role (riders, customers, staff) ────────
+    async listUsers(role, page = 1, limit = 50) {
+        const users = await this.usersService.listAll(role, +page, +limit);
+        return { users };
+    }
+    // ── Admin: suspend or activate user ─────────────────────────────
+    async updateStatus(id, body) {
+        if (body.isSuspended === true) {
+            await this.usersService.suspendUser(id);
+        }
+        else if (body.isSuspended === false) {
+            await this.usersService.activateUser(id);
+        }
+        const user = await this.usersService.findById(id);
+        return { user };
     }
 };
 exports.UsersController = UsersController;
@@ -72,6 +91,27 @@ __decorate([
     __metadata("design:paramtypes", [Object, Object]),
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "updateFcmToken", null);
+__decorate([
+    (0, common_1.Get)(),
+    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(shared_types_1.Role.ADMIN, shared_types_1.Role.STAFF),
+    __param(0, (0, common_1.Query)('role')),
+    __param(1, (0, common_1.Query)('page')),
+    __param(2, (0, common_1.Query)('limit')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "listUsers", null);
+__decorate([
+    (0, common_1.Patch)(':id'),
+    (0, common_1.UseGuards)(roles_guard_1.RolesGuard),
+    (0, roles_decorator_1.Roles)(shared_types_1.Role.ADMIN),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "updateStatus", null);
 exports.UsersController = UsersController = __decorate([
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
     (0, common_1.Controller)('users'),

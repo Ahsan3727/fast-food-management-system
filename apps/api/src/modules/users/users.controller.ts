@@ -1,6 +1,9 @@
-import { Controller, Get, Patch, Body, UseGuards, Request, Post } from '@nestjs/common';
+import { Controller, Get, Patch, Body, UseGuards, Request, Post, Query, Param } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { Role } from '@fastfood/shared-types';
 import { UpdateProfileDto, UpdateAddressDto } from './users.dto';
 
 @UseGuards(JwtAuthGuard)
@@ -31,5 +34,35 @@ export class UsersController {
   async updateFcmToken(@Request() req: any, @Body() body: { fcmToken: string }) {
     await this.usersService.saveFcmToken(req.user.sub, body.fcmToken);
     return { ok: true };
+  }
+
+  // ── Admin: list users by role (riders, customers, staff) ────────
+  @Get()
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN, Role.STAFF)
+  async listUsers(
+    @Query('role') role?: string,
+    @Query('page') page = 1,
+    @Query('limit') limit = 50,
+  ) {
+    const users = await this.usersService.listAll(role, +page, +limit);
+    return { users };
+  }
+
+  // ── Admin: suspend or activate user ─────────────────────────────
+  @Patch(':id')
+  @UseGuards(RolesGuard)
+  @Roles(Role.ADMIN)
+  async updateStatus(
+    @Param('id') id: string,
+    @Body() body: { isSuspended?: boolean },
+  ) {
+    if (body.isSuspended === true) {
+      await this.usersService.suspendUser(id);
+    } else if (body.isSuspended === false) {
+      await this.usersService.activateUser(id);
+    }
+    const user = await this.usersService.findById(id);
+    return { user };
   }
 }

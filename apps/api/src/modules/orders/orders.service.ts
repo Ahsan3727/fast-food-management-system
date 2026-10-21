@@ -1,6 +1,6 @@
 import {
   Injectable, BadRequestException, NotFoundException,
-  ForbiddenException, ConflictException, Optional,
+  ForbiddenException, ConflictException, Optional, OnModuleInit,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -13,20 +13,36 @@ import { MenuService } from '../menu/menu.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeGateway } from '../../realtime/realtime.gateway';
 import { UsersService } from '../users/users.service';
+import { RidersService } from '../riders/riders.module';
 import { RIDER_DISPATCH_QUEUE, JOB_DISPATCH_OFFER } from '../../jobs/rider-dispatch.processor';
 
 let orderCounter = 1000;
 
 @Injectable()
-export class OrdersService {
+export class OrdersService implements OnModuleInit {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
     private menuService: MenuService,
     private notifications: NotificationsService,
     private gateway: RealtimeGateway,
     private usersService: UsersService,
+    private ridersService: RidersService,
     @Optional() @InjectQueue(RIDER_DISPATCH_QUEUE) private dispatchQueue: Queue | null,
   ) {}
+
+  async onModuleInit() {
+    try {
+      const latest = await this.orderModel.findOne({}, { orderNumber: 1 }).sort({ createdAt: -1 }).lean();
+      if (latest?.orderNumber) {
+        const match = latest.orderNumber.match(/\d+$/);
+        if (match) {
+          orderCounter = Math.max(orderCounter, parseInt(match[0], 10));
+        }
+      }
+    } catch {
+      // Keep default counter if collection is empty or initial connection
+    }
+  }
 
   // ── Create Order ───────────────────────────────────────
   async create(customerId: string, body: {
@@ -183,6 +199,11 @@ export class OrdersService {
     order.payment.status = PaymentStatus.COLLECTED;
     order.statusHistory.push({ status: OrderStatus.DELIVERED, by: riderId, at: new Date() });
     const saved = await order.save();
+
+    // If Cash On Delivery, record cash collected by rider in rider ledger
+    if (saved.payment?.method === PaymentMethod.COD || !saved.payment?.method) {
+      await this.ridersService.addUnsettledCash(riderId, saved.totalPaisa);
+    }
 
     // Notify customer
     const customer = await this.usersService.findById(saved.customerId.toString());

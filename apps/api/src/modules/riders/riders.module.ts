@@ -9,6 +9,9 @@ import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { Role } from '@fastfood/shared-types';
 
+import { UsersModule } from '../users/users.module';
+import { UsersService } from '../users/users.service';
+
 // ── Rider Schema ────────────────────────────
 export type RiderDocument = Rider & Document;
 
@@ -25,10 +28,14 @@ RiderSchema.index({ userId: 1 }, { unique: true });
 
 // ── Rider Service ────────────────────────────
 @Injectable()
-class RidersService {
-  constructor(@InjectModel(Rider.name) private riderModel: Model<RiderDocument>) {}
+export class RidersService {
+  constructor(
+    @InjectModel(Rider.name) private riderModel: Model<RiderDocument>,
+    private usersService: UsersService,
+  ) {}
 
   async setOnlineStatus(userId: string, isOnline: boolean) {
+    await this.usersService.setOnlineStatus(userId, isOnline);
     return this.riderModel.findOneAndUpdate(
       { userId },
       { $set: { isOnline } },
@@ -91,7 +98,10 @@ class RidersController {
 
 // ── Riders Module ─────────────────────────────
 @Module({
-  imports: [MongooseModule.forFeature([{ name: Rider.name, schema: RiderSchema }])],
+  imports: [
+    MongooseModule.forFeature([{ name: Rider.name, schema: RiderSchema }]),
+    UsersModule,
+  ],
   providers: [RidersService],
   controllers: [RidersController],
   exports: [RidersService],

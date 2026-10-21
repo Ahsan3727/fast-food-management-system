@@ -1,3 +1,4 @@
+import { OnModuleInit } from '@nestjs/common';
 import { Model } from 'mongoose';
 import { Queue } from 'bullmq';
 import { Order, OrderDocument } from './order.schema';
@@ -6,14 +7,17 @@ import { MenuService } from '../menu/menu.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { RealtimeGateway } from '../../realtime/realtime.gateway';
 import { UsersService } from '../users/users.service';
-export declare class OrdersService {
+import { RidersService } from '../riders/riders.module';
+export declare class OrdersService implements OnModuleInit {
     private orderModel;
     private menuService;
     private notifications;
     private gateway;
     private usersService;
+    private ridersService;
     private dispatchQueue;
-    constructor(orderModel: Model<OrderDocument>, menuService: MenuService, notifications: NotificationsService, gateway: RealtimeGateway, usersService: UsersService, dispatchQueue: Queue | null);
+    constructor(orderModel: Model<OrderDocument>, menuService: MenuService, notifications: NotificationsService, gateway: RealtimeGateway, usersService: UsersService, ridersService: RidersService, dispatchQueue: Queue | null);
+    onModuleInit(): Promise<void>;
     create(customerId: string, body: {
         items: {
             menuItemId: string;

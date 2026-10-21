@@ -66,6 +66,9 @@ let UsersService = class UsersService {
     async activateUser(id) {
         await this.userModel.findByIdAndUpdate(id, { $set: { isSuspended: false } }).exec();
     }
+    async setOnlineStatus(id, isOnline) {
+        await this.userModel.findByIdAndUpdate(id, { $set: { isOnline } }).exec();
+    }
     // Find all riders who are currently online (for delivery dispatch)
     async findOnlineRiders() {
         return this.userModel
