@@ -1,0 +1,1084 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+<meta name="theme-color" content="#FAFAF9">
+<title>FastFood Rider — Ember demo</title>
+<style>
+/* ==========================================================================
+   FastFood Rider — interactive demo of the "Ember" design system (§6, §10)
+   One file: HTML + CSS + JavaScript. No network, no dependencies.
+   ========================================================================== */
+
+/* ── Tokens (§15.2) ─────────────────────────────────────────────────────── */
+:root {
+  --font: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 20px;
+  --space-6: 24px; --space-8: 32px; --space-10: 40px; --space-12: 48px;
+
+  --radius-xs: 4px; --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-xl: 24px; --radius-pill: 999px;
+
+  --dur-press: 100ms; --dur-fast: 160ms; --dur-base: 240ms; --dur-slow: 400ms;
+  --ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0, 1);
+  --ease-exit: cubic-bezier(.3, 0, 1, 1);
+
+  --ember-50: #FFF7ED; --ember-100: #FFEDD5; --ember-200: #FED7AA; --ember-400: #FB923C;
+  --flame: #F97316; --ember-700: #C2410C; --ember-800: #9A3412; --ember-900: #7C2D12;
+  --stone-0: #FFFFFF; --stone-50: #FAFAF9; --stone-100: #F5F5F4; --stone-200: #E7E5E4; --stone-300: #D6D3D1;
+  --stone-400: #A8A29E; --stone-500: #78716C; --stone-600: #57534E; --stone-700: #44403C;
+  --stone-800: #292524; --stone-900: #1C1917; --stone-950: #0C0A09;
+
+  color-scheme: light;
+  --bg-page: var(--stone-50); --bg-surface: var(--stone-0); --bg-raised: var(--stone-0); --bg-sunken: var(--stone-100);
+  --bg-overlay: rgb(12 10 9 / .5);
+  --text: var(--stone-900); --text-muted: var(--stone-600); --text-subtle: var(--stone-500);
+  --border: var(--stone-200); --border-strong: var(--stone-500);
+  --action-bg: var(--ember-700); --action-bg-hover: var(--ember-800); --action-fg: #FFFFFF;
+  --link: var(--ember-700); --focus: #1D4ED8;
+  --success: #15803D; --success-bg: #F0FDF4;
+  --warning: #B45309; --warning-bg: #FFFBEB;
+  --danger: #B91C1C; --danger-bg: #FEF2F2; --danger-solid: #B91C1C; --on-danger-solid: #FFFFFF;
+  --info: #1D4ED8; --info-bg: #EFF6FF;
+  --shadow-1: 0 1px 2px rgb(28 25 23 / .06), 0 1px 1px rgb(28 25 23 / .04);
+  --shadow-2: 0 4px 12px rgb(28 25 23 / .08);
+  --shadow-3: 0 12px 32px rgb(28 25 23 / .16);
+
+  --tint-bg: var(--ember-100); --tint-fg: var(--ember-800);
+  --toast-bg: var(--stone-900); --toast-fg: #FFFFFF;
+
+  --tone-blue-fg: #1D4ED8; --tone-blue-bg: #EFF6FF;
+  --tone-indigo-fg: #4338CA; --tone-indigo-bg: #EEF2FF;
+  --tone-amber-fg: #92400E; --tone-amber-bg: #FEF3C7;
+  --tone-teal-fg: #0F766E; --tone-teal-bg: #F0FDFA;
+  --tone-purple-fg: #7E22CE; --tone-purple-bg: #FAF5FF;
+  --tone-orange-fg: #9A3412; --tone-orange-bg: #FFEDD5;
+  --tone-green-fg: #15803D; --tone-green-bg: #F0FDF4;
+  --tone-stone-fg: #44403C; --tone-stone-bg: #F5F5F4;
+  --tone-red-fg: #B91C1C; --tone-red-bg: #FEF2F2;
+  --tone-rose-fg: #9F1239; --tone-rose-bg: #FFF1F2;
+
+  /* demo-only: illustrative map + pins */
+  --map-bg: var(--stone-100); --map-road: #FFFFFF; --map-park: #D9F99D; --map-water: #BAE6FD;
+  --pin-store: var(--ember-700); --pin-home: #1D4ED8; --pin-rider: var(--flame);
+}
+
+[data-theme='dark'] {
+  color-scheme: dark;
+  --bg-page: var(--stone-950); --bg-surface: var(--stone-900); --bg-raised: var(--stone-800); --bg-sunken: #141210;
+  --bg-overlay: rgb(0 0 0 / .6);
+  --text: var(--stone-50); --text-muted: var(--stone-300); --text-subtle: var(--stone-400);
+  --border: var(--stone-700); --border-strong: var(--stone-500);
+  --action-bg: var(--flame); --action-bg-hover: var(--ember-400); --action-fg: var(--stone-900);
+  --link: var(--ember-400); --focus: #93C5FD;
+  --success: #4ADE80; --success-bg: rgb(34 197 94 / .16);
+  --warning: #FBBF24; --warning-bg: rgb(245 158 11 / .16);
+  --danger: #F87171; --danger-bg: rgb(239 68 68 / .16); --danger-solid: #F87171; --on-danger-solid: #1C1917;
+  --info: #60A5FA; --info-bg: rgb(59 130 246 / .16);
+  --shadow-1: none; --shadow-2: none; --shadow-3: 0 12px 32px rgb(0 0 0 / .5);
+
+  --tint-bg: rgb(249 115 22 / .16); --tint-fg: var(--ember-400);
+  --toast-bg: var(--stone-100); --toast-fg: var(--stone-900);
+
+  --tone-blue-fg: #93C5FD; --tone-blue-bg: rgb(59 130 246 / .16);
+  --tone-indigo-fg: #A5B4FC; --tone-indigo-bg: rgb(99 102 241 / .16);
+  --tone-amber-fg: #FCD34D; --tone-amber-bg: rgb(245 158 11 / .16);
+  --tone-teal-fg: #5EEAD4; --tone-teal-bg: rgb(20 184 166 / .16);
+  --tone-purple-fg: #D8B4FE; --tone-purple-bg: rgb(168 85 247 / .16);
+  --tone-orange-fg: #FDBA74; --tone-orange-bg: rgb(249 115 22 / .16);
+  --tone-green-fg: #86EFAC; --tone-green-bg: rgb(34 197 94 / .16);
+  --tone-stone-fg: #D6D3D1; --tone-stone-bg: rgb(168 162 158 / .16);
+  --tone-red-fg: #FCA5A5; --tone-red-bg: rgb(239 68 68 / .16);
+  --tone-rose-fg: #FDA4AF; --tone-rose-bg: rgb(244 63 94 / .16);
+
+  --map-bg: #141210; --map-road: var(--stone-700); --map-park: rgb(74 222 128 / .16); --map-water: rgb(96 165 250 / .2);
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100dvh;
+  font: 400 15px/22px var(--font); color: var(--text); background: var(--bg-sunken);
+  font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased;
+}
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+p, h1, h2, h3, dl, dd, ul, ol { margin: 0; padding: 0; }
+ul, ol { list-style: none; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.ic { flex: none; display: block; }
+
+.display { font: 800 32px/40px var(--font); }
+.h1 { font: 700 24px/32px var(--font); }
+.h2 { font: 700 20px/28px var(--font); }
+.h3 { font: 600 17px/24px var(--font); }
+.small { font: 400 13px/18px var(--font); }
+.caption { font: 500 12px/16px var(--font); }
+.overline { font: 600 12px/16px var(--font); letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+.muted { color: var(--text-muted); }
+.strong { font-weight: 600; }
+
+/* ── Stage + phone frame ────────────────────────────────────────────────── */
+.stage { min-height: 100dvh; display: flex; gap: 32px; align-items: center; justify-content: center; padding: 24px; }
+.phone {
+  --sb: 28px;
+  position: relative; flex: none; width: 390px; height: min(820px, calc(100dvh - 48px)); min-height: 620px;
+  display: flex; flex-direction: column; overflow: hidden; isolation: isolate;
+  background: var(--bg-page); border-radius: 44px;
+  box-shadow: 0 0 0 10px #0C0A09, 0 0 0 11px #44403C, var(--shadow-3);
+}
+.statusbar { height: var(--sb); flex: none; display: flex; align-items: flex-end; justify-content: space-between; padding: 0 24px 2px; font: 600 12px/16px var(--font); color: var(--text); }
+.statusbar svg { display: inline-block; vertical-align: middle; }
+.app { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.screen { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; display: flex; flex-direction: column; gap: 16px; scroll-padding-bottom: 96px; }
+
+@media (max-width: 560px) {
+  .stage { display: block; padding: 0; }
+  .phone { --sb: 0px; width: 100%; height: 100dvh; min-height: 0; border-radius: 0; box-shadow: none; }
+  .statusbar, .side { display: none; }
+}
+@media (min-width: 561px) and (max-width: 899px) {
+  .stage { flex-direction: column; padding-block: 24px; }
+  .side { width: 390px; max-width: 100%; }
+}
+@media (max-width: 560px) { .only-narrow { display: flex !important; } }
+
+/* ── Connection banner (§8 ConnectionBanner) ────────────────────────────── */
+.conn { display: none; align-items: center; gap: 8px; padding: 8px 16px; font: 600 13px/18px var(--font); background: var(--danger-bg); color: var(--danger); border-bottom: 1px solid var(--danger); }
+.conn[data-show] { display: flex; }
+.conn[data-ok] { background: var(--success-bg); color: var(--success); border-color: var(--success); }
+
+/* ── Buttons (§8.1) ─────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-2);
+  min-height: 44px; padding: 0 var(--space-5); width: auto;
+  border: 1px solid transparent; border-radius: var(--radius-md);
+  font: 600 15px/1 var(--font); text-decoration: none; text-align: center;
+  transition: background var(--dur-fast) var(--ease-standard), transform var(--dur-press) var(--ease-standard);
+}
+.btn:active { transform: scale(.98); }
+.btn[disabled], .btn[aria-busy='true'] { opacity: .55; cursor: not-allowed; }
+.btn--primary { background: var(--action-bg); color: var(--action-fg); }
+.btn--primary:hover { background: var(--action-bg-hover); }
+.btn--secondary { background: var(--bg-surface); color: var(--text); border-color: var(--border-strong); }
+.btn--ghost { background: transparent; color: var(--link); }
+.btn--danger { background: var(--danger-solid); color: var(--on-danger-solid); }
+.btn--danger-outline { background: transparent; color: var(--danger); border-color: var(--danger); }
+.btn--xl { min-height: 56px; width: 100%; font-size: 16px; }
+.btn--link-danger { background: transparent; color: var(--danger); min-height: 48px; width: 100%; }
+.iconbtn { width: 48px; height: 48px; flex: none; display: grid; place-items: center; border: 0; border-radius: var(--radius-md); background: var(--bg-sunken); color: var(--text); }
+.iconbtn:active { transform: scale(.96); }
+a.iconbtn { text-decoration: none; }
+.iconbtn--filled { background: var(--action-bg); color: var(--action-fg); }
+
+/* ── Cards, rows, badges ───────────────────────────────────────────────── */
+.card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-4); box-shadow: var(--shadow-1); display: flex; flex-direction: column; gap: var(--space-3); }
+.card--active { border-left: 3px solid var(--flame); }
+.row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.stack { display: flex; flex-direction: column; gap: var(--space-4); }
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+
+.status-badge { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: var(--radius-pill); font: 600 12px/1 var(--font); white-space: nowrap; background: var(--tone-bg); color: var(--tone-fg); }
+.status-badge[data-tone='blue'] { --tone-bg: var(--tone-blue-bg); --tone-fg: var(--tone-blue-fg); }
+.status-badge[data-tone='amber'] { --tone-bg: var(--tone-amber-bg); --tone-fg: var(--tone-amber-fg); }
+.status-badge[data-tone='purple'] { --tone-bg: var(--tone-purple-bg); --tone-fg: var(--tone-purple-fg); }
+.status-badge[data-tone='orange'] { --tone-bg: var(--tone-orange-bg); --tone-fg: var(--tone-orange-fg); }
+.status-badge[data-tone='green'] { --tone-bg: var(--tone-green-bg); --tone-fg: var(--tone-green-fg); }
+.status-badge[data-tone='stone'] { --tone-bg: var(--tone-stone-bg); --tone-fg: var(--tone-stone-fg); }
+.status-badge[data-tone='rose'] { --tone-bg: var(--tone-rose-bg); --tone-fg: var(--tone-rose-fg); }
+.presence { display: inline-flex; align-items: center; gap: 8px; height: 28px; padding: 0 12px; border-radius: var(--radius-pill); font: 600 13px/1 var(--font); background: var(--tone-stone-bg); color: var(--tone-stone-fg); }
+.presence i { width: 8px; height: 8px; border-radius: 50%; background: var(--text-subtle); }
+.presence[data-on='true'] { background: var(--tone-green-bg); color: var(--tone-green-fg); }
+.presence[data-on='true'] i { background: var(--success); animation: pulse 2s infinite; }
+
+.avatar { flex: none; display: grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; font: 700 20px/1 var(--font); background: var(--av-bg); color: var(--av-fg); }
+.avatar--sm { width: 40px; height: 40px; font-size: 15px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: var(--radius-pill); background: var(--tint-bg); color: var(--tint-fg); font: 600 13px/1 var(--font); }
+
+/* ── Forms (§8.1 Field / Input) ────────────────────────────────────────── */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.label { font: 600 13px/18px var(--font); color: var(--text-muted); }
+.input { width: 100%; min-height: 52px; padding: 0 16px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); background: var(--bg-surface); color: var(--text); font: 400 16px/24px var(--font); }
+.input::placeholder { color: var(--text-subtle); }
+.input--error { border-color: var(--danger); border-width: 2px; }
+.input--otp { font: 800 28px/36px var(--font); letter-spacing: .4em; text-align: center; }
+textarea.input { min-height: 88px; padding: 12px 16px; resize: vertical; }
+.pw { position: relative; }
+.pw .input { padding-right: 56px; }
+.pw .iconbtn { position: absolute; right: 2px; top: 2px; width: 48px; height: 48px; background: transparent; }
+.hint { font: 400 13px/18px var(--font); color: var(--text-muted); }
+.error, .warn, .form-error { display: flex; align-items: flex-start; gap: 6px; font: 600 13px/18px var(--font); color: var(--danger); }
+.warn { color: var(--warning); }
+.form-error { padding: 12px; border-radius: var(--radius-md); background: var(--danger-bg); }
+.demo-note { padding: 12px; border-radius: var(--radius-md); background: var(--info-bg); color: var(--info); font: 400 13px/18px var(--font); }
+
+.opt { display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 0 16px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); cursor: pointer; font-weight: 600; background: var(--bg-surface); }
+.opt input { width: 22px; height: 22px; accent-color: var(--action-bg); flex: none; }
+.opt:has(input:checked) { background: var(--tint-bg); color: var(--tint-fg); border-color: var(--action-bg); }
+.opt:has(input:focus-visible) { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: var(--radius-md); background: var(--bg-sunken); border: 1px solid var(--border); }
+.seg button { min-height: 44px; border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font-weight: 600; }
+.seg button[aria-pressed='true'] { background: var(--bg-surface); color: var(--text); box-shadow: var(--shadow-1); outline: 1px solid var(--border); }
+.seg button:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* Switch (rider-sized: 68 × 40) */
+.switch { position: relative; flex: none; width: 68px; height: 40px; padding: 0; border: 2px solid var(--border-strong); border-radius: 20px; background: var(--bg-sunken); transition: background var(--dur-fast) var(--ease-standard); }
+.switch__thumb { position: absolute; top: 3px; left: 3px; width: 30px; height: 30px; border-radius: 50%; background: var(--text-muted); transition: transform var(--dur-fast) var(--ease-standard); }
+.switch[aria-checked='true'] { background: var(--action-bg); border-color: var(--action-bg); }
+.switch[aria-checked='true'] .switch__thumb { transform: translateX(28px); background: var(--action-fg); }
+.switch:disabled { opacity: .6; cursor: progress; }
+
+/* ── Tab bar (§8.2 BottomNav, 3 tabs for the rider) ────────────────────── */
+.tabbar { display: grid; grid-template-columns: repeat(3, 1fr); flex: none; background: var(--bg-surface); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
+.tab { position: relative; min-height: 60px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border: 0; background: transparent; color: var(--text-muted); font: 600 12px/16px var(--font); }
+.tab[aria-current='page'] { color: var(--link); }
+.tab[aria-current='page']::before { content: ''; position: absolute; top: -1px; left: 28%; right: 28%; height: 3px; border-radius: 0 0 3px 3px; background: var(--action-bg); }
+.tab__dot { position: absolute; top: 8px; left: calc(50% + 8px); width: 10px; height: 10px; border-radius: 50%; background: var(--flame); border: 2px solid var(--bg-surface); }
+
+/* ── Jobs ─────────────────────────────────────────────────────────────── */
+.onl { flex-direction: row; align-items: center; justify-content: space-between; padding: 20px; }
+.stats { display: grid; grid-template-columns: .7fr 1.1fr 1.3fr; gap: 8px; }
+.stats > div { min-width: 0; }
+.stat { font: 800 24px/32px var(--font); }
+.stats .stat { font-size: 20px; line-height: 28px; }
+.stats .stat--warn { color: var(--warning); display: flex; align-items: center; gap: 4px; font-size: 18px; }
+.wait, .empty { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 24px 16px; }
+.radar { position: relative; width: 128px; height: 128px; display: grid; place-items: center; margin-bottom: 8px; }
+.radar i { position: absolute; inset: 0; border-radius: 50%; border: 2px solid var(--action-bg); opacity: 0; animation: ping 2.4s var(--ease-standard) infinite; }
+.radar i:nth-child(2) { animation-delay: .8s; }
+.radar i:nth-child(3) { animation-delay: 1.6s; }
+.radar__core, .empty__art { width: 64px; height: 64px; border-radius: 50%; background: var(--tint-bg); color: var(--tint-fg); display: grid; place-items: center; position: relative; }
+.empty__art { width: 88px; height: 88px; margin-bottom: 8px; }
+
+/* ── Skeleton (§8.1) ──────────────────────────────────────────────────── */
+.sk { border-radius: var(--radius-sm); background: linear-gradient(90deg, var(--bg-sunken), var(--border), var(--bg-sunken)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+.sk--title { height: 56px; width: 60%; }
+.sk--card { height: 96px; border-radius: var(--radius-lg); }
+.sk--tall { height: 180px; border-radius: var(--radius-lg); }
+
+/* ── Delivery screen ──────────────────────────────────────────────────── */
+.dwrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.dhead { display: flex; align-items: center; gap: 12px; padding: 8px 16px; }
+.dhead .h2 { flex: 1; }
+.scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 0 16px 16px; display: flex; flex-direction: column; gap: 16px; }
+.actionbar { flex: none; display: flex; flex-direction: column; gap: 4px; padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); background: var(--bg-surface); border-top: 1px solid var(--border); }
+.map { position: relative; flex: none; border-radius: var(--radius-lg); overflow: hidden; border: 1px solid var(--border); background: var(--map-bg); }
+.mapsvg { display: block; width: 100%; height: auto; }
+.map .chip--float { position: absolute; top: 10px; left: 10px; height: 32px; background: var(--bg-surface); color: var(--text); border: 1px solid var(--border); }
+.dot-live { width: 8px; height: 8px; border-radius: 50%; background: var(--success); animation: pulse 2s infinite; }
+.attrib { position: absolute; right: 8px; bottom: 6px; padding: 2px 6px; border-radius: var(--radius-xs); background: var(--bg-surface); color: var(--text-muted); font: 500 12px/16px var(--font); }
+.rpulse { fill: var(--pin-rider); opacity: .28; transform-box: fill-box; transform-origin: center; animation: rpulse 2s ease-out infinite; }
+.cash { font: 800 32px/40px var(--font); }
+.items li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.items li:first-child { border-top: 0; }
+.addr { display: flex; gap: 12px; align-items: flex-start; }
+
+/* Slide to confirm (§10.2) */
+.slide { position: relative; height: 60px; border-radius: 30px; background: var(--action-bg); color: var(--action-fg); display: flex; align-items: center; justify-content: center; overflow: hidden; user-select: none; -webkit-user-select: none; touch-action: pan-y; }
+.slide:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.slide__fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: var(--action-bg-hover); }
+.slide__label { position: relative; padding-left: 48px; font: 700 16px/20px var(--font); }
+.slide__thumb { position: absolute; left: 4px; top: 4px; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; background: var(--action-fg); color: var(--action-bg); cursor: grab; touch-action: none; }
+.slide--snap .slide__thumb { transition: transform .2s var(--ease-standard); }
+.slide--snap .slide__fill { transition: width .2s var(--ease-standard); }
+.slide[data-disabled] { opacity: .6; }
+
+/* Result */
+.result { align-items: center; text-align: center; }
+.result__icon { width: 96px; height: 96px; border-radius: 50%; display: grid; place-items: center; background: var(--tone-green-bg); color: var(--tone-green-fg); }
+.result__icon--fail { background: var(--tone-rose-bg); color: var(--tone-rose-fg); }
+.sum { width: 100%; text-align: left; }
+.sum div { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-top: 1px solid var(--border); }
+.sum div:first-child { border-top: 0; }
+
+/* Login */
+.login { gap: 24px; padding: 24px 20px; }
+.login > :first-child, .result > :first-child { margin-top: auto; }
+.login > :last-child, .result > :last-child { margin-bottom: auto; }
+.brand { display: flex; align-items: center; gap: 14px; }
+.wordmark { font: 800 26px/32px var(--font); letter-spacing: -.01em; }
+.tag { display: inline-block; margin-top: 2px; padding: 2px 10px; border-radius: var(--radius-pill); background: var(--tint-bg); color: var(--tint-fg); font: 600 12px/16px var(--font); }
+
+/* Earnings list */
+.list > li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 0; border-top: 1px solid var(--border); }
+.list > li:first-child { border-top: 0; }
+.cashcard { border-color: var(--warning); background: var(--warning-bg); box-shadow: none; }
+.cashcard .cash-amt { color: var(--warning); display: flex; align-items: center; gap: 8px; font: 800 28px/36px var(--font); }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* ── Sheets, scrim, toasts (§8.1 BottomSheet / Dialog / Toast) ─────────── */
+.layer { position: absolute; inset: 0; z-index: 30; display: none; }
+.layer[data-open] { display: block; }
+.scrim { position: absolute; inset: 0; background: var(--bg-overlay); animation: fade var(--dur-base) var(--ease-enter); }
+.sheet { position: absolute; left: 0; right: 0; bottom: 0; max-height: 92%; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; padding: 12px 16px calc(16px + env(safe-area-inset-bottom)); background: var(--bg-raised); border-radius: var(--radius-xl) var(--radius-xl) 0 0; box-shadow: var(--shadow-3); border-top: 1px solid var(--border); animation: rise var(--dur-base) var(--ease-enter); }
+.sheet__grip { width: 40px; height: 4px; border-radius: 2px; background: var(--border-strong); opacity: .5; margin: 0 auto -4px; }
+.req__top { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.route li { display: flex; align-items: center; gap: 12px; padding: 10px 0; border-top: 1px solid var(--border); }
+.route li:first-child { border-top: 0; }
+.route__ic { flex: none; width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--tint-bg); color: var(--tint-fg); }
+.route__txt { flex: 1; min-width: 0; }
+.ring { position: relative; flex: none; width: 80px; height: 80px; }
+.ring__track { fill: none; stroke: var(--border-strong); stroke-opacity: .35; stroke-width: 7; }
+.ring__bar { fill: none; stroke: var(--action-bg); stroke-width: 7; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+.ring__n { position: absolute; inset: 0; display: grid; place-items: center; font: 800 24px/1 var(--font); }
+
+.toasts { position: absolute; z-index: 50; top: calc(var(--sb) + 12px); left: 12px; right: 12px; display: flex; flex-direction: column; align-items: center; pointer-events: none; }
+.toast { pointer-events: auto; display: flex; align-items: center; gap: 10px; max-width: 100%; padding: 12px 16px; border-radius: var(--radius-md); background: var(--toast-bg); color: var(--toast-fg); font: 600 14px/20px var(--font); box-shadow: var(--shadow-3); animation: drop var(--dur-base) var(--ease-enter); }
+
+/* ── Demo side panel ──────────────────────────────────────────────────── */
+.side { width: 340px; flex: none; display: flex; flex-direction: column; gap: 16px; }
+.panel { background: var(--bg-surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 20px; display: flex; flex-direction: column; gap: 12px; box-shadow: var(--shadow-1); }
+.panel .btn { width: 100%; justify-content: flex-start; }
+.toggle[aria-pressed='true'] { background: var(--tint-bg); color: var(--tint-fg); border-color: var(--action-bg); }
+.steps { display: flex; flex-direction: column; gap: 6px; counter-reset: s; }
+.steps li { counter-increment: s; display: flex; gap: 10px; font-size: 14px; line-height: 20px; }
+.steps li::before { content: counter(s); flex: none; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; background: var(--tint-bg); color: var(--tint-fg); font: 700 12px/1 var(--font); }
+
+/* ── Motion ───────────────────────────────────────────────────────────── */
+@keyframes ping { from { transform: scale(.45); opacity: .6; } to { transform: scale(1.35); opacity: 0; } }
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgb(34 197 94 / .5); } 70% { box-shadow: 0 0 0 8px rgb(34 197 94 / 0); } 100% { box-shadow: 0 0 0 0 rgb(34 197 94 / 0); } }
+@keyframes rpulse { from { transform: scale(.6); opacity: .4; } to { transform: scale(1.5); opacity: 0; } }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes drop { from { transform: translateY(-16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .sk { background: var(--bg-sunken); }
+  .btn:active, .iconbtn:active { transform: none; }
+  .radar i { opacity: .3; }
+  .radar i:nth-child(2) { inset: -12px; opacity: .2; }
+  .radar i:nth-child(3) { inset: -24px; opacity: .1; }
+}
+</style>
+</head>
+<body>
+<div class="stage">
+
+  <section class="phone" aria-label="FastFood Rider app demo">
+    <div class="statusbar" aria-hidden="true">
+      <span id="clock">9:41</span>
+      <span><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><path d="M12 19.5h.01"/></svg>
+      <svg width="22" height="16" viewBox="0 0 28 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="22" height="10" rx="3"/><rect x="4" y="6" width="13" height="4" rx="1" fill="currentColor" stroke="none"/><path d="M26 6.5v3" stroke-linecap="round"/></svg></span>
+    </div>
+    <div class="app">
+      <div class="conn" id="conn" role="status"></div>
+      <main class="view" id="view"></main>
+      <nav class="tabbar" id="tabbar" aria-label="Primary" hidden></nav>
+    </div>
+    <div class="layer" id="layer"></div>
+    <div class="toasts" id="toasts"></div>
+    <div class="sr-only" id="live" aria-live="polite"></div>
+  </section>
+
+  <aside class="side" id="side" aria-label="Demo controls">
+    <div class="panel">
+      <div>
+        <h1 class="h2">FastFood Rider</h1>
+        <p class="small muted">Interactive demo of the Ember design (spec §10). Demo data only; nothing is sent to a server.</p>
+      </div>
+      <ol class="steps">
+        <li><span>Sign in with any phone and an 8+ character password.</span></li>
+        <li><span>Go online. A request arrives in about 5 seconds.</span></li>
+        <li><span>Accept, then slide to confirm pickup.</span></li>
+        <li><span>Complete delivery with code <strong>4821</strong>, or try “Can’t deliver…”.</span></li>
+      </ol>
+    </div>
+    <div class="panel">
+      <h2 class="h3">Try the states</h2>
+      <button class="btn btn--primary" data-action="demo-request">Send a delivery request</button>
+      <button class="btn btn--secondary" data-action="demo-taken">Another rider takes it</button>
+      <button class="btn btn--secondary" data-action="demo-cancelled">Customer cancels the order</button>
+      <button class="btn btn--secondary toggle" data-action="demo-offline" aria-pressed="false">Phone goes offline</button>
+      <button class="btn btn--secondary toggle" data-action="demo-fail" aria-pressed="false">Fail the next online toggle</button>
+      <button class="btn btn--secondary toggle" data-action="demo-sound" aria-pressed="true">Sound alerts</button>
+    </div>
+    <div class="panel">
+      <h2 class="h3">Theme</h2>
+      <div class="seg" role="group" aria-label="Theme">
+        <button data-action="theme" data-v="light" aria-pressed="false">Light</button>
+        <button data-action="theme" data-v="dark" aria-pressed="false">Dark</button>
+        <button data-action="theme" data-v="system" aria-pressed="true">System</button>
+      </div>
+      <button class="btn btn--ghost" data-action="demo-reset">Restart demo</button>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+(function () {
+'use strict';
+
+/* ── Helpers ─────────────────────────────────────────────────────────── */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const toP = rs => Math.round(parseFloat(rs) * 100);                 // Rs → paisa (mirrors packages/utils toP)
+const money = p => 'Rs. ' + Math.round(p / 100).toLocaleString('en-PK'); // paisa → "Rs. 1,250"
+const haptic = p => { try { navigator.vibrate && navigator.vibrate(p); } catch (e) {} };
+const announce = msg => { const l = $('#live'); l.textContent = ''; setTimeout(() => { l.textContent = msg; }, 30); };
+
+let actx;
+function beep() {
+  if (!state.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = actx.currentTime;
+    [880, 660, 880].forEach((f, i) => {
+      const o = actx.createOscillator(), g = actx.createGain(), s = t + i * 0.16;
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, s);
+      g.gain.exponentialRampToValueAtTime(0.18, s + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, s + 0.14);
+      o.connect(g).connect(actx.destination); o.start(s); o.stop(s + 0.15);
+    });
+  } catch (e) {}
+}
+
+/* ── Icons (Lucide-style, 24px grid, currentColor) ───────────────────── */
+const ICONS = {
+  'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  'x': '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  'check': '<path d="M20 6 9 17l-5-5"/>',
+  'check-circle': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  'map-pin': '<path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+  'store': '<path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-2-.8 2.7 2.7 0 0 1-4 0 2.7 2.7 0 0 1-4 0 2.7 2.7 0 0 1-4 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7"/>',
+  'bike': '<circle cx="18.5" cy="17.5" r="3.5"/><circle cx="5.5" cy="17.5" r="3.5"/><circle cx="15" cy="5" r="1"/><path d="M12 17.5V14l-3-3 4-3 2 3h2"/>',
+  'wallet': '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+  'user': '<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  'navigation': '<polygon points="3 11 22 2 13 21 11 13 3 11"/>',
+  'phone': '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+  'banknote': '<rect width="20" height="12" x="2" y="6" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>',
+  'log-out': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+  'alert': '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  'info': '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  'package': '<path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 8.7 5 8.7-5"/>',
+  'wifi-off': '<path d="M12 20h.01"/><path d="M8.5 16.429a5 5 0 0 1 7 0"/><path d="M5 12.859a10 10 0 0 1 5.17-2.69"/><path d="M19 12.859a10 10 0 0 0-2.007-1.523"/><path d="M2 8.82a15 15 0 0 1 4.177-2.643"/><path d="M22 8.82a15 15 0 0 0-11.288-3.764"/><path d="m2 2 20 20"/>',
+  'chevrons-right': '<path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/>',
+  'eye': '<path d="M2.06 12.35a1 1 0 0 1 0-.7 10.75 10.75 0 0 1 19.88 0 1 1 0 0 1 0 .7 10.75 10.75 0 0 1-19.88 0"/><circle cx="12" cy="12" r="3"/>',
+  'eye-off': '<path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c4.64 0 8.6 2.9 10 7a10.8 10.8 0 0 1-1.67 2.68"/><path d="M6.61 6.61A10.7 10.7 0 0 0 2 12c1.4 4.1 5.36 7 10 7a10.4 10.4 0 0 0 5.39-1.61"/><path d="M14.12 14.12a3 3 0 1 1-4.24-4.24"/><path d="m2 2 20 20"/>',
+  'volume': '<path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>'
+};
+const icon = (n, size = 24) => `<svg class="ic" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${ICONS[n]}</svg>`;
+
+const logo = (size = 56) => `<svg width="${size}" height="${size}" viewBox="0 0 48 48" role="img" aria-label="FastFood logo"><rect width="48" height="48" rx="14" fill="#C2410C"/><g fill="#fff"><path d="M24 8c1.8 5.2 7.2 7.8 7.2 14a7.2 7.2 0 0 1-14.4 0c0-2.8 1.2-4.8 2.8-6.4.4 2 1.6 3.4 2.8 3.8-.8-3.4-.4-7.8 1.6-11.4z"/><path d="M12 31h24a12 8.5 0 0 1-24 0z"/></g></svg>`;
+
+/* ── Status (§7: one vocabulary; rider-facing labels) ────────────────── */
+const STATUS = {
+  RIDER_ASSIGNED: { label: 'Heading to pickup', tone: 'purple', icon: 'bike' },
+  PICKED_UP: { label: 'Picked up', tone: 'orange', icon: 'navigation' },
+  DELIVERED: { label: 'Delivered', tone: 'green', icon: 'package' },
+  DELIVERY_FAILED: { label: 'Delivery failed', tone: 'rose', icon: 'alert' }
+};
+const badge = s => `<span class="status-badge" data-tone="${STATUS[s].tone}">${icon(STATUS[s].icon, 14)}${STATUS[s].label}</span>`;
+
+/* ── Demo data (money is integer paisa, as in the API) ──────────────── */
+const ORDER = {
+  no: 'FD-1042', pickupKm: 1.2, dropKm: 3.4,
+  store: 'FastFood · Main Boulevard', area: 'Gulberg III',
+  address: 'House 12, Street 4, Gulberg III, Lahore', landmark: 'Near the green mosque',
+  customer: 'Hira', phone: '+92 300 1234567',
+  items: [['2 × Zinger Burger', ''], ['1 × Fries', 'Large'], ['1 × Cola', '']],
+  cashDue: 135000, earn: 20000, otp: '4821'
+};
+const SEED = [
+  { no: 'FD-1040', area: 'Garden Town', time: '3:10 pm', earn: 20000, cash: 73000 },
+  { no: 'FD-1037', area: 'Johar Town', time: '1:50 pm', earn: 20000, cash: 90000 },
+  { no: 'FD-1034', area: 'Model Town', time: '12:35 pm', earn: 20000, cash: 72000 },
+  { no: 'FD-1031', area: 'DHA Phase 5', time: '11:20 am', earn: 20000, cash: 85000 }
+];
+const WEEK_OTHER = [['Tue 20 Oct', 6], ['Mon 19 Oct', 5], ['Sun 18 Oct', 3], ['Sat 17 Oct', 5], ['Fri 16 Oct', 7], ['Thu 15 Oct', 6]];
+const MONTH_OTHER = [['8–14 Oct', 34], ['1–7 Oct', 31], ['24–30 Sep', 27]];
+
+/* ── State ──────────────────────────────────────────────────────────── */
+function loadPref() { try { return localStorage.getItem('ff-rider-theme') || 'system'; } catch (e) { return 'system'; } }
+const fresh = () => ({
+  screen: 'login', tab: 'jobs', loading: false,
+  online: false, toggling: false, failNext: false, offline: false, sound: true,
+  pref: (state && state.pref) || loadPref(),
+  loginErrors: {}, loginValues: { id: '' }, loggingIn: false,
+  range: 'today', history: SEED.map(x => ({ ...x })),
+  active: null, request: null, result: null
+});
+let state = null;
+state = fresh();
+let reqTimer = null, autoTimer = null, connTimer = null, lastFocus = null, lastKey = '';
+
+/* ── Theme (§15.5: follows the OS, user can override) ───────────────── */
+const mq = window.matchMedia('(prefers-color-scheme: dark)');
+function applyTheme() {
+  const dark = state.pref === 'dark' || (state.pref === 'system' && mq.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  const m = $('meta[name=theme-color]'); if (m) m.content = dark ? '#0C0A09' : '#FAFAF9';
+}
+mq.addEventListener('change', applyTheme);
+function setPref(p) { state.pref = p; try { localStorage.setItem('ff-rider-theme', p); } catch (e) {} applyTheme(); syncSide(); if (state.screen === 'tabs' && state.tab === 'profile') render(); }
+
+/* ── Toast ─────────────────────────────────────────────────────────── */
+function toast(msg, kind = 'info') {
+  const box = $('#toasts'); box.innerHTML = ''; // max one visible (§8.1)
+  const el = document.createElement('div');
+  el.className = 'toast'; el.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+  el.innerHTML = icon(kind === 'error' ? 'alert' : kind === 'success' ? 'check-circle' : 'info', 20) + '<span>' + esc(msg) + '</span>';
+  box.appendChild(el);
+  setTimeout(() => { if (el.parentNode) el.remove(); }, kind === 'error' ? 5000 : 3000);
+}
+
+/* ── Connection banner ─────────────────────────────────────────────── */
+function updateConn(backOnline) {
+  const c = $('#conn'); clearTimeout(connTimer);
+  if (state.offline) { c.innerHTML = icon('wifi-off', 18) + "<span>You're offline. Showing your last data.</span>"; c.setAttribute('data-show', ''); c.removeAttribute('data-ok'); }
+  else if (backOnline) { c.innerHTML = icon('check-circle', 18) + '<span>Back online</span>'; c.setAttribute('data-show', ''); c.setAttribute('data-ok', ''); connTimer = setTimeout(() => { c.removeAttribute('data-show'); c.removeAttribute('data-ok'); }, 2200); }
+  else { c.removeAttribute('data-show'); c.removeAttribute('data-ok'); }
+}
+function setOffline(v) { state.offline = v; updateConn(!v); syncSide(); }
+
+/* ── Sheets (focus trap, Esc/back closes the top layer) ────────────── */
+function openSheet(html, opts = {}) {
+  const layer = $('#layer'); lastFocus = document.activeElement;
+  layer.innerHTML = `<div class="scrim" ${opts.dismissible === false ? '' : 'data-action="dismiss-sheet"'}></div><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">${html}</div>`;
+  layer.setAttribute('data-open', '');
+  bindSlides(layer);
+  const first = layer.querySelector('[data-autofocus]') || layer.querySelector('button:not([disabled]),input,textarea');
+  setTimeout(() => first && first.focus({ preventScroll: true }), 40);
+}
+function closeSheet() {
+  const layer = $('#layer'); layer.removeAttribute('data-open'); layer.innerHTML = '';
+  if (lastFocus && document.contains(lastFocus)) lastFocus.focus({ preventScroll: true });
+  lastFocus = null;
+}
+const sheetOpen = () => $('#layer').hasAttribute('data-open');
+function dismissSheet() { if (!sheetOpen()) return; if (state.request) { declineRequest(); return; } closeSheet(); }
+
+/* ── Slide to confirm ──────────────────────────────────────────────── */
+function slide(action, label) {
+  return `<div class="slide" data-slide="${action}" role="button" tabindex="0" aria-label="${esc(label)}. Drag to the end, or press Enter."><div class="slide__fill"></div><span class="slide__label">${esc(label)}</span><div class="slide__thumb">${icon('chevrons-right', 26)}</div></div>`;
+}
+function bindSlides(root) {
+  $$('.slide', root).forEach(el => {
+    if (el._bound) return; el._bound = true;
+    const thumb = $('.slide__thumb', el), fill = $('.slide__fill', el), action = el.dataset.slide;
+    let startX = 0, dragging = false, max = 0, cur = 0;
+    const set = x => { thumb.style.transform = `translateX(${x}px)`; fill.style.width = x ? (x + 56) + 'px' : '0'; };
+    const reset = () => { el.classList.add('slide--snap'); cur = 0; set(0); setTimeout(() => el.classList.remove('slide--snap'), 220); };
+    el._reset = reset;
+    thumb.addEventListener('pointerdown', e => {
+      if (el.hasAttribute('data-disabled')) return;
+      dragging = true; startX = e.clientX; max = el.clientWidth - thumb.offsetWidth - 8;
+      thumb.setPointerCapture(e.pointerId); el.classList.remove('slide--snap');
+    });
+    thumb.addEventListener('pointermove', e => { if (!dragging) return; cur = Math.max(0, Math.min(max, e.clientX - startX)); set(cur); });
+    const end = () => {
+      if (!dragging) return; dragging = false;
+      if (cur >= max * 0.85) { set(max); haptic(30); runSlide(action, el); } else reset();
+    };
+    thumb.addEventListener('pointerup', end); thumb.addEventListener('pointercancel', end);
+    el.addEventListener('keydown', e => { if ((e.key === 'Enter' || e.key === ' ') && !el.hasAttribute('data-disabled')) { e.preventDefault(); runSlide(action, el); } });
+  });
+}
+function runSlide(action, el) {
+  if (action === 'pickup') { if (confirmPickup() === false) el._reset(); }
+  else if (action === 'deliver') submitComplete();
+}
+
+/* ── Views ─────────────────────────────────────────────────────────── */
+const AV_TONES = ['orange', 'blue', 'purple', 'teal', 'green', 'rose'];
+function avatar(name, small) {
+  let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const t = AV_TONES[h % AV_TONES.length];
+  return `<span class="avatar${small ? ' avatar--sm' : ''}" aria-hidden="true" style="--av-bg:var(--tone-${t}-bg);--av-fg:var(--tone-${t}-fg)">${esc(name.trim()[0].toUpperCase())}</span>`;
+}
+const todayStats = () => ({
+  n: state.history.length,
+  earn: state.history.reduce((a, x) => a + x.earn, 0),
+  cash: state.history.reduce((a, x) => a + x.cash, 0)
+});
+
+function viewLogin() {
+  const e = state.loginErrors, v = state.loginValues;
+  return `<div class="screen login">
+    <div class="brand">${logo(64)}<div><p class="wordmark">FastFood</p><span class="tag">Rider</span></div></div>
+    <div class="stack" style="gap:8px"><h1 class="h1">Sign in to start delivering</h1><p class="muted">Use the phone number or email your restaurant gave you.</p></div>
+    <form id="loginForm" class="stack" novalidate>
+      ${e.form ? `<p class="form-error" id="formErr" role="alert" tabindex="-1">${icon('alert', 20)}<span>${esc(e.form)}</span></p>` : ''}
+      <div class="field">
+        <label class="label" for="lid">Phone or email</label>
+        <input id="lid" name="identifier" class="input${e.id ? ' input--error' : ''}" type="text" autocomplete="username" placeholder="+92 300 1234567" value="${esc(v.id)}" ${e.id ? 'aria-invalid="true" aria-describedby="lid-err"' : ''}>
+        ${e.id ? `<p class="error" id="lid-err" role="alert">${icon('alert', 16)}<span>${esc(e.id)}</span></p>` : ''}
+      </div>
+      <div class="field">
+        <label class="label" for="lpw">Password</label>
+        <div class="pw">
+          <input id="lpw" name="pw" class="input${e.pw ? ' input--error' : ''}" type="password" autocomplete="current-password" ${e.pw ? 'aria-invalid="true" aria-describedby="lpw-err"' : ''}>
+          <button class="iconbtn" type="button" data-action="toggle-pw" aria-label="Show password" aria-pressed="false">${icon('eye', 22)}</button>
+        </div>
+        ${e.pw ? `<p class="error" id="lpw-err" role="alert">${icon('alert', 16)}<span>${esc(e.pw)}</span></p>` : ''}
+      </div>
+      <button class="btn btn--primary btn--xl" type="button" data-action="login" ${state.loggingIn ? 'disabled aria-busy="true"' : ''}><span>${state.loggingIn ? 'Signing in…' : 'Sign in'}</span></button>
+    </form>
+    <p class="demo-note">Demo: any phone or email with an 8+ character password works. Try “customer” as the phone to see the wrong-account message, or the password “wrong1234” for a sign-in error.</p>
+  </div>`;
+}
+
+function viewJobs() {
+  if (state.loading) return `<div class="screen" aria-busy="true" aria-label="Loading"><div class="sk sk--title"></div><div class="sk sk--card"></div><div class="sk sk--card"></div><div class="sk sk--tall"></div></div>`;
+  const on = state.online, a = state.active, t = todayStats();
+  const date = new Date().toLocaleDateString('en-PK', { weekday: 'long', day: 'numeric', month: 'short' });
+  return `<div class="screen">
+    <header class="head"><div><p class="small muted">${esc(date)}</p><h1 class="h1">Hi, Bilal</h1></div><span class="presence" data-on="${on}"><i aria-hidden="true"></i>${on ? 'Online' : 'Offline'}</span></header>
+    ${a ? `<section class="card card--active" aria-label="Active delivery">
+      <div class="row"><div><p class="overline">Active delivery</p><p class="h3">#${ORDER.no}</p></div>${badge(a.status)}</div>
+      <p class="small muted">${a.status === 'PICKED_UP' ? 'Drop-off: ' + esc(ORDER.area) : 'Pickup: ' + esc(ORDER.store)}</p>
+      <button class="btn btn--primary btn--xl" data-action="open-delivery">Open delivery</button></section>` : ''}
+    <section class="card onl" aria-label="Availability">
+      <div><h2 class="h2" id="onlTitle">${on ? "You're online" : "You're offline"}</h2><p class="small muted">${state.toggling ? 'Updating…' : on ? 'Delivery requests will appear here.' : 'Go online to receive delivery requests.'}</p></div>
+      <button class="switch" role="switch" aria-checked="${on}" aria-labelledby="onlTitle" data-action="toggle-online" data-fk="online" ${state.toggling ? 'disabled aria-busy="true"' : ''}><span class="switch__thumb"></span></button>
+    </section>
+    <section class="card" aria-label="Today">
+      <h2 class="h3">Today</h2>
+      <dl class="stats">
+        <div><dt class="small muted">Deliveries</dt><dd class="stat">${t.n}</dd></div>
+        <div><dt class="small muted">Earned</dt><dd class="stat">${money(t.earn)}</dd></div>
+        <div><dt class="small muted">Cash to hand in</dt><dd class="stat stat--warn">${icon('banknote', 20)}${money(t.cash)}</dd></div>
+      </dl>
+    </section>
+    ${a ? '' : on ? `<section class="wait" aria-live="polite">
+        <div class="radar"><i></i><i></i><i></i><div class="radar__core">${icon('bike', 30)}</div></div>
+        <h2 class="h3">Waiting for orders…</h2><p class="small muted">Keep the app open. You'll hear a sound when a request arrives.</p></section>`
+      : `<section class="empty"><div class="empty__art">${icon('bike', 40)}</div>
+        <h2 class="h3">You're not getting orders</h2><p class="small muted">Go online when you're ready to ride.</p>
+        <button class="btn btn--primary btn--xl" data-action="toggle-online" ${state.toggling ? 'disabled' : ''} style="margin-top:8px">Go online</button></section>`}
+  </div>`;
+}
+
+function viewEarnings() {
+  const r = state.range, t = todayStats(), per = ORDER.earn;
+  const wk = t.n + WEEK_OTHER.reduce((a, x) => a + x[1], 0);
+  const mo = t.n + 32 + MONTH_OTHER.reduce((a, x) => a + x[1], 0);
+  const sum = r === 'today' ? { n: t.n, e: t.earn } : r === 'week' ? { n: wk, e: wk * per } : { n: mo, e: mo * per };
+  let list = '';
+  if (r === 'today') {
+    list = state.history.length ? state.history.map(h => `<li><div><p class="strong">#${h.no} · ${esc(h.area)}</p><p class="small muted">${esc(h.time)} · Cash ${money(h.cash)}</p></div><div style="text-align:right"><p class="strong">+${money(h.earn)}</p>${badge('DELIVERED')}</div></li>`).join('')
+      : `<li class="empty" style="display:block;text-align:center"><p class="h3">No deliveries yet</p><p class="small muted">Go online to get your first order today.</p></li>`;
+  } else if (r === 'week') {
+    list = [['Wed 21 Oct · Today', t.n]].concat(WEEK_OTHER).map(x => `<li><p class="strong">${x[0]}</p><div style="text-align:right"><p class="strong">+${money(x[1] * per)}</p><p class="small muted">${x[1]} deliveries</p></div></li>`).join('');
+  } else {
+    list = [['This week · 15–21 Oct', t.n + 32]].concat(MONTH_OTHER).map(x => `<li><p class="strong">${x[0]}</p><div style="text-align:right"><p class="strong">+${money(x[1] * per)}</p><p class="small muted">${x[1]} deliveries</p></div></li>`).join('');
+  }
+  const seg = (v, l) => `<button data-action="range" data-range="${v}" aria-pressed="${r === v}">${l}</button>`;
+  return `<div class="screen">
+    <h1 class="h1">Earnings</h1>
+    <div class="seg" role="group" aria-label="Period">${seg('today', 'Today')}${seg('week', 'Week')}${seg('month', 'Month')}</div>
+    <div class="grid2">
+      <section class="card" aria-label="Earned"><p class="small muted">Earned</p><p class="stat">${money(sum.e)}</p></section>
+      <section class="card" aria-label="Deliveries"><p class="small muted">Deliveries</p><p class="stat">${sum.n}</p></section>
+    </div>
+    <section class="card cashcard" aria-label="Cash to hand in">
+      <p class="small muted">Cash to hand in</p>
+      <p class="cash-amt">${icon('banknote', 26)}${money(t.cash)}</p>
+      <p class="small muted">Collected from customers and not yet settled with the restaurant.</p>
+    </section>
+    <section class="card" aria-label="Deliveries list"><h2 class="h3">${r === 'today' ? 'Today' : r === 'week' ? 'Last 7 days' : 'Last 30 days'}</h2><ul class="list">${list}</ul></section>
+  </div>`;
+}
+
+function viewProfile() {
+  const seg = (v, l) => `<button data-action="theme" data-v="${v}" aria-pressed="${state.pref === v}">${l}</button>`;
+  return `<div class="screen">
+    <h1 class="h1">Profile</h1>
+    <section class="card"><div class="row" style="justify-content:flex-start;gap:16px">${avatar('Bilal Ahmed')}<div><p class="h3">Bilal Ahmed</p><p class="small muted">${ORDER.phone}</p><span class="chip" style="margin-top:6px">${icon('bike', 16)}Honda CD70</span></div></div></section>
+    <section class="card"><h2 class="h3">Appearance</h2><div class="seg" role="group" aria-label="Theme">${seg('light', 'Light')}${seg('dark', 'Dark')}${seg('system', 'System')}</div><p class="small muted">System follows your phone, which helps for night riding.</p></section>
+    <section class="card"><div class="row"><div class="row" style="justify-content:flex-start">${icon('volume', 22)}<div><p class="strong" id="sndTitle">Sound alerts</p><p class="small muted">Play a sound for new requests.</p></div></div>
+      <button class="switch" role="switch" aria-checked="${state.sound}" aria-labelledby="sndTitle" data-action="sound"><span class="switch__thumb"></span></button></div></section>
+    <section class="card only-narrow" style="display:none"><h2 class="h3">Demo tools</h2>
+      <button class="btn btn--primary" data-action="demo-request">Send a delivery request</button>
+      <button class="btn btn--secondary" data-action="demo-taken">Another rider takes it</button>
+      <button class="btn btn--secondary" data-action="demo-cancelled">Customer cancels the order</button>
+      <button class="btn btn--secondary toggle" data-action="demo-offline" aria-pressed="${state.offline}">Phone goes offline</button>
+      <button class="btn btn--secondary toggle" data-action="demo-fail" aria-pressed="${state.failNext}">Fail the next online toggle</button>
+      <button class="btn btn--ghost" data-action="demo-reset">Restart demo</button></section>
+    <button class="btn btn--danger-outline btn--xl" data-action="signout">${icon('log-out', 20)}<span>Sign out</span></button>
+    <p class="small muted" style="text-align:center">FastFood Rider · Ember demo</p>
+  </div>`;
+}
+
+/* Map: illustrative SVG, attribution kept (spec N8) */
+const pin = (x, y, ic, fillVar, fg) => `<g transform="translate(${x} ${y})"><circle r="17" fill="#fff"/><circle r="14" style="fill:var(${fillVar})"/><svg x="-8" y="-8" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="${fg || '#fff'}" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${ICONS[ic]}</svg></g>`;
+function mapSvg(a) {
+  const picked = a.status === 'PICKED_UP';
+  const roads = [55, 100, 150, 190].map(y => `<path d="M0 ${y}H340"/>`).join('') + [30, 110, 200, 295].map(x => `<path d="M${x} 0V220"/>`).join('');
+  const routeA = picked ? 'stroke:var(--text-subtle);stroke-width:4;stroke-dasharray:2 8;' : 'stroke:var(--action-bg);stroke-width:5;';
+  const routeB = picked ? 'stroke:var(--action-bg);stroke-width:5;' : 'stroke:var(--text-subtle);stroke-width:4;stroke-dasharray:2 8;';
+  return `<svg class="mapsvg" viewBox="0 0 340 220" role="img" aria-label="Illustrative map: route from the restaurant to the customer">
+    <rect width="340" height="220" style="fill:var(--map-bg)"/>
+    <path d="M0 0H340V14Q290 34 235 20T120 26T0 14Z" style="fill:var(--map-water)"/>
+    <rect x="212" y="108" width="76" height="36" rx="8" style="fill:var(--map-park)"/>
+    <g style="stroke:var(--map-road);stroke-width:9;fill:none">${roads}</g>
+    <path id="routeA" d="M30 190V150H110V100" fill="none" stroke-linecap="round" stroke-linejoin="round" style="${routeA}"/>
+    <path id="routeB" d="M110 100H200V55H295" fill="none" stroke-linecap="round" stroke-linejoin="round" style="${routeB}"/>
+    ${pin(110, 100, 'store', '--pin-store')}
+    ${pin(295, 55, 'map-pin', '--pin-home')}
+    <g id="riderDot"><circle class="rpulse" r="20"/>${pin(0, 0, 'bike', '--pin-rider', '#1C1917')}</g>
+  </svg>`;
+}
+function legInfo() {
+  const a = state.active; if (!a) return '';
+  return a.status === 'PICKED_UP'
+    ? (ORDER.dropKm * (1 - a.progress)).toFixed(1) + ' km to the customer'
+    : (ORDER.pickupKm * (1 - a.progress)).toFixed(1) + ' km to the restaurant';
+}
+
+function viewDelivery() {
+  const a = state.active, picked = a.status === 'PICKED_UP';
+  const nav = picked ? 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(ORDER.address) : 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent('FastFood Main Boulevard Lahore');
+  return `<div class="dwrap">
+    <div class="dhead"><button class="iconbtn" data-action="back-jobs" aria-label="Back to jobs">${icon('arrow-left')}</button><h1 class="h2">#${ORDER.no}</h1>${badge(a.status)}</div>
+    <div class="scroll">
+      <div class="map">${mapSvg(a)}<span class="chip chip--float"><span class="dot-live"></span>${icon('map-pin', 16)}Sharing location</span><span class="attrib">Demo map · illustrative</span></div>
+      <section class="card" aria-label="Next stop">
+        <p class="overline">${picked ? 'Drop-off' : 'Pickup'}</p>
+        <p class="h3">${picked ? esc(ORDER.area) : esc(ORDER.store)}</p>
+        <p class="small muted" id="legInfo">${legInfo()}</p>
+        <a class="btn btn--secondary btn--xl" href="${nav}" target="_blank" rel="noopener noreferrer">${icon('navigation', 20)}<span>Navigate in Google Maps</span></a>
+      </section>
+      ${picked ? `<section class="card" aria-label="Drop address">
+        <div class="addr">${icon('map-pin', 22)}<div><p class="strong">${esc(ORDER.address)}</p><p class="small muted">Landmark: ${esc(ORDER.landmark)}</p></div></div>
+        <div class="row" style="border-top:1px solid var(--border);padding-top:12px"><div class="row" style="justify-content:flex-start">${avatar(ORDER.customer, true)}<div><p class="strong">${esc(ORDER.customer)}</p><p class="small muted">Customer</p></div></div>
+        <a class="iconbtn iconbtn--filled" href="tel:+923001234567" aria-label="Call ${esc(ORDER.customer)}">${icon('phone', 22)}</a></div></section>`
+      : `<section class="card" aria-label="Pickup details"><div class="addr">${icon('store', 22)}<div><p class="strong">Ask for order #${ORDER.no} at the counter</p><p class="small muted">Check the items below before you leave.</p></div></div></section>`}
+      <section class="card" aria-label="Items"><h2 class="h3">Items</h2><ul class="items">${ORDER.items.map(i => `<li><span>${esc(i[0])}</span><span class="muted">${esc(i[1])}</span></li>`).join('')}</ul></section>
+      <section class="card" aria-label="Cash to collect"><p class="small muted">Cash to collect</p><p class="cash">${money(ORDER.cashDue)}</p><p class="small muted">Cash on delivery. Collect this from the customer.</p></section>
+    </div>
+    <div class="actionbar">${picked
+      ? `<button class="btn btn--primary btn--xl" data-action="complete">Complete delivery…</button><button class="btn btn--link-danger" data-action="fail">Can't deliver…</button>`
+      : slide('pickup', 'Slide to confirm pickup')}</div>
+  </div>`;
+}
+
+function viewResult() {
+  const r = state.result, t = todayStats();
+  if (r.type === 'failed') return `<div class="screen result">
+    <div class="result__icon result__icon--fail">${icon('alert', 48)}</div>
+    <h1 class="display">Delivery marked as failed</h1>
+    <p class="muted">Order #${ORDER.no} · ${esc(r.reason)}</p>
+    <p class="small muted">The restaurant can see this reason.</p>
+    <button class="btn btn--primary btn--xl" data-action="done" data-autofocus>Back to jobs</button></div>`;
+  return `<div class="screen result">
+    <div class="result__icon">${icon('check', 48)}</div>
+    <h1 class="display">Delivered</h1>
+    <p class="muted">Order #${ORDER.no} is complete.</p>
+    <section class="card sum" aria-label="Summary">
+      <div><span class="muted">Cash collected</span><span class="strong">${money(r.cash)}</span></div>
+      <div><span class="muted">You earned</span><span class="strong">+${money(ORDER.earn)}</span></div>
+      <div><span class="muted">Cash to hand in now</span><span class="strong">${money(t.cash)}</span></div>
+    </section>
+    <button class="btn btn--primary btn--xl" data-action="done" data-autofocus>Back to jobs</button></div>`;
+}
+
+const tabsHtml = () => [['jobs', 'Jobs', 'bike'], ['earnings', 'Earnings', 'wallet'], ['profile', 'Profile', 'user']].map(([id, label, ic]) =>
+  `<button class="tab" data-action="tab" data-tab="${id}" data-fk="tab-${id}" ${state.tab === id ? 'aria-current="page"' : ''}>${icon(ic, 24)}<span>${label}</span>${id === 'jobs' && state.active ? '<i class="tab__dot" title="Active delivery"></i><span class="sr-only">Active delivery</span>' : ''}</button>`).join('');
+
+/* ── Sheets content ────────────────────────────────────────────────── */
+const C = 2 * Math.PI * 34;
+const ring = rem => `<div class="ring" role="timer" aria-label="Time left to respond"><svg viewBox="0 0 80 80" width="80" height="80" aria-hidden="true"><circle cx="40" cy="40" r="34" class="ring__track"/><circle id="ringBar" cx="40" cy="40" r="34" class="ring__bar" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - rem / 30)}" transform="rotate(-90 40 40)"/></svg><span class="ring__n" id="ringN">${rem}</span></div>`;
+
+function sheetRequest() {
+  return `<div class="sheet__grip"></div>
+  <div class="req__top"><div><p class="overline">New delivery request</p><h2 class="h2" id="sheetTitle">Order #${ORDER.no}</h2></div>${ring(30)}</div>
+  <ul class="route">
+    <li><span class="route__ic">${icon('store', 20)}</span><div class="route__txt"><p class="small muted">Pickup</p><p class="strong">${esc(ORDER.store)}</p></div><span class="strong">${ORDER.pickupKm} km</span></li>
+    <li><span class="route__ic">${icon('map-pin', 20)}</span><div class="route__txt"><p class="small muted">Drop</p><p class="strong">${esc(ORDER.area)}</p></div><span class="strong">${ORDER.dropKm} km</span></li>
+  </ul>
+  <div class="row"><div><p class="small muted">Cash to collect</p><p class="cash">${money(ORDER.cashDue)}</p></div><div style="text-align:right"><p class="small muted">Your earning</p><p class="h2">${money(ORDER.earn)}</p></div></div>
+  <div class="stack" style="gap:8px"><button class="btn btn--primary btn--xl" data-action="accept" data-autofocus><span>Accept</span></button><button class="btn btn--secondary btn--xl" data-action="decline">Decline</button></div>`;
+}
+function sheetComplete() {
+  return `<div class="sheet__grip"></div>
+  <div><h2 class="h2" id="sheetTitle">Complete delivery</h2><p class="small muted">Ask the customer for their code, then collect the cash.</p></div>
+  <p class="form-error" id="formErr" role="alert" tabindex="-1" hidden></p>
+  <div class="field"><label class="label" for="otp">Delivery code</label>
+    <input id="otp" class="input input--otp" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••" aria-describedby="otp-hint otp-err" data-autofocus>
+    <p class="hint" id="otp-hint">4–6 digits. Demo code: <strong>${ORDER.otp}</strong></p>
+    <p class="error" id="otp-err" role="alert" hidden></p></div>
+  <div class="field"><label class="label" for="cash">Cash collected (Rs)</label>
+    <input id="cash" class="input" inputmode="decimal" value="${ORDER.cashDue / 100}" aria-describedby="cash-hint cash-err cash-warn">
+    <p class="hint" id="cash-hint">Amount due: ${money(ORDER.cashDue)}</p>
+    <p class="error" id="cash-err" role="alert" hidden></p>
+    <p class="warn" id="cash-warn" role="status" hidden></p></div>
+  ${slide('deliver', 'Slide to confirm delivery')}
+  <button class="btn btn--ghost btn--xl" data-action="close-sheet">Cancel</button>`;
+}
+const FAIL_REASONS = ['Customer not reachable', 'Address wrong or incomplete', 'Customer refused', 'Other'];
+function sheetFail() {
+  return `<div class="sheet__grip"></div>
+  <div><h2 class="h2" id="sheetTitle">Can't deliver this order?</h2><p class="small muted">Pick a reason. The restaurant and support can see it. This can't be undone.</p></div>
+  <div role="radiogroup" aria-label="Reason" class="stack" style="gap:8px">
+    ${FAIL_REASONS.map((r, i) => `<label class="opt"><input type="radio" name="reason" value="${esc(r)}" ${i === 0 ? 'data-autofocus' : ''}><span>${esc(r)}</span></label>`).join('')}
+  </div>
+  <div class="field" id="otherWrap" hidden><label class="label" for="otherTxt">What happened?</label><textarea id="otherTxt" class="input" maxlength="200"></textarea></div>
+  <p class="error" id="fail-err" role="alert" hidden></p>
+  <div class="stack" style="gap:8px"><button class="btn btn--danger btn--xl" data-action="submit-fail"><span>Report problem</span></button><button class="btn btn--secondary btn--xl" data-action="close-sheet">Keep delivering</button></div>`;
+}
+function sheetSignOut() {
+  return `<div class="sheet__grip"></div>
+  <div><h2 class="h2" id="sheetTitle">Sign out of FastFood?</h2><p class="muted">${state.online ? "You'll go offline and stop receiving delivery requests." : "You'll need to sign in again to take orders."}</p></div>
+  <div class="stack" style="gap:8px"><button class="btn btn--danger btn--xl" data-action="signout-confirm" data-autofocus>Sign out</button><button class="btn btn--secondary btn--xl" data-action="close-sheet">Stay signed in</button></div>`;
+}
+
+/* ── Render ────────────────────────────────────────────────────────── */
+function render() {
+  const view = $('#view'), tabbar = $('#tabbar');
+  const key = state.screen + ':' + state.tab + ':' + state.range;
+  const sc = $('.screen, .scroll', view);
+  const prev = sc && key === lastKey ? sc.scrollTop : 0;
+  const fk = document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.fk : null;
+  let html = '';
+  if (state.screen === 'login') html = viewLogin();
+  else if (state.screen === 'tabs') html = state.tab === 'jobs' ? viewJobs() : state.tab === 'earnings' ? viewEarnings() : viewProfile();
+  else if (state.screen === 'delivery') html = viewDelivery();
+  else html = viewResult();
+  view.innerHTML = html;
+  tabbar.hidden = state.screen !== 'tabs';
+  if (!tabbar.hidden) tabbar.innerHTML = tabsHtml();
+  const ns = $('.screen, .scroll', view); if (ns) ns.scrollTop = prev;
+  lastKey = key;
+  if (fk) { const n = $(`[data-fk="${fk}"]`); if (n) n.focus({ preventScroll: true }); }
+  bindSlides(view);
+  const af = $('[data-autofocus]', view); if (af && state.screen === 'result') af.focus({ preventScroll: true });
+  syncSide();
+  if (state.screen === 'delivery') updateRider();
+}
+function syncSide() {
+  $$('[data-action="demo-offline"]').forEach(b => b.setAttribute('aria-pressed', state.offline));
+  $$('[data-action="demo-fail"]').forEach(b => b.setAttribute('aria-pressed', state.failNext));
+  $$('[data-action="demo-sound"]').forEach(b => b.setAttribute('aria-pressed', state.sound));
+  $$('.side [data-action="theme"]').forEach(b => b.setAttribute('aria-pressed', b.dataset.v === state.pref));
+}
+
+/* ── Login ─────────────────────────────────────────────────────────── */
+async function submitLogin() {
+  if (state.loggingIn) return;
+  const idEl = $('#lid'), pwEl = $('#lpw'); if (!idEl || !pwEl) return;
+  const id = idEl.value.trim(), pw = pwEl.value, e = {};
+  if (!id) e.id = 'Enter your phone number or email.';
+  if (!pw) e.pw = 'Enter your password.'; else if (pw.length < 8) e.pw = 'Use at least 8 characters.';
+  state.loginValues = { id };
+  if (e.id || e.pw) { state.loginErrors = e; render(); focusFirstError(); return; }
+  state.loginErrors = {}; state.loggingIn = true; render();
+  await sleep(800);
+  state.loggingIn = false;
+  if (/customer|admin/i.test(id)) { state.loginErrors = { id: "This account isn't a rider account." }; render(); focusFirstError(); return; }
+  if (pw.toLowerCase() === 'wrong1234') { state.loginErrors = { form: "We couldn't sign you in. Check your phone or email and your password." }; render(); focusFirstError(); return; }
+  state.loginErrors = {}; state.screen = 'tabs'; state.tab = 'jobs'; state.loading = true; render();
+  setTimeout(() => { state.loading = false; if (state.screen === 'tabs' && state.tab === 'jobs') render(); }, 800);
+}
+function focusFirstError() { const n = $('#formErr') || $('[aria-invalid="true"]'); if (n) n.focus(); }
+
+/* ── Online toggle (optimistic + rollback, fixes D12) ──────────────── */
+async function toggleOnline() {
+  if (state.toggling) return;
+  const next = !state.online;
+  state.online = next; state.toggling = true; render();
+  await sleep(600);
+  if (state.failNext || state.offline) {
+    const why = state.offline ? "You're offline. Couldn't update your status." : "Couldn't update your status. Please try again.";
+    state.online = !next; state.toggling = false; state.failNext = false; render(); toast(why, 'error');
+    const sw = $('[data-fk="online"]'); if (sw) sw.focus({ preventScroll: true }); return;
+  }
+  state.toggling = false; render();
+  const sw2 = $('[data-fk="online"]'); if (sw2) sw2.focus({ preventScroll: true });
+  if (next) { toast("You're online.", 'success'); clearTimeout(autoTimer); autoTimer = setTimeout(() => { if (state.online && !state.active && !state.request && state.screen !== 'login') sendRequest(); }, 4500); }
+  else { clearTimeout(autoTimer); toast("You're offline.", 'info'); }
+}
+
+/* ── Delivery request (single interval, cleared before restart: fixes D13) */
+function sendRequest() {
+  if (state.screen === 'login') { toast('Sign in first.', 'info'); return; }
+  if (!state.online) { toast('Go online first to receive delivery requests.', 'info'); return; }
+  if (state.active) { toast('Finish your current delivery first.', 'info'); return; }
+  if (state.request) return;
+  clearTimeout(autoTimer);
+  state.request = { rem: 30, busy: false };
+  haptic([200, 100, 200]); beep();
+  openSheet(sheetRequest(), { dismissible: false });
+  announce('New delivery request. Cash to collect ' + money(ORDER.cashDue) + '.');
+  clearInterval(reqTimer); reqTimer = setInterval(reqTick, 1000);
+}
+function reqTick() {
+  const r = state.request; if (!r) return;
+  r.rem -= 1;
+  const n = $('#ringN'), b = $('#ringBar');
+  if (n) n.textContent = r.rem;
+  if (b) b.setAttribute('stroke-dashoffset', C * (1 - r.rem / 30));
+  if ([20, 10, 5].includes(r.rem)) announce(r.rem + ' seconds left to respond.');
+  if (r.rem <= 0) endRequest('expired');
+}
+function endRequest(reason) {
+  clearInterval(reqTimer); reqTimer = null;
+  if (!state.request) return;
+  state.request = null; closeSheet();
+  const msg = { expired: 'Request expired.', declined: 'Request declined.', cancelled: 'Order was cancelled.', taken: 'Another rider took this order.' }[reason];
+  if (msg) toast(msg, 'info');
+}
+const declineRequest = () => endRequest('declined');
+async function acceptRequest(btn) {
+  const r = state.request; if (!r || r.busy) return;
+  r.busy = true; btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.firstElementChild.textContent = 'Accepting…';
+  await sleep(700);
+  if (state.request !== r) return; // taken or cancelled while we waited
+  if (state.offline) {
+    r.busy = false; btn.disabled = false; btn.removeAttribute('aria-busy'); btn.firstElementChild.textContent = 'Accept';
+    toast("You're offline. Couldn't accept this order.", 'error'); return;
+  }
+  clearInterval(reqTimer); reqTimer = null; state.request = null; closeSheet();
+  haptic(40); state.active = { status: 'RIDER_ASSIGNED', progress: 0.1 }; state.screen = 'delivery';
+  toast('Order accepted. Head to the restaurant.', 'success'); render();
+}
+
+/* ── Delivery actions ──────────────────────────────────────────────── */
+function confirmPickup() {
+  const a = state.active; if (!a || a.status !== 'RIDER_ASSIGNED') return false;
+  if (state.offline) { toast("You're offline. Couldn't confirm pickup.", 'error'); return false; }
+  a.status = 'PICKED_UP'; a.progress = 0.05; haptic(40);
+  toast('Picked up. Head to the customer.', 'success'); render(); return true;
+}
+function setErr(id, msg) {
+  const input = $('#' + id), err = $('#' + id + '-err'); if (!input || !err) return;
+  if (msg) { err.innerHTML = icon('alert', 16) + '<span>' + esc(msg) + '</span>'; err.hidden = false; input.setAttribute('aria-invalid', 'true'); input.classList.add('input--error'); }
+  else { err.hidden = true; err.textContent = ''; input.removeAttribute('aria-invalid'); input.classList.remove('input--error'); }
+}
+function updateCashWarn() {
+  const w = $('#cash-warn'), c = $('#cash'); if (!w || !c) return;
+  const p = toP(c.value.replace(/,/g, ''));
+  if (isFinite(p) && p > 0 && p !== ORDER.cashDue) { w.innerHTML = icon('alert', 16) + '<span>This is different from the ' + money(ORDER.cashDue) + ' due. Check before you confirm.</span>'; w.hidden = false; }
+  else { w.hidden = true; w.textContent = ''; }
+}
+let delivering = false;
+async function submitComplete() {
+  if (delivering) return;
+  const sl = $('.slide[data-slide="deliver"]'), reset = () => sl && sl._reset && sl._reset();
+  const otp = $('#otp').value.trim(), cashP = toP($('#cash').value.replace(/,/g, ''));
+  let bad = null;
+  if (!/^\d{4,6}$/.test(otp)) { setErr('otp', 'Enter the 4–6 digit code from the customer.'); bad = bad || '#otp'; } else setErr('otp', '');
+  if (!isFinite(cashP) || cashP <= 0) { setErr('cash', 'Enter the cash you collected, in rupees.'); bad = bad || '#cash'; } else setErr('cash', '');
+  if (bad) { reset(); $(bad).focus(); return; }
+  delivering = true; sl.setAttribute('data-disabled', ''); const lbl = $('.slide__label', sl); lbl.textContent = 'Confirming…';
+  await sleep(800);
+  delivering = false; sl.removeAttribute('data-disabled'); lbl.textContent = 'Slide to confirm delivery';
+  const fe = $('#formErr');
+  if (state.offline) { fe.innerHTML = icon('alert', 20) + '<span>' + "You're offline. Reconnect to complete the delivery." + '</span>'; fe.hidden = false; reset(); fe.focus(); return; }
+  fe.hidden = true;
+  if (otp !== ORDER.otp) { setErr('otp', "That code doesn't match. Ask the customer to read it again."); reset(); $('#otp').focus(); return; }
+  closeSheet();
+  state.history.unshift({ no: ORDER.no, area: ORDER.area, time: new Date().toLocaleTimeString('en-PK', { hour: 'numeric', minute: '2-digit' }).toLowerCase(), earn: ORDER.earn, cash: cashP });
+  state.result = { type: 'delivered', cash: cashP }; state.active = null; state.screen = 'result';
+  haptic([60, 40, 60]); render();
+}
+async function submitFail(btn) {
+  const sel = $('input[name="reason"]:checked'), err = $('#fail-err');
+  const show = m => { err.innerHTML = icon('alert', 16) + '<span>' + esc(m) + '</span>'; err.hidden = false; };
+  if (!sel) { show('Choose a reason.'); return; }
+  let reason = sel.value;
+  if (reason === 'Other') { const t = $('#otherTxt').value.trim(); if (!t) { show('Tell us what happened.'); $('#otherTxt').focus(); return; } reason = t; }
+  err.hidden = true; btn.disabled = true; btn.setAttribute('aria-busy', 'true'); btn.firstElementChild.textContent = 'Reporting…';
+  await sleep(700);
+  if (state.offline) { btn.disabled = false; btn.removeAttribute('aria-busy'); btn.firstElementChild.textContent = 'Report problem'; show("You're offline. Couldn't send this. Try again when you're back online."); return; }
+  closeSheet(); state.result = { type: 'failed', reason }; state.active = null; state.screen = 'result'; haptic(80); render();
+}
+
+/* ── Sign out / reset ──────────────────────────────────────────────── */
+function resetAll(opts = {}) {
+  clearInterval(reqTimer); clearTimeout(autoTimer); reqTimer = null; delivering = false;
+  closeSheet(); state = fresh(); applyTheme(); updateConn(false); $('#toasts').innerHTML = ''; lastKey = '';
+  render(); if (opts.toast) toast(opts.toast, 'info');
+}
+
+/* ── Map animation (one global tick, never stacked) ────────────────── */
+function updateRider() {
+  const a = state.active; if (!a || state.screen !== 'delivery') return;
+  const path = $(a.status === 'PICKED_UP' ? '#routeB' : '#routeA'), dot = $('#riderDot'); if (!path || !dot) return;
+  const p = path.getPointAtLength(path.getTotalLength() * a.progress);
+  dot.setAttribute('transform', `translate(${p.x} ${p.y})`);
+}
+setInterval(() => {
+  const a = state.active; if (!a || state.screen !== 'delivery') return;
+  a.progress = Math.min(0.94, a.progress + 0.012); updateRider();
+  const li = $('#legInfo'); if (li) li.textContent = legInfo();
+}, 500);
+
+/* ── Events ────────────────────────────────────────────────────────── */
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-action]'); if (!el) return;
+  switch (el.dataset.action) {
+    case 'login': submitLogin(); break;
+    case 'tab': state.tab = el.dataset.tab; render(); break;
+    case 'toggle-online': toggleOnline(); break;
+    case 'open-delivery': state.screen = 'delivery'; render(); break;
+    case 'back-jobs': state.screen = 'tabs'; state.tab = 'jobs'; render(); break;
+    case 'accept': acceptRequest(el); break;
+    case 'decline': declineRequest(); break;
+    case 'complete': openSheet(sheetComplete()); break;
+    case 'fail': openSheet(sheetFail()); break;
+    case 'submit-fail': submitFail(el); break;
+    case 'close-sheet': case 'dismiss-sheet': dismissSheet(); break;
+    case 'range': state.range = el.dataset.range; render(); break;
+    case 'theme': setPref(el.dataset.v); break;
+    case 'sound': state.sound = !state.sound; render(); break;
+    case 'signout': openSheet(sheetSignOut()); break;
+    case 'signout-confirm': resetAll(); break;
+    case 'done': state.result = null; state.screen = 'tabs'; state.tab = 'jobs'; render(); break;
+    case 'toggle-pw': {
+      const input = $('#lpw'), show = input.type === 'password';
+      input.type = show ? 'text' : 'password'; el.setAttribute('aria-pressed', show); el.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      el.innerHTML = icon(show ? 'eye-off' : 'eye', 22); break;
+    }
+    case 'demo-request': sendRequest(); break;
+    case 'demo-taken': if (state.request) endRequest('taken'); else toast('There is no open request right now.', 'info'); break;
+    case 'demo-cancelled': if (state.request) endRequest('cancelled'); else toast('There is no open request right now.', 'info'); break;
+    case 'demo-offline': setOffline(!state.offline); break;
+    case 'demo-fail': state.failNext = !state.failNext; syncSide(); toast(state.failNext ? 'The next online toggle will fail.' : 'Online toggle works normally.', 'info'); break;
+    case 'demo-sound': state.sound = !state.sound; syncSide(); if (state.screen === 'tabs' && state.tab === 'profile') render(); break;
+    case 'demo-reset': resetAll({ toast: 'Demo restarted.' }); break;
+  }
+});
+// Fallback: never let the login form submit natively (a field named "id" used to hide form.id, so match by selector)
+document.addEventListener('submit', e => { if (e.target.matches && e.target.matches('#loginForm')) { e.preventDefault(); submitLogin(); } });
+document.addEventListener('input', e => {
+  if (e.target.id === 'otp') { e.target.value = e.target.value.replace(/\D/g, ''); setErr('otp', ''); }
+  if (e.target.id === 'cash') { setErr('cash', ''); updateCashWarn(); }
+});
+document.addEventListener('change', e => {
+  if (e.target.name === 'reason') { const w = $('#otherWrap'); w.hidden = e.target.value !== 'Other'; $('#fail-err').hidden = true; if (!w.hidden) $('#otherTxt').focus(); }
+});
+document.addEventListener('keydown', e => {
+  if (e.target.id === 'otp' || e.target.id === 'cash') { if (e.key === 'Enter') { e.preventDefault(); submitComplete(); } }
+  if (e.target.id === 'lid' || e.target.id === 'lpw') { if (e.key === 'Enter') { e.preventDefault(); submitLogin(); } }
+  if (!sheetOpen()) return;
+  const layer = $('#layer');
+  if (e.key === 'Escape') { e.preventDefault(); dismissSheet(); return; }
+  if (e.key === 'Tab') {
+    const f = $$('button:not([disabled]),input:not([disabled]),textarea:not([disabled]),a[href],[tabindex="0"]', layer).filter(n => n.offsetParent !== null);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (!layer.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+});
+
+/* ── Boot ──────────────────────────────────────────────────────────── */
+function tickClock() { $('#clock').textContent = new Date().toLocaleTimeString('en-PK', { hour: 'numeric', minute: '2-digit' }).toLowerCase(); }
+applyTheme(); tickClock(); setInterval(tickClock, 30000); render();
+})();
+</script>
+</body>
+</html>
