@@ -1,0 +1,70 @@
+/* ============================================================
+   FastFood Admin — Motion & Keyframes (§4.4)
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes sheetUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+@keyframes ticketIn {
+  0% {
+    transform: translateY(8px);
+    opacity: 0;
+    box-shadow: 0 0 0 2px var(--action-bg);
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.4; transform: scale(0.92); }
+}
+
+.animate-fade-in {
+  animation: fadeIn var(--dur-base) var(--ease-enter) forwards;
+}
+
+.animate-slide-in {
+  animation: slideIn var(--dur-base) var(--ease-enter) forwards;
+}
+
+.animate-sheet-up {
+  animation: sheetUp var(--dur-base) var(--ease-enter) forwards;
+}
+
+.animate-ticket-in {
+  animation: ticketIn var(--dur-slow) var(--ease-enter) forwards;
+}
+
+.animate-pulse {
+  animation: pulse 2s infinite ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-pulse {
+    animation: none !important;
+  }
+}

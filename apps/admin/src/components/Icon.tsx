@@ -33,7 +33,21 @@ export type IconName =
   | 'chart'
   | 'bell'
   | 'flame'
-  | 'users';
+  | 'users'
+  | 'x'
+  | 'more'
+  | 'alert'
+  | 'refresh'
+  | 'filter'
+  | 'arrow-up-right'
+  | 'wifi-off'
+  | 'download'
+  | 'settings'
+  | 'camera'
+  | 'chevron-down'
+  | 'grip'
+  | 'eye'
+  | 'eye-off';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   name: IconName;
@@ -229,6 +243,88 @@ export const Icon: React.FC<IconProps> = ({ name, size = 20, className = '', sty
           <circle cx="9" cy="7" r="4" />
           <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </>
+      )}
+      {name === 'x' && <path d="M18 6 6 18M6 6l12 12" />}
+      {name === 'more' && (
+        <>
+          <circle cx="12" cy="12" r="1" fill="currentColor" />
+          <circle cx="19" cy="12" r="1" fill="currentColor" />
+          <circle cx="5" cy="12" r="1" fill="currentColor" />
+        </>
+      )}
+      {name === 'alert' && (
+        <>
+          <circle cx="12" cy="12" r="10" />
+          <line x1="12" y1="8" x2="12" y2="12" />
+          <line x1="12" y1="16" x2="12.01" y2="16" />
+        </>
+      )}
+      {name === 'refresh' && (
+        <>
+          <path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5" />
+        </>
+      )}
+      {name === 'filter' && <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />}
+      {name === 'arrow-up-right' && (
+        <>
+          <line x1="7" y1="17" x2="17" y2="7" />
+          <polyline points="7 7 17 7 17 17" />
+        </>
+      )}
+      {name === 'wifi-off' && (
+        <>
+          <line x1="1" y1="1" x2="23" y2="23" />
+          <path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" />
+          <path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" />
+          <path d="M10.71 5.05A16 16 0 0 1 22.58 9" />
+          <path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" />
+          <path d="M8.53 16.11a6 6 0 0 1 6.95 0" />
+          <line x1="12" y1="20" x2="12.01" y2="20" />
+        </>
+      )}
+      {name === 'download' && (
+        <>
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+          <polyline points="7 10 12 15 17 10" />
+          <line x1="12" y1="15" x2="12" y2="3" />
+        </>
+      )}
+      {name === 'settings' && (
+        <>
+          <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+          <circle cx="12" cy="12" r="3" />
+        </>
+      )}
+      {name === 'camera' && (
+        <>
+          <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z" />
+          <circle cx="12" cy="13" r="3" />
+        </>
+      )}
+      {name === 'chevron-down' && <polyline points="6 9 12 15 18 9" />}
+      {name === 'grip' && (
+        <>
+          <circle cx="9" cy="12" r="1" fill="currentColor" />
+          <circle cx="9" cy="5" r="1" fill="currentColor" />
+          <circle cx="9" cy="19" r="1" fill="currentColor" />
+          <circle cx="15" cy="12" r="1" fill="currentColor" />
+          <circle cx="15" cy="5" r="1" fill="currentColor" />
+          <circle cx="15" cy="19" r="1" fill="currentColor" />
+        </>
+      )}
+      {name === 'eye' && (
+        <>
+          <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+          <circle cx="12" cy="12" r="3" />
+        </>
+      )}
+      {name === 'eye-off' && (
+        <>
+          <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+          <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+          <path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+          <line x1="2" y1="2" x2="22" y2="22" />
         </>
       )}
     </svg>

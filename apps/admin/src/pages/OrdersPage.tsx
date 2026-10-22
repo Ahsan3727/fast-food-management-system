@@ -1,242 +1,292 @@
-import React, { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
+import { queryKeys } from '@/api/queryKeys';
+import { unwrapList } from '@/api/unwrap';
+import { useOrderTransition } from '@/hooks/useOrderTransition';
 import { OrderStatus } from '@fastfood/shared-types';
 import { formatMoneyCompact, formatDateTime } from '@fastfood/utils';
 import { StatusBadge } from '@/components/StatusBadge';
 import { OrderDrawer } from '@/components/OrderDrawer';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/Icon';
-import toast from 'react-hot-toast';
 
-const STATUSES = ['ALL', 'PLACED', 'ACCEPTED', 'PREPARING', 'READY', 'RIDER_ASSIGNED', 'PICKED_UP', 'DELIVERED', 'CANCELLED', 'REJECTED'];
+const ALL_STATUSES: Array<{ key: string; label: string }> = [
+  { key: 'ALL', label: 'All Orders' },
+  { key: OrderStatus.PLACED, label: 'Placed' },
+  { key: OrderStatus.ACCEPTED, label: 'Accepted' },
+  { key: OrderStatus.PREPARING, label: 'Preparing' },
+  { key: OrderStatus.READY, label: 'Ready' },
+  { key: OrderStatus.RIDER_ASSIGNED, label: 'Rider Assigned' },
+  { key: OrderStatus.PICKED_UP, label: 'Picked Up' },
+  { key: OrderStatus.DELIVERED, label: 'Delivered' },
+  { key: OrderStatus.DELIVERY_FAILED, label: 'Delivery Failed' },
+  { key: OrderStatus.CANCELLED, label: 'Cancelled' },
+  { key: OrderStatus.REJECTED, label: 'Rejected' },
+];
 
 export default function OrdersPage() {
   const [filter, setFilter] = useState('ALL');
   const [search, setSearch] = useState('');
-  const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
-  const qc = useQueryClient();
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
-  const { data: rawOrders = [], isLoading } = useQuery({
-    queryKey: ['orders'],
-    queryFn: () => api.get('/orders?limit=200').then(r => r.data?.orders ?? r.data ?? []),
-    refetchInterval: 10_000,
+  const transitionMutation = useOrderTransition();
+
+  const {
+    data: rawOrders,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: queryKeys.orders.list({ view: 'audit' }),
+    queryFn: async () => {
+      const res = await api.get('/orders?limit=100');
+      return unwrapList(res.data);
+    },
+    staleTime: 15_000,
   });
 
-  const transitionMutation = useMutation({
-    mutationFn: ({ id, status, note }: { id: string; status: OrderStatus; note?: string }) =>
-      api.patch(`/orders/${id}/status`, { status, note }),
-    onSuccess: (_, vars) => {
-      toast.success(`Order status updated to ${vars.status}`);
-      qc.invalidateQueries({ queryKey: ['orders'] });
-      if (selectedOrder?._id === vars.id) {
-        setSelectedOrder((prev: any) => (prev ? { ...prev, status: vars.status } : null));
-      }
-    },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message ?? 'Failed to update status');
-    },
-  });
+  const orders: any[] = useMemo(() => unwrapList(rawOrders), [rawOrders]);
 
-  const orders: any[] = Array.isArray(rawOrders) ? rawOrders : [];
+  const selectedOrder = useMemo(
+    () => orders.find((o) => o._id === selectedOrderId) || null,
+    [orders, selectedOrderId],
+  );
 
-  const filtered = orders
-    .filter(o => filter === 'ALL' || o.status === filter)
-    .filter(o => {
-      if (!search) return true;
-      const term = search.toLowerCase();
-      return (
-        o.orderNumber?.toLowerCase().includes(term) ||
-        o.customerName?.toLowerCase().includes(term) ||
-        o.customerPhone?.toLowerCase().includes(term)
-      );
-    });
+  const filteredOrders = useMemo(() => {
+    return orders
+      .filter((o) => filter === 'ALL' || o.status === filter)
+      .filter((o) => {
+        if (!search.trim()) return true;
+        const term = search.toLowerCase();
+        return (
+          o.orderNumber?.toLowerCase().includes(term) ||
+          o.customerName?.toLowerCase().includes(term) ||
+          o.customerPhone?.toLowerCase().includes(term)
+        );
+      })
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [orders, filter, search]);
 
-  const sorted = [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const handleAction = async (orderId: string, status: OrderStatus, note?: string) => {
+    await transitionMutation.mutateAsync({ orderId, status, note });
+  };
+
+  if (isError) {
+    return (
+      <div className="page">
+        <PageHeader title="Order Directory" subtitle="Audit and inspect orders" />
+        <ErrorState
+          title="Failed to load orders"
+          message="Could not retrieve order list. Please retry."
+          onRetry={() => refetch()}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Header & Search */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ fontSize: 24, fontWeight: 800, margin: 0 }}>All Orders</h1>
-          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-            Showing {sorted.length} of {orders.length} orders
-          </p>
-        </div>
+    <div className="page">
+      <PageHeader
+        title="Order Directory"
+        subtitle={`Showing ${filteredOrders.length} of ${orders.length} total orders (Latest 100)`}
+        updatedAt="live"
+        actions={
+          <div style={{ position: 'relative', width: 260 }}>
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search order #, phone…"
+              className="input"
+              style={{ paddingLeft: 34, height: 38 }}
+            />
+            <Icon
+              name="search"
+              size={16}
+              style={{ position: 'absolute', left: 10, top: 11, color: 'var(--text-subtle)' }}
+            />
+          </div>
+        }
+      />
 
-        <div style={{ position: 'relative', width: 260 }}>
-          <input
-            type="search"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search order #, phone..."
-            style={{
-              width: '100%',
-              minHeight: 40,
-              padding: '0 14px 0 36px',
-              borderRadius: 'var(--r-md)',
-              border: '1px solid var(--border-strong)',
-              background: 'var(--bg-surface)',
-              color: 'var(--text)',
-              fontSize: 14,
-            }}
-          />
-          <Icon name="search" size={16} style={{ position: 'absolute', left: 12, top: 12, color: 'var(--text-subtle)' }} />
-        </div>
-      </div>
+      {/* Filter Chips Bar */}
+      <div
+        style={{
+          display: 'flex',
+          gap: 8,
+          overflowX: 'auto',
+          paddingBottom: 6,
+          scrollbarWidth: 'thin',
+        }}
+      >
+        {ALL_STATUSES.map(({ key, label }) => {
+          const isSelected = filter === key;
+          const count =
+            key === 'ALL' ? orders.length : orders.filter((o) => o.status === key).length;
 
-      {/* Filter Chips */}
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
-        {STATUSES.map(s => {
-          const isSelected = filter === s;
-          const count = s === 'ALL' ? orders.length : orders.filter(o => o.status === s).length;
           return (
             <button
-              key={s}
-              onClick={() => setFilter(s)}
+              key={key}
+              type="button"
+              onClick={() => setFilter(key)}
               style={{
-                flex: 'none',
-                minHeight: 34,
-                padding: '0 14px',
-                borderRadius: 'var(--r-pill)',
-                border: isSelected ? '1px solid transparent' : '1px solid var(--border-strong)',
-                background: isSelected ? 'var(--action-bg)' : 'var(--bg-surface)',
-                color: isSelected ? 'var(--action-fg)' : 'var(--text-muted)',
-                fontWeight: 600,
-                fontSize: 13,
-                cursor: 'pointer',
                 display: 'inline-flex',
                 alignItems: 'center',
                 gap: 6,
+                padding: '6px 14px',
+                borderRadius: 'var(--r-pill)',
+                fontSize: 12,
+                fontWeight: 600,
+                border: '1px solid',
+                borderColor: isSelected ? 'var(--action-bg)' : 'var(--border)',
+                background: isSelected ? 'var(--chip-bg)' : 'var(--bg-surface)',
+                color: isSelected ? 'var(--chip-fg)' : 'var(--text)',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                transition: 'all var(--dur-fast)',
               }}
             >
-              <span>{s === 'ALL' ? 'All Orders' : s.replace(/_/g, ' ')}</span>
-              <span style={{ opacity: 0.8, fontSize: 11 }}>({count})</span>
+              <span>{label}</span>
+              <span
+                style={{
+                  fontSize: 11,
+                  padding: '1px 6px',
+                  borderRadius: 'var(--r-pill)',
+                  background: isSelected ? 'var(--action-bg)' : 'var(--bg-sunken)',
+                  color: isSelected ? 'var(--action-fg)' : 'var(--text-muted)',
+                  fontWeight: 700,
+                }}
+              >
+                {count}
+              </span>
             </button>
           );
         })}
       </div>
 
-      {/* Orders Table */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-sunken)', borderBottom: '1px solid var(--border)' }}>
-                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Order #
-                </th>
-                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Customer
-                </th>
-                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Items
-                </th>
-                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Total
-                </th>
-                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Status
-                </th>
-                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                  Placed At
-                </th>
-                <th style={{ padding: '12px 16px', fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', textAlign: 'right' }}>
-                  Details
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {isLoading ? (
+      {/* Orders Data View */}
+      {filteredOrders.length === 0 ? (
+        <EmptyState
+          icon="receipt"
+          title="No orders found"
+          description={search ? `No orders matched search "${search}".` : `No orders in status "${filter}".`}
+          actionLabel={search || filter !== 'ALL' ? 'Clear Filters' : undefined}
+          onAction={() => {
+            setSearch('');
+            setFilter('ALL');
+          }}
+        />
+      ) : (
+        <>
+          {/* Desktop Table View (>= 768px) */}
+          <div className="table-wrap desktop-orders-table">
+            <table>
+              <thead>
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>
-                    Loading orders…
-                  </td>
+                  <th>Order #</th>
+                  <th>Customer</th>
+                  <th>Items</th>
+                  <th>Total</th>
+                  <th>Status</th>
+                  <th>Placed At</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
-              ) : sorted.length === 0 ? (
-                <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: 48, color: 'var(--text-muted)' }}>
-                    No orders found matching criteria.
-                  </td>
-                </tr>
-              ) : (
-                sorted.map((o: any) => (
+              </thead>
+              <tbody>
+                {filteredOrders.map((order) => (
                   <tr
-                    key={o._id}
-                    onClick={() => setSelectedOrder(o)}
-                    style={{
-                      borderBottom: '1px solid var(--border)',
-                      cursor: 'pointer',
-                      transition: 'background var(--dur-fast)',
-                    }}
-                    onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-sunken)')}
-                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    key={order._id}
+                    onClick={() => setSelectedOrderId(order._id)}
+                    style={{ cursor: 'pointer' }}
                   >
-                    <td style={{ padding: '14px 16px', fontWeight: 800 }}>
-                      <span style={{ color: 'var(--action-bg)' }}>#{o.orderNumber}</span>
+                    <td>
+                      <span style={{ fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+                        #{order.orderNumber}
+                      </span>
                     </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13 }}>
-                      <div style={{ fontWeight: 600 }}>{o.customerName || 'Customer'}</div>
-                      <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>{o.customerPhone || '—'}</div>
+                    <td>
+                      <div style={{ fontWeight: 600 }}>{order.customerName || 'Walk-in'}</div>
+                      <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{order.customerPhone || '—'}</div>
                     </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13 }}>
-                      <div>
-                        {o.items?.slice(0, 2).map((it: any, idx: number) => (
-                          <div key={idx}>
-                            {it.quantity}× {it.nameSnapshot || it.name}
-                          </div>
-                        ))}
-                        {o.items?.length > 2 && (
-                          <span style={{ color: 'var(--text-subtle)', fontSize: 11 }}>
-                            +{o.items.length - 2} more items
-                          </span>
-                        )}
-                      </div>
+                    <td>
+                      <span style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                        {order.items?.length || 0} items
+                      </span>
                     </td>
-                    <td style={{ padding: '14px 16px', fontWeight: 800, fontSize: 14 }}>
-                      {formatMoneyCompact(o.totalPaisa)}
+                    <td>
+                      <span style={{ fontWeight: 700, color: 'var(--action-bg)', fontVariantNumeric: 'tabular-nums' }}>
+                        {formatMoneyCompact(order.totalPaisa)}
+                      </span>
                     </td>
-                    <td style={{ padding: '14px 16px' }}>
-                      <StatusBadge status={o.status} />
+                    <td>
+                      <StatusBadge status={order.status} />
                     </td>
-                    <td style={{ padding: '14px 16px', fontSize: 13, color: 'var(--text-muted)' }}>
-                      {formatDateTime(o.createdAt)}
+                    <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {formatDateTime(order.createdAt)}
                     </td>
-                    <td style={{ padding: '14px 16px', textAlign: 'right' }}>
+                    <td style={{ textAlign: 'right' }}>
                       <button
-                        onClick={e => {
+                        type="button"
+                        onClick={(e) => {
                           e.stopPropagation();
-                          setSelectedOrder(o);
+                          setSelectedOrderId(order._id);
                         }}
-                        style={{
-                          padding: '6px 12px',
-                          borderRadius: 'var(--r-sm)',
-                          border: '1px solid var(--border)',
-                          background: 'var(--bg-surface)',
-                          color: 'var(--text)',
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                        }}
+                        className="btn btn-ghost btn-sm"
                       >
                         Inspect
                       </button>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
 
-      {/* Order Detail Slide-Over Drawer */}
+          {/* Mobile Card View (< 768px) */}
+          <div className="mobile-orders-cards" style={{ display: 'none', flexDirection: 'column', gap: 10 }}>
+            {filteredOrders.map((order) => (
+              <div
+                key={order._id}
+                onClick={() => setSelectedOrderId(order._id)}
+                className="card"
+                style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 8, cursor: 'pointer' }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <b style={{ fontSize: 16, fontWeight: 800 }}>#{order.orderNumber}</b>
+                  <StatusBadge status={order.status} />
+                </div>
+                <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                  <span style={{ fontWeight: 700, color: 'var(--text)' }}>{order.customerName || 'Walk-in'}</span> • {order.items?.length || 0} items
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 6, borderTop: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: 12, color: 'var(--text-subtle)' }}>{formatDateTime(order.createdAt)}</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--action-bg)' }}>{formatMoneyCompact(order.totalPaisa)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <style>{`
+            @media (max-width: 767px) {
+              .desktop-orders-table {
+                display: none !important;
+              }
+              .mobile-orders-cards {
+                display: flex !important;
+              }
+            }
+          `}</style>
+        </>
+      )}
+
+      {/* Inspect Order Drawer */}
       <OrderDrawer
         order={selectedOrder}
-        onClose={() => setSelectedOrder(null)}
-        onTransition={async (orderId, status, note) => {
-          await transitionMutation.mutateAsync({ id: orderId, status, note });
-        }}
+        onClose={() => setSelectedOrderId(null)}
+        onTransition={handleAction}
       />
     </div>
   );

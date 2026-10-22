@@ -1,0 +1,143 @@
+/* ============================================================
+   FastFood Admin — Layout Primitives & Responsive Shell (§4.5)
+   ============================================================ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  max-width: 1440px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.cluster {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-4);
+}
+
+/* ── Mobile Bottom Navigation Bar (< 768px) ───────────────── */
+.mobile-bottom-nav {
+  display: none;
+}
+
+@media (max-width: 767px) {
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: calc(60px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--bg-surface);
+    border-top: 1px solid var(--border);
+    z-index: var(--z-nav);
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08);
+  }
+
+  .mobile-tab-item {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 100%;
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 11px;
+    font-weight: 600;
+    position: relative;
+    padding: 6px 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+
+  .mobile-tab-item:active,
+  .mobile-tab-item.active,
+  .mobile-tab-item[aria-current="page"] {
+    color: var(--action-bg);
+  }
+
+  .mobile-tab-badge {
+    position: absolute;
+    top: 6px;
+    right: calc(50% - 18px);
+    background: var(--danger-solid);
+    color: var(--on-danger);
+    font-size: 10px;
+    font-weight: 800;
+    min-width: 18px;
+    height: 18px;
+    border-radius: var(--r-pill);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    box-shadow: 0 0 0 2px var(--bg-surface);
+  }
+
+  .admin-sidebar {
+    display: none !important;
+  }
+}
+
+/* ── Tablet Icon Rail (768px to 1023px) ────────────────────── */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .admin-sidebar {
+    width: var(--sidebar-rail-w) !important;
+  }
+
+  .sidebar-brand-name,
+  .sidebar-brand-sub,
+  .nav-item-label {
+    display: none !important;
+  }
+
+  .sidebar-brand {
+    justify-content: center;
+    padding: 16px 8px;
+  }
+
+  .nav-item {
+    justify-content: center;
+    padding: 12px 0;
+  }
+}
+
+/* ── Desktop Full Sidebar (>= 1024px) ──────────────────────── */
+@media (min-width: 1024px) {
+  .admin-sidebar {
+    width: var(--sidebar-w);
+  }
+}
+
+/* ── Wide Screen Constraint (>= 1440px) ─────────────────────── */
+@media (min-width: 1440px) {
+  .admin-content {
+    display: flex;
+    justify-content: center;
+  }
+  .admin-content > * {
+    width: 100%;
+    max-width: 1440px;
+  }
+}

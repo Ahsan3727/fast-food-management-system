@@ -18,27 +18,47 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-let isRefreshing = false;
-let queue: Array<(t: string) => void> = [];
+let refreshPromise: Promise<string | null> | null = null;
 
-api.interceptors.response.use(res => res, async (err) => {
-  const orig = err.config;
-  if (err.response?.status === 401 && !orig._retry) {
-    orig._retry = true;
-    if (isRefreshing) return new Promise(r => queue.push(t => { orig.headers.Authorization = `Bearer ${t}`; r(api(orig)); }));
-    isRefreshing = true;
+export async function refreshAccessToken(): Promise<string | null> {
+  if (refreshPromise) return refreshPromise;
+
+  refreshPromise = (async () => {
     const { refreshToken, setTokens, logout } = useAdminStore.getState();
+    if (!refreshToken) {
+      logout();
+      return null;
+    }
     try {
       const { data } = await axios.post(`${BASE}/auth/refresh`, { refreshToken });
       setTokens(data.accessToken, data.refreshToken);
-      queue.forEach(cb => cb(data.accessToken));
-      queue = [];
-      orig.headers.Authorization = `Bearer ${data.accessToken}`;
-      return api(orig);
-    } catch { logout(); return Promise.reject(err); }
-    finally { isRefreshing = false; }
-  }
-  return Promise.reject(err);
-});
+      return data.accessToken;
+    } catch {
+      logout();
+      return null;
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+
+  return refreshPromise;
+}
+
+api.interceptors.response.use(
+  (res) => res,
+  async (err) => {
+    const orig = err.config;
+    const isAuthRoute = orig?.url?.includes('/auth/login') || orig?.url?.includes('/auth/refresh');
+    if (err.response?.status === 401 && orig && !orig._retry && !isAuthRoute) {
+      orig._retry = true;
+      const token = await refreshAccessToken();
+      if (token) {
+        orig.headers.Authorization = `Bearer ${token}`;
+        return api(orig);
+      }
+    }
+    return Promise.reject(err);
+  },
+);
 
 export default api;

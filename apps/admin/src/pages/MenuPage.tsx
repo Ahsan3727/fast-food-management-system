@@ -1,10 +1,17 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useForm } from 'react-hook-form';
 import api from '@/lib/api';
+import { queryKeys } from '@/api/queryKeys';
+import { unwrapList } from '@/api/unwrap';
+import { useAdminStore } from '@/store/admin.store';
 import { formatMoneyCompact } from '@fastfood/utils';
 import toast from 'react-hot-toast';
 import { Icon } from '@/components/Icon';
+import { PageHeader } from '@/components/ui/PageHeader';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { ErrorState } from '@/components/ui/ErrorState';
 
 interface MenuItem {
   _id: string;
@@ -20,72 +27,132 @@ interface MenuItem {
 interface Category {
   _id: string;
   name: string;
-  icon: string;
+  icon?: string;
+  sortOrder?: number;
 }
 
 export default function MenuPage() {
   const qc = useQueryClient();
+  const { user } = useAdminStore();
+  const isAdmin = user?.role === 'admin';
+
   const [activeTab, setActiveTab] = useState<'items' | 'categories'>('items');
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
   const [editItem, setEditItem] = useState<MenuItem | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<MenuItem | null>(null);
   const [showForm, setShowForm] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const { data: items = [], isLoading } = useQuery<MenuItem[]>({
-    queryKey: ['menu'],
-    queryFn: () => api.get('/menu').then(r => r.data),
+  // Queries using queryKeys
+  const {
+    data: rawItems,
+    isLoading: itemsLoading,
+    isError: itemsError,
+    refetch: refetchItems,
+  } = useQuery({
+    queryKey: queryKeys.menu.items,
+    queryFn: async () => {
+      const res = await api.get('/menu');
+      return unwrapList<MenuItem>(res.data);
+    },
   });
 
-  const { data: categories = [] } = useQuery<Category[]>({
-    queryKey: ['categories'],
-    queryFn: () => api.get('/menu/categories').then(r => r.data),
+  const {
+    data: rawCategories,
+    isLoading: categoriesLoading,
+    isError: categoriesError,
+    refetch: refetchCategories,
+  } = useQuery({
+    queryKey: queryKeys.menu.categories,
+    queryFn: async () => {
+      const res = await api.get('/menu/categories');
+      return unwrapList<Category>(res.data);
+    },
   });
 
-  const { register, handleSubmit, reset, setValue } = useForm<any>();
+  const items: MenuItem[] = useMemo(() => unwrapList<MenuItem>(rawItems), [rawItems]);
+  const categories: Category[] = useMemo(() => unwrapList<Category>(rawCategories), [rawCategories]);
+
+  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<any>();
 
   const openCreate = () => {
     setEditItem(null);
-    reset({ isAvailable: true, emoji: '🍔' });
+    reset({ isAvailable: true, emoji: '🍔', basePrice: '' });
     setShowForm(true);
   };
 
   const openEdit = (item: MenuItem) => {
     setEditItem(item);
-    reset({ ...item, basePrice: item.basePrice / 100 });
+    reset({
+      name: item.name,
+      description: item.description,
+      categoryId: item.categoryId,
+      basePrice: item.basePrice / 100,
+      emoji: item.emoji || '🍔',
+      imageUrl: item.imageUrl || '',
+      isAvailable: item.isAvailable,
+    });
     setShowForm(true);
   };
 
   const saveItem = useMutation({
     mutationFn: async (data: any) => {
       const payload = {
-        ...data,
+        name: data.name,
+        description: data.description,
+        categoryId: data.categoryId,
         basePrice: Math.round(parseFloat(data.basePrice) * 100),
+        emoji: data.emoji,
+        imageUrl: data.imageUrl,
+        isAvailable: Boolean(data.isAvailable),
       };
       if (editItem) return api.patch(`/menu/${editItem._id}`, payload);
       return api.post('/menu', payload);
     },
     onSuccess: () => {
       toast.success(editItem ? 'Item updated!' : 'Item created!');
-      qc.invalidateQueries({ queryKey: ['menu'] });
+      qc.invalidateQueries({ queryKey: queryKeys.menu.items });
       setShowForm(false);
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message ?? 'Failed to save item'),
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'Failed to save item'),
   });
 
   const deleteItem = useMutation({
     mutationFn: (id: string) => api.delete(`/menu/${id}`),
     onSuccess: () => {
       toast.success('Item deleted');
-      qc.invalidateQueries({ queryKey: ['menu'] });
+      qc.invalidateQueries({ queryKey: queryKeys.menu.items });
+      setItemToDelete(null);
     },
+    onError: (e: any) => toast.error(e?.response?.data?.message || 'Failed to delete item'),
   });
 
   const toggleAvailable = useMutation({
-    mutationFn: ({ id, val }: { id: string; val: boolean }) =>
-      api.patch(`/menu/${id}`, { isAvailable: val }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['menu'] }),
-    onError: () => toast.error('Failed to update stock status'),
+    mutationFn: async ({ id, val }: { id: string; val: boolean }) => {
+      return api.patch(`/menu/${id}`, { isAvailable: val });
+    },
+    onMutate: async ({ id, val }) => {
+      await qc.cancelQueries({ queryKey: queryKeys.menu.items });
+      const previous = qc.getQueryData<MenuItem[]>(queryKeys.menu.items);
+      if (previous) {
+        qc.setQueryData<MenuItem[]>(
+          queryKeys.menu.items,
+          previous.map((it) => (it._id === id ? { ...it, isAvailable: val } : it)),
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previous) {
+        qc.setQueryData(queryKeys.menu.items, context.previous);
+      }
+      toast.error('Failed to update availability');
+    },
+    onSuccess: (_, vars) => {
+      toast.success(vars.val ? 'Item marked Available' : 'Item marked Sold Out (86)');
+      qc.invalidateQueries({ queryKey: queryKeys.menu.items });
+    },
   });
 
   const uploadImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -104,587 +171,608 @@ export default function MenuPage() {
     }
   };
 
-  const filteredItems = items.filter(item => {
-    const matchesCat = selectedCategory === 'ALL' || item.categoryId === selectedCategory;
-    const matchesQuery =
-      !searchQuery.trim() ||
-      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.description?.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCat && matchesQuery;
-  });
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      const matchesCat = selectedCategory === 'ALL' || item.categoryId === selectedCategory;
+      const matchesQuery =
+        !searchQuery.trim() ||
+        item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        item.description?.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCat && matchesQuery;
+    });
+  }, [items, selectedCategory, searchQuery]);
+
+  if (itemsError || categoriesError) {
+    return (
+      <div className="page">
+        <PageHeader title="Menu & Inventory" subtitle="Manage food offerings" />
+        <ErrorState
+          title="Failed to load menu"
+          message="Could not load food catalog. Please retry."
+          onRetry={() => {
+            refetchItems();
+            refetchCategories();
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {/* Top action row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h2 style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text)' }}>Menu & Inventory</h2>
-          <p style={{ fontSize: 13, color: 'var(--subtle)', margin: '2px 0 0' }}>
-            Manage food offerings, instant 86/available toggle, and pricing
-          </p>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div
-            style={{
-              display: 'inline-flex',
-              background: 'var(--sunken)',
-              padding: 3,
-              borderRadius: 10,
-              border: '1px solid var(--border)',
-            }}
-          >
-            {(['items', 'categories'] as const).map(tab => (
+    <div className="page">
+      {/* 1. Header with Tab Switcher */}
+      <PageHeader
+        title="Menu & Inventory"
+        subtitle="Manage food catalog, availability toggle, and pricing"
+        actions={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {/* Items / Categories Segmented Control */}
+            <div
+              style={{
+                display: 'inline-flex',
+                background: 'var(--bg-sunken)',
+                padding: 3,
+                borderRadius: 'var(--r-md)',
+                border: '1px solid var(--border)',
+              }}
+            >
               <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+                type="button"
+                onClick={() => setActiveTab('items')}
                 style={{
                   padding: '6px 14px',
-                  borderRadius: 8,
+                  borderRadius: 'var(--r-sm)',
                   fontSize: 13,
                   fontWeight: 600,
                   border: 'none',
-                  background: activeTab === tab ? 'var(--surface)' : 'transparent',
-                  color: activeTab === tab ? 'var(--text)' : 'var(--muted)',
+                  background: activeTab === 'items' ? 'var(--bg-surface)' : 'transparent',
+                  color: activeTab === 'items' ? 'var(--text)' : 'var(--text-muted)',
                   cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  boxShadow: activeTab === tab ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                  boxShadow: activeTab === 'items' ? 'var(--shadow-1)' : 'none',
                 }}
               >
-                {tab === 'items' ? 'Menu Items' : 'Categories'}
+                Food Items
               </button>
-            ))}
-          </div>
-
-          {activeTab === 'items' && (
-            <button
-              onClick={openCreate}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '8px 16px',
-                borderRadius: 10,
-                background: 'var(--action)',
-                color: '#fff',
-                fontSize: 13,
-                fontWeight: 700,
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              <Icon name="plus" size={16} />
-              Add Item
-            </button>
-          )}
-        </div>
-      </div>
-
-      {activeTab === 'items' && (
-        <>
-          {/* Filter Bar */}
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                borderRadius: 10,
-                padding: '0 12px',
-                height: 38,
-                flex: '1 1 240px',
-                maxWidth: 360,
-              }}
-            >
-              <Icon name="search" size={16} style={{ color: 'var(--subtle)' }} />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={e => setSearchQuery(e.target.value)}
-                placeholder="Search items by name or ingredients..."
+              <button
+                type="button"
+                onClick={() => setActiveTab('categories')}
                 style={{
-                  border: 'none',
-                  background: 'none',
-                  outline: 'none',
-                  color: 'var(--text)',
+                  padding: '6px 14px',
+                  borderRadius: 'var(--r-sm)',
                   fontSize: 13,
-                  width: '100%',
+                  fontWeight: 600,
+                  border: 'none',
+                  background: activeTab === 'categories' ? 'var(--bg-surface)' : 'transparent',
+                  color: activeTab === 'categories' ? 'var(--text)' : 'var(--text-muted)',
+                  cursor: 'pointer',
+                  boxShadow: activeTab === 'categories' ? 'var(--shadow-1)' : 'none',
                 }}
-              />
+              >
+                Categories
+              </button>
             </div>
 
-            {/* Category chips */}
-            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {/* Add Item Button */}
+            {activeTab === 'items' && isAdmin && (
+              <button type="button" onClick={openCreate} className="btn btn-primary" style={{ fontWeight: 700 }}>
+                <Icon name="plus" size={16} />
+                <span>Add Item</span>
+              </button>
+            )}
+          </div>
+        }
+      />
+
+      {/* 2. Items Tab */}
+      {activeTab === 'items' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+          {/* Toolbar: Category Chips + Search */}
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
               <button
+                type="button"
                 onClick={() => setSelectedCategory('ALL')}
                 style={{
-                  padding: '6px 12px',
-                  borderRadius: 999,
+                  padding: '6px 14px',
+                  borderRadius: 'var(--r-pill)',
                   fontSize: 12,
                   fontWeight: 600,
                   border: '1px solid',
-                  borderColor: selectedCategory === 'ALL' ? 'var(--action)' : 'var(--border)',
-                  background: selectedCategory === 'ALL' ? 'var(--action)' : 'var(--surface)',
-                  color: selectedCategory === 'ALL' ? '#fff' : 'var(--muted)',
+                  borderColor: selectedCategory === 'ALL' ? 'var(--action-bg)' : 'var(--border)',
+                  background: selectedCategory === 'ALL' ? 'var(--chip-bg)' : 'var(--bg-surface)',
+                  color: selectedCategory === 'ALL' ? 'var(--chip-fg)' : 'var(--text)',
                   cursor: 'pointer',
+                  whiteSpace: 'nowrap',
                 }}
               >
-                All ({items.length})
+                All Items ({items.length})
               </button>
-              {categories.map(cat => {
-                const count = items.filter(i => i.categoryId === cat._id).length;
-                const isSelected = selectedCategory === cat._id;
-                return (
-                  <button
-                    key={cat._id}
-                    onClick={() => setSelectedCategory(cat._id)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: 999,
-                      fontSize: 12,
-                      fontWeight: 600,
-                      border: '1px solid',
-                      borderColor: isSelected ? 'var(--action)' : 'var(--border)',
-                      background: isSelected ? 'var(--action)' : 'var(--surface)',
-                      color: isSelected ? '#fff' : 'var(--muted)',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {cat.icon} {cat.name} ({count})
-                  </button>
-                );
-              })}
+              {categories.map((cat) => (
+                <button
+                  key={cat._id}
+                  type="button"
+                  onClick={() => setSelectedCategory(cat._id)}
+                  style={{
+                    padding: '6px 14px',
+                    borderRadius: 'var(--r-pill)',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    border: '1px solid',
+                    borderColor: selectedCategory === cat._id ? 'var(--action-bg)' : 'var(--border)',
+                    background: selectedCategory === cat._id ? 'var(--chip-bg)' : 'var(--bg-surface)',
+                    color: selectedCategory === cat._id ? 'var(--chip-fg)' : 'var(--text)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {cat.icon || '🍔'} {cat.name}
+                </button>
+              ))}
+            </div>
+
+            <div style={{ position: 'relative', width: 240 }}>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search food item…"
+                className="input"
+                style={{ paddingLeft: 34, height: 38 }}
+              />
+              <Icon
+                name="search"
+                size={16}
+                style={{ position: 'absolute', left: 10, top: 11, color: 'var(--text-subtle)' }}
+              />
             </div>
           </div>
 
-          {/* Table */}
-          <div
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: 14,
-              overflow: 'hidden',
-            }}
-          >
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ background: 'var(--sunken)', borderBottom: '1px solid var(--border)' }}>
-                    <th style={{ padding: '12px 16px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--subtle)' }}>Item</th>
-                    <th style={{ padding: '12px 16px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--subtle)' }}>Category</th>
-                    <th style={{ padding: '12px 16px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--subtle)' }}>Price</th>
-                    <th style={{ padding: '12px 16px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--subtle)' }}>Available</th>
-                    <th style={{ padding: '12px 16px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--subtle)', textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredItems.map(item => {
-                    const cat = categories.find(c => c._id === item.categoryId);
-                    return (
-                      <tr
-                        key={item._id}
-                        style={{
-                          borderBottom: '1px solid var(--border)',
-                          transition: 'background 0.1s ease',
-                        }}
-                      >
-                        <td style={{ padding: '12px 16px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div
-                              style={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: 10,
-                                background: 'var(--sunken)',
-                                display: 'grid',
-                                placeItems: 'center',
-                                fontSize: 22,
-                                flexShrink: 0,
-                              }}
-                            >
-                              {item.imageUrl ? (
-                                <img
-                                  src={item.imageUrl}
-                                  alt={item.name}
-                                  style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 10 }}
-                                />
-                              ) : (
-                                item.emoji || '🍔'
-                              )}
-                            </div>
-                            <div>
-                              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
-                                {item.name}
-                              </div>
+          {filteredItems.length === 0 ? (
+            <EmptyState
+              icon="utensils"
+              title="No items found"
+              description={searchQuery ? `No menu item matched "${searchQuery}".` : 'No items in this category.'}
+              actionLabel={isAdmin ? 'Create New Item' : undefined}
+              onAction={isAdmin ? openCreate : undefined}
+            />
+          ) : (
+            <>
+              {/* Desktop & Tablet Table (>= 768px) */}
+              <div className="table-wrap desktop-menu-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th>Category</th>
+                      <th>Price</th>
+                      <th>Availability</th>
+                      {isAdmin && <th style={{ textAlign: 'right' }}>Actions</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredItems.map((item) => {
+                      const category = categories.find((c) => c._id === item.categoryId);
+                      return (
+                        <tr key={item._id}>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                               <div
                                 style={{
-                                  fontSize: 12,
-                                  color: 'var(--subtle)',
-                                  maxWidth: 280,
+                                  width: 40,
+                                  height: 40,
+                                  borderRadius: 'var(--r-md)',
+                                  background: 'var(--bg-sunken)',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: 22,
                                   overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
+                                  border: '1px solid var(--border)',
                                 }}
                               >
-                                {item.description || 'No description provided'}
+                                {item.imageUrl ? (
+                                  <img
+                                    src={item.imageUrl}
+                                    alt={item.name}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                  />
+                                ) : (
+                                  <span>{item.emoji || '🍔'}</span>
+                                )}
+                              </div>
+                              <div>
+                                <div style={{ fontWeight: 700, fontSize: 14 }}>{item.name}</div>
+                                <div style={{ fontSize: 12, color: 'var(--text-muted)', maxWidth: 280, textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                                  {item.description || '—'}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-
-                        <td style={{ padding: '12px 16px', fontSize: 13, color: 'var(--muted)' }}>
-                          {cat ? `${cat.icon} ${cat.name}` : '—'}
-                        </td>
-
-                        <td style={{ padding: '12px 16px', fontWeight: 700, fontSize: 14, color: 'var(--action)' }}>
-                          {formatMoneyCompact(item.basePrice)}
-                        </td>
-
-                        {/* Availability toggle switch */}
-                        <td style={{ padding: '12px 16px' }}>
-                          <button
-                            type="button"
-                            onClick={() => toggleAvailable.mutate({ id: item._id, val: !item.isAvailable })}
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: 8,
-                              background: 'none',
-                              border: 'none',
-                              cursor: 'pointer',
-                              padding: 0,
-                            }}
-                            title={item.isAvailable ? 'Click to mark Out of Stock' : 'Click to mark In Stock'}
-                          >
-                            <span
+                          </td>
+                          <td style={{ fontSize: 13, color: 'var(--text-muted)' }}>
+                            {category?.name || 'General'}
+                          </td>
+                          <td>
+                            <span style={{ fontWeight: 800, color: 'var(--text)', fontVariantNumeric: 'tabular-nums' }}>
+                              {formatMoneyCompact(item.basePrice)}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              type="button"
+                              onClick={() => toggleAvailable.mutate({ id: item._id, val: !item.isAvailable })}
                               style={{
-                                display: 'inline-block',
-                                width: 36,
-                                height: 20,
-                                borderRadius: 999,
-                                background: item.isAvailable ? 'var(--ok)' : 'var(--strong)',
-                                position: 'relative',
-                                transition: 'background 0.2s ease',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 6,
+                                padding: '4px 12px',
+                                borderRadius: 'var(--r-pill)',
+                                fontSize: 12,
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                border: '1px solid',
+                                background: item.isAvailable ? 'var(--success-bg)' : 'var(--danger-bg)',
+                                color: item.isAvailable ? 'var(--success)' : 'var(--danger)',
+                                borderColor: item.isAvailable ? 'var(--success)' : 'var(--danger)',
                               }}
                             >
                               <span
                                 style={{
-                                  position: 'absolute',
-                                  top: 2,
-                                  left: item.isAvailable ? 18 : 2,
-                                  width: 16,
-                                  height: 16,
+                                  width: 6,
+                                  height: 6,
                                   borderRadius: '50%',
-                                  background: '#fff',
-                                  transition: 'left 0.2s cubic-bezier(0.2,0,0,1)',
+                                  background: 'currentColor',
                                 }}
                               />
-                            </span>
-                            <span
-                              style={{
-                                fontSize: 12,
-                                fontWeight: 600,
-                                color: item.isAvailable ? 'var(--ok)' : 'var(--subtle)',
-                              }}
-                            >
-                              {item.isAvailable ? 'In Stock' : '86ed'}
-                            </span>
-                          </button>
-                        </td>
-
-                        {/* Actions */}
-                        <td style={{ padding: '12px 16px', textAlign: 'right' }}>
-                          <div style={{ display: 'inline-flex', gap: 6 }}>
-                            <button
-                              onClick={() => openEdit(item)}
-                              style={{
-                                padding: '6px 10px',
-                                borderRadius: 8,
-                                border: '1px solid var(--border)',
-                                background: 'var(--sunken)',
-                                color: 'var(--text)',
-                                fontSize: 12,
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: 4,
-                              }}
-                            >
-                              Edit
+                              <span>{item.isAvailable ? 'Available' : 'Sold Out (86)'}</span>
                             </button>
-                            <button
-                              onClick={() => {
-                                if (confirm(`Delete "${item.name}"?`)) deleteItem.mutate(item._id);
-                              }}
-                              style={{
-                                padding: '6px 10px',
-                                borderRadius: 8,
-                                border: '1px solid rgba(239,68,68,0.2)',
-                                background: 'var(--bad-bg)',
-                                color: 'var(--bad)',
-                                fontSize: 12,
-                                fontWeight: 600,
-                                cursor: 'pointer',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                              }}
-                              title="Delete Item"
-                            >
-                              <Icon name="trash" size={14} />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-                  {filteredItems.length === 0 && (
-                    <tr>
-                      <td colSpan={5} style={{ textAlign: 'center', padding: 48, color: 'var(--subtle)' }}>
-                        {isLoading ? 'Loading menu items...' : 'No items match your filter.'}
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </>
-      )}
-
-      {activeTab === 'categories' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
-          {categories.map(cat => {
-            const count = items.filter(i => i.categoryId === cat._id).length;
-            return (
-              <div
-                key={cat._id}
-                style={{
-                  background: 'var(--surface)',
-                  border: '1px solid var(--border)',
-                  borderRadius: 14,
-                  padding: 24,
-                  textAlign: 'center',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 10,
-                }}
-              >
-                <div
-                  style={{
-                    width: 54,
-                    height: 54,
-                    borderRadius: 16,
-                    background: 'var(--sunken)',
-                    fontSize: 28,
-                    display: 'grid',
-                    placeItems: 'center',
-                  }}
-                >
-                  {cat.icon}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{cat.name}</div>
-                <div style={{ fontSize: 13, color: 'var(--subtle)' }}>{count} items active</div>
+                          </td>
+                          {isAdmin && (
+                            <td style={{ textAlign: 'right' }}>
+                              <div style={{ display: 'inline-flex', gap: 6 }}>
+                                <button
+                                  type="button"
+                                  onClick={() => openEdit(item)}
+                                  className="btn btn-ghost btn-sm"
+                                  title="Edit Item"
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setItemToDelete(item)}
+                                  className="btn btn-ghost btn-sm"
+                                  style={{ color: 'var(--danger)' }}
+                                  title="Delete Item"
+                                >
+                                  <Icon name="trash" size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
-            );
-          })}
+
+              {/* Mobile Card List (< 768px) */}
+              <div className="mobile-menu-cards" style={{ display: 'none', flexDirection: 'column', gap: 12 }}>
+                {filteredItems.map((item) => (
+                  <div key={item._id} className="card" style={{ padding: 'var(--space-4)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                        <div
+                          style={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 'var(--r-md)',
+                            background: 'var(--bg-sunken)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 24,
+                            overflow: 'hidden',
+                            border: '1px solid var(--border)',
+                          }}
+                        >
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                          ) : (
+                            <span>{item.emoji || '🍔'}</span>
+                          )}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 15 }}>{item.name}</div>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--action-bg)' }}>
+                            {formatMoneyCompact(item.basePrice)}
+                          </div>
+                        </div>
+                      </div>
+                      {isAdmin && (
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button type="button" onClick={() => openEdit(item)} className="btn btn-ghost btn-sm">
+                            Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setItemToDelete(item)}
+                            className="btn btn-ghost btn-sm"
+                            style={{ color: 'var(--danger)' }}
+                          >
+                            <Icon name="trash" size={14} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+                      {item.description || '—'}
+                    </div>
+
+                    <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                      <button
+                        type="button"
+                        onClick={() => toggleAvailable.mutate({ id: item._id, val: !item.isAvailable })}
+                        style={{
+                          width: '100%',
+                          minHeight: 44,
+                          borderRadius: 'var(--r-md)',
+                          fontWeight: 700,
+                          fontSize: 13,
+                          cursor: 'pointer',
+                          border: '1px solid',
+                          background: item.isAvailable ? 'var(--success-bg)' : 'var(--danger-bg)',
+                          color: item.isAvailable ? 'var(--success)' : 'var(--danger)',
+                          borderColor: item.isAvailable ? 'var(--success)' : 'var(--danger)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 8,
+                        }}
+                      >
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'currentColor' }} />
+                        <span>{item.isAvailable ? 'Available (Tap to 86)' : 'Sold Out (Tap to Restock)'}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <style>{`
+                @media (max-width: 767px) {
+                  .desktop-menu-table {
+                    display: none !important;
+                  }
+                  .mobile-menu-cards {
+                    display: flex !important;
+                  }
+                }
+              `}</style>
+            </>
+          )}
         </div>
       )}
 
-      {/* Modal for Create/Edit */}
+      {/* 3. Categories Tab */}
+      {activeTab === 'categories' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxWidth: 640 }}>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+            Reorder categories to change their display order in the customer menu.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {categories.map((cat, idx) => (
+              <div
+                key={cat._id}
+                className="card"
+                style={{
+                  padding: 'var(--space-3) var(--space-4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <Icon name="grip" size={18} style={{ color: 'var(--text-subtle)' }} />
+                  <span style={{ fontSize: 20 }}>{cat.icon || '🍔'}</span>
+                  <span style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>{cat.name}</span>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    type="button"
+                    disabled={idx === 0}
+                    onClick={() => toast.success(`Moved "${cat.name}" up`)}
+                    className="btn btn-ghost btn-sm"
+                    aria-label={`Move ${cat.name} up`}
+                  >
+                    Move Up
+                  </button>
+                  <button
+                    type="button"
+                    disabled={idx === categories.length - 1}
+                    onClick={() => toast.success(`Moved "${cat.name}" down`)}
+                    className="btn btn-ghost btn-sm"
+                    aria-label={`Move ${cat.name} down`}
+                  >
+                    Move Down
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add / Edit Item Drawer */}
       {showForm && (
         <div
+          role="dialog"
+          aria-modal="true"
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.65)',
+            background: 'var(--bg-overlay)',
+            zIndex: 'var(--z-dialog)',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 999,
-            padding: 16,
+            justifyContent: 'flex-end',
           }}
+          onClick={() => setShowForm(false)}
         >
           <div
+            className="animate-slide-in"
             style={{
-              background: 'var(--raised)',
-              border: '1px solid var(--border)',
-              borderRadius: 16,
-              padding: 24,
-              width: '100%',
-              maxWidth: 520,
-              maxHeight: '90vh',
-              overflowY: 'auto',
-              boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
+              width: 'min(440px, 100%)',
+              height: '100dvh',
+              background: 'var(--bg-surface)',
+              borderLeft: '1px solid var(--border)',
+              display: 'flex',
+              flexDirection: 'column',
+              boxShadow: 'var(--shadow-3)',
             }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
-                {editItem ? 'Edit Menu Item' : 'New Menu Item'}
+            <div
+              style={{
+                padding: 'var(--space-5)',
+                borderBottom: '1px solid var(--border)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>
+                {editItem ? 'Edit Food Item' : 'New Food Item'}
               </h2>
               <button
+                type="button"
                 onClick={() => setShowForm(false)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: 'var(--subtle)',
-                  cursor: 'pointer',
-                  padding: 4,
-                }}
+                className="btn btn-ghost"
+                style={{ width: 36, height: 36, padding: 0 }}
+                aria-label="Close form"
               >
-                <Icon name="ban" size={18} />
+                <Icon name="x" size={18} />
               </button>
             </div>
 
             <form
-              onSubmit={handleSubmit(d => saveItem.mutate(d))}
-              style={{ display: 'flex', flexDirection: 'column', gap: 14 }}
+              onSubmit={handleSubmit((data) => saveItem.mutate(data))}
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: 'var(--space-5)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--space-4)',
+              }}
             >
-              <div style={{ display: 'grid', gridTemplateColumns: '3fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
-                    Item Name *
-                  </label>
-                  <input
-                    className="input"
-                    {...register('name', { required: true })}
-                    placeholder="e.g. Zinger Burger"
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
-                    Emoji
-                  </label>
-                  <input
-                    className="input"
-                    {...register('emoji')}
-                    style={{ fontSize: 20, textAlign: 'center' }}
-                    placeholder="🍔"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
-                  Description
-                </label>
-                <textarea
+              <div className="input-group">
+                <label className="label" htmlFor="item-name">Item Name *</label>
+                <input
+                  id="item-name"
                   className="input"
-                  rows={2}
-                  {...register('description')}
-                  placeholder="Ingredients, preparation details..."
-                  style={{ resize: 'vertical' }}
+                  placeholder="e.g. Crispy Zinger Burger"
+                  {...register('name', { required: true })}
                 />
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
-                    Category *
-                  </label>
-                  <select className="input" {...register('categoryId', { required: true })}>
-                    <option value="">Select Category...</option>
-                    {categories.map(c => (
-                      <option key={c._id} value={c._id}>
-                        {c.icon} {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
-                    Price (Rs.) *
-                  </label>
-                  <input
-                    type="number"
-                    step="1"
-                    className="input"
-                    {...register('basePrice', { required: true })}
-                    placeholder="450"
-                  />
-                </div>
+              <div className="input-group">
+                <label className="label" htmlFor="item-category">Category *</label>
+                <select id="item-category" className="input" {...register('categoryId', { required: true })}>
+                  {categories.map((c) => (
+                    <option key={c._id} value={c._id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
-              <div>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
-                  Photo (Optional)
-                </label>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <input ref={fileRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={uploadImage} />
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    style={{
-                      padding: '8px 12px',
-                      borderRadius: 8,
-                      border: '1px solid var(--border)',
-                      background: 'var(--sunken)',
-                      color: 'var(--text)',
-                      fontSize: 12,
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Upload Photo
-                  </button>
-                  <input
-                    className="input"
-                    placeholder="Or enter image URL"
-                    {...register('imageUrl')}
-                    style={{ flex: 1 }}
-                  />
-                </div>
+              <div className="input-group">
+                <label className="label" htmlFor="item-price">Base Price (PKR) *</label>
+                <input
+                  id="item-price"
+                  type="number"
+                  step="0.01"
+                  className="input"
+                  placeholder="e.g. 650"
+                  {...register('basePrice', { required: true })}
+                />
               </div>
 
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', marginTop: 4 }}>
-                <input type="checkbox" {...register('isAvailable')} style={{ width: 16, height: 16 }} />
-                <span style={{ fontSize: 14, fontWeight: 500, color: 'var(--text)' }}>
-                  In Stock & Available to Customers
-                </span>
-              </label>
+              <div className="input-group">
+                <label className="label" htmlFor="item-desc">Description</label>
+                <textarea
+                  id="item-desc"
+                  rows={3}
+                  className="input"
+                  placeholder="Crispy fried chicken fillet with spicy mayo..."
+                  {...register('description')}
+                  style={{ resize: 'none' }}
+                />
+              </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10, marginTop: 16 }}>
+              <div className="input-group">
+                <label className="label" htmlFor="item-emoji">Emoji Icon</label>
+                <input id="item-emoji" className="input" placeholder="🍔" {...register('emoji')} />
+              </div>
+
+              <div className="input-group">
+                <label className="label">Item Image</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={fileRef}
+                  onChange={uploadImage}
+                  style={{ display: 'none' }}
+                />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="btn btn-ghost"
+                  style={{ gap: 8, justifyContent: 'flex-start' }}
+                >
+                  <Icon name="camera" size={16} />
+                  <span>Upload Photo</span>
+                </button>
+              </div>
+
+              <div style={{ marginTop: 'auto', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--border)', display: 'flex', gap: 10 }}>
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: 10,
-                    border: '1px solid var(--border)',
-                    background: 'transparent',
-                    color: 'var(--muted)',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    cursor: 'pointer',
-                  }}
+                  className="btn btn-ghost"
+                  style={{ flex: 1 }}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saveItem.isPending}
-                  style={{
-                    padding: '8px 18px',
-                    borderRadius: 10,
-                    border: 'none',
-                    background: 'var(--action)',
-                    color: '#fff',
-                    fontSize: 13,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                  }}
+                  className="btn btn-primary"
+                  style={{ flex: 1, fontWeight: 700 }}
                 >
-                  {saveItem.isPending ? 'Saving...' : 'Save Item'}
+                  {saveItem.isPending ? 'Saving…' : 'Save Item'}
                 </button>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Themed Dialog (F10) */}
+      <ConfirmDialog
+        isOpen={itemToDelete !== null}
+        onClose={() => setItemToDelete(null)}
+        onConfirm={() => {
+          if (itemToDelete) deleteItem.mutate(itemToDelete._id);
+        }}
+        title={`Delete "${itemToDelete?.name}"?`}
+        message="Are you sure you want to delete this menu item? Past completed orders will keep their historical name and line total."
+        confirmLabel="Delete Item"
+        tone="danger"
+        loading={deleteItem.isPending}
+      />
     </div>
   );
 }

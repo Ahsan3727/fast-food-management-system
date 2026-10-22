@@ -4,7 +4,7 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
-  base: './',
+  base: '/',
   resolve: {
     alias: {
       '@': resolve(__dirname, './src'),
@@ -16,5 +16,17 @@ export default defineConfig({
   server: {
     port: 5175,
     proxy: { '/v1': { target: 'http://localhost:5000', changeOrigin: true } },
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-query': ['@tanstack/react-query'],
+          'vendor-recharts': ['recharts'],
+          'vendor-forms': ['react-hook-form', 'zod'],
+        },
+      },
+    },
   },
 });

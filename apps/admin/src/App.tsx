@@ -1,115 +1,211 @@
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
-import { useEffect, useRef, useState } from 'react';
+import React, { lazy, Suspense, useEffect, useRef, useState } from 'react';
+import { Routes, Route, Navigate, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { io, Socket } from 'socket.io-client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
-import { useAdminStore } from '@/store/admin.store';
-import api, { SOCKET_URL } from '@/lib/api';
+
+import { useAdminStore, selectIsAuthenticated } from '@/store/admin.store';
+import api, { SOCKET_URL, refreshAccessToken } from '@/lib/api';
+import { unlockAudio, playOrderChime } from '@/lib/alerts';
 import { Icon } from '@/components/Icon';
-
-import LoginPage from '@/pages/LoginPage';
-import DashboardPage from '@/pages/DashboardPage';
-import OrdersPage from '@/pages/OrdersPage';
-import MenuPage from '@/pages/MenuPage';
-import RidersPage from '@/pages/RidersPage';
-import CustomersPage from '@/pages/CustomersPage';
-import AnalyticsPage from '@/pages/AnalyticsPage';
 import Sidebar from '@/components/Sidebar';
+import MobileNav from '@/components/MobileNav';
+import { PageSkeleton } from '@/components/ui/Skeleton';
 
-function Private({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAdminStore();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
-}
+// Route-level code splitting (Gate G9)
+const LoginPage = lazy(() => import('@/pages/LoginPage'));
+const DashboardPage = lazy(() => import('@/pages/DashboardPage'));
+const OrdersPage = lazy(() => import('@/pages/OrdersPage'));
+const MenuPage = lazy(() => import('@/pages/MenuPage'));
+const RidersPage = lazy(() => import('@/pages/RidersPage'));
+const CustomersPage = lazy(() => import('@/pages/CustomersPage'));
+const AnalyticsPage = lazy(() => import('@/pages/AnalyticsPage'));
 
-function playChime() {
-  try {
-    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx = new AudioCtx();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.frequency.setValueAtTime(880, ctx.currentTime);
-    gain.gain.setValueAtTime(0.15, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.45);
-  } catch {
-    // blocked until user gesture or unsupported
+function Private() {
+  const store = useAdminStore();
+  const isAuthenticated = selectIsAuthenticated(store);
+  const { bootStatus } = store;
+
+  if (bootStatus === 'booting') {
+    return (
+      <div
+        style={{
+          minHeight: '100dvh',
+          background: 'var(--bg-page)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+          <div
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 'var(--r-lg)',
+              background: 'var(--chip-bg)',
+              color: 'var(--action-bg)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: 'var(--shadow-2)',
+            }}
+          >
+            <Icon name="flame" size={30} />
+          </div>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', fontWeight: 600 }}>
+            Verifying Session…
+          </p>
+        </div>
+      </div>
+    );
   }
+
+  return isAuthenticated ? <AdminLayout /> : <Navigate to="/login" replace />;
 }
 
-function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, accessToken } = useAdminStore();
+function AdminLayout() {
+  const { user, accessToken, logout } = useAdminStore();
   const qc = useQueryClient();
-  const socketRef = useRef<Socket | null>(null);
+  const navigate = useNavigate();
   const location = useLocation();
+  const socketRef = useRef<Socket | null>(null);
 
+  const [connectionState, setConnectionState] = useState<'live' | 'connecting' | 'offline'>('connecting');
+  const [announcement, setAnnouncement] = useState<string>('');
   const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
     return localStorage.getItem('ember_admin_sound') !== 'false';
   });
-
-  const [isLive, setIsLive] = useState<boolean>(false);
 
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (localStorage.getItem('ember_theme') as 'dark' | 'light') || 'dark';
   });
 
+  // Query for placed orders count needing action
+  const { data: placedCount = 0 } = useQuery<number>({
+    queryKey: ['orders-placed-count'],
+    queryFn: async () => {
+      try {
+        const res = await api.get('/orders?status=PLACED&limit=50');
+        const list = res.data?.items ?? res.data?.orders ?? (Array.isArray(res.data) ? res.data : []);
+        return list.length;
+      } catch {
+        return 0;
+      }
+    },
+    staleTime: 15_000,
+  });
+
+  // Synchronize document title with orders needing action (spec §5.3)
+  useEffect(() => {
+    if (placedCount > 0) {
+      document.title = `(${placedCount}) FastFood Admin`;
+    } else {
+      document.title = 'FastFood Admin';
+    }
+  }, [placedCount]);
+
+  // Synchronize theme token
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('ember_theme', theme);
   }, [theme]);
 
-  const toggleSound = () => {
-    setSoundEnabled(prev => {
+  // Global user click unlock for browser audio autoplay
+  useEffect(() => {
+    const handleFirstGesture = () => {
+      unlockAudio();
+    };
+    window.addEventListener('click', handleFirstGesture, { once: true });
+    window.addEventListener('keydown', handleFirstGesture, { once: true });
+    return () => {
+      window.removeEventListener('click', handleFirstGesture);
+      window.removeEventListener('keydown', handleFirstGesture);
+    };
+  }, []);
+
+  const toggleSound = async () => {
+    await unlockAudio();
+    setSoundEnabled((prev) => {
       const next = !prev;
       localStorage.setItem('ember_admin_sound', String(next));
-      if (next) playChime();
+      if (next) playOrderChime();
       return next;
     });
   };
 
   const toggleTheme = () => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
+
+  const handleSignOut = async () => {
+    try {
+      socketRef.current?.disconnect();
+      await api.post('/auth/logout');
+    } catch {
+      // ignore
+    } finally {
+      qc.clear();
+      logout();
+      navigate('/login');
+    }
   };
 
   // Real-time socket events
   useEffect(() => {
     if (!accessToken) return;
+
     const socket = io(SOCKET_URL, {
       auth: { token: accessToken },
       transports: ['websocket'],
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
     });
     socketRef.current = socket;
 
-    socket.on('connect', () => setIsLive(true));
-    socket.on('disconnect', () => setIsLive(false));
+    socket.on('connect', () => {
+      setConnectionState('live');
+    });
+
+    socket.on('disconnect', () => {
+      setConnectionState('offline');
+    });
+
+    socket.on('reconnecting', () => {
+      setConnectionState('connecting');
+    });
 
     socket.on('order:new', (order: any) => {
       if (soundEnabled) {
-        playChime();
+        playOrderChime();
       }
-      toast.success(
-        `New Order #${order.orderNumber} placed — Rs. ${((order.totalPaisa || 0) / 100).toFixed(0)}`,
-        {
-          duration: 6000,
-          style: {
-            background: 'var(--action)',
-            color: '#fff',
-            fontWeight: 700,
-            borderRadius: '12px',
-          },
-        }
-      );
+      const orderNum = order?.orderNumber || 'New';
+      const totalFormatted = ((order?.totalPaisa || 0) / 100).toLocaleString('en-PK');
+      const msg = `New Order #${orderNum} — Rs. ${totalFormatted}`;
+      
+      setAnnouncement(msg);
+      toast.success(msg, {
+        duration: 6000,
+      });
+
       qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['orders-placed-count'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
-      qc.invalidateQueries({ queryKey: ['analytics'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
     });
 
     socket.on('order:status_update', () => {
       qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['orders-placed-count'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
+    });
+
+    socket.on('order:status', () => {
+      qc.invalidateQueries({ queryKey: ['orders'] });
+      qc.invalidateQueries({ queryKey: ['orders-placed-count'] });
+      qc.invalidateQueries({ queryKey: ['dashboard'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
     });
 
     return () => {
@@ -127,165 +223,239 @@ function AdminLayout({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <div className="admin-layout" style={{ background: 'var(--bg)', color: 'var(--text)' }}>
-      <Sidebar currentPath={location.pathname} />
-      <div className="admin-main" style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-        <header
-          className="admin-header"
-          style={{
-            height: 64,
-            padding: '0 24px',
-            background: 'var(--surface)',
-            borderBottom: '1px solid var(--border)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 16,
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <h1 style={{ fontSize: 18, fontWeight: 700, color: 'var(--text)', margin: 0 }}>
-              {pageTitles[location.pathname] || 'Admin'}
+    <div className="admin-layout">
+      {/* Skip to Content Link (WCAG 2.4.1) */}
+      <a href="#main-content" className="skip-link">
+        Skip to main content
+      </a>
+
+      {/* Screen Reader Live Region for Announcements (WCAG 4.1.3) */}
+      <div aria-live="polite" aria-atomic="true" className="sr-only">
+        {announcement}
+      </div>
+
+      {/* Desktop & Tablet Sidebar */}
+      <Sidebar />
+
+      {/* Main Content Area */}
+      <div className="admin-main">
+        {/* Top Header */}
+        <header className="admin-header">
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+            <h1
+              style={{
+                fontSize: 18,
+                fontWeight: 700,
+                color: 'var(--text)',
+                margin: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {pageTitles[location.pathname] || 'Admin Panel'}
             </h1>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            {/* Live Socket Indicator */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            {/* Live Connection Pill */}
             <div
+              className={`badge animate-fade-in`}
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 8,
+                background:
+                  connectionState === 'live'
+                    ? 'var(--success-bg)'
+                    : connectionState === 'connecting'
+                    ? 'var(--warning-bg)'
+                    : 'var(--danger-bg)',
+                color:
+                  connectionState === 'live'
+                    ? 'var(--success)'
+                    : connectionState === 'connecting'
+                    ? 'var(--warning)'
+                    : 'var(--danger)',
+                border: '1px solid currentColor',
                 padding: '4px 10px',
-                borderRadius: 999,
-                background: isLive ? 'var(--ok-bg)' : 'var(--bad-bg)',
-                color: isLive ? 'var(--ok)' : 'var(--bad)',
-                fontSize: 12,
-                fontWeight: 600,
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: '0.4px',
               }}
-              title={isLive ? 'Real-time WebSocket active' : 'Connecting to live server...'}
+              role="status"
+              aria-label={`Connection status: ${connectionState}`}
             >
               <span
+                className={connectionState === 'live' ? 'animate-pulse' : ''}
                 style={{
-                  width: 8,
-                  height: 8,
+                  width: 7,
+                  height: 7,
                   borderRadius: '50%',
                   background: 'currentColor',
-                  boxShadow: isLive ? '0 0 6px currentColor' : 'none',
                 }}
               />
-              <span>{isLive ? 'LIVE' : 'OFFLINE'}</span>
+              <span>{connectionState.toUpperCase()}</span>
             </div>
 
             {/* Sound Toggle */}
             <button
+              type="button"
               onClick={toggleSound}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: soundEnabled ? 'var(--sunken)' : 'transparent',
-                color: soundEnabled ? 'var(--action)' : 'var(--subtle)',
-                display: 'grid',
-                placeItems: 'center',
-                cursor: 'pointer',
-              }}
-              title={soundEnabled ? 'Order sound alerts enabled' : 'Order sound alerts muted'}
-              aria-label="Toggle sound alerts"
+              className="btn btn-ghost"
+              style={{ width: 38, height: 38, padding: 0 }}
+              title={soundEnabled ? 'Alert chime active (click to mute)' : 'Alert chime muted'}
+              aria-label="Toggle alert chime"
             >
               <Icon name={soundEnabled ? 'volume-2' : 'volume-x'} size={18} />
             </button>
 
             {/* Theme Toggle */}
             <button
+              type="button"
               onClick={toggleTheme}
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 10,
-                border: '1px solid var(--border)',
-                background: 'var(--sunken)',
-                color: 'var(--muted)',
-                display: 'grid',
-                placeItems: 'center',
-                cursor: 'pointer',
-              }}
+              className="btn btn-ghost"
+              style={{ width: 38, height: 38, padding: 0 }}
               title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
               aria-label="Toggle theme"
             >
               <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} />
             </button>
 
-            {/* User Profile */}
+            {/* User Profile Capsule */}
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 10,
-                paddingLeft: 8,
-                borderLeft: '1px solid var(--border)',
+                gap: 8,
+                padding: '4px 10px',
+                background: 'var(--bg-sunken)',
+                borderRadius: 'var(--r-pill)',
+                border: '1px solid var(--border)',
               }}
             >
               <div
                 style={{
-                  width: 34,
-                  height: 34,
+                  width: 26,
+                  height: 26,
                   borderRadius: '50%',
-                  background: 'var(--action)',
-                  color: '#fff',
-                  display: 'grid',
-                  placeItems: 'center',
-                  fontWeight: 800,
-                  fontSize: 14,
+                  background: 'var(--action-bg)',
+                  color: 'var(--action-fg)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: 12,
                 }}
               >
-                {user?.name?.[0]?.toUpperCase() ?? 'A'}
+                {user?.name?.charAt(0) || 'A'}
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', lineHeight: 1.2 }}>
-                  {user?.name || 'Administrator'}
+              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+                  {user?.name?.split(' ')[0] || 'Admin'}
                 </span>
-                <span style={{ fontSize: 11, color: 'var(--subtle)', textTransform: 'capitalize' }}>
-                  {user?.role || 'Manager'}
+                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'capitalize' }}>
+                  {user?.role || 'Staff'}
                 </span>
               </div>
             </div>
           </div>
         </header>
 
-        <div className="admin-content" style={{ flex: 1, overflowY: 'auto', padding: 24, background: 'var(--bg)' }}>
-          {children}
-        </div>
+        {/* Offline Banner if disconnected */}
+        {connectionState === 'offline' && (
+          <div
+            role="status"
+            style={{
+              background: 'var(--warning-bg)',
+              color: 'var(--warning)',
+              borderBottom: '1px solid var(--warning)',
+              padding: '8px 16px',
+              fontSize: 13,
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+            }}
+          >
+            <Icon name="wifi-off" size={16} />
+            <span>Connection lost. Reconnecting to live server…</span>
+          </div>
+        )}
+
+        {/* Dynamic Route Content */}
+        <main id="main-content" className="admin-content" tabIndex={-1}>
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
+        </main>
+
+        {/* Mobile Navigation Bar (< 768px) */}
+        <MobileNav
+          theme={theme}
+          onToggleTheme={toggleTheme}
+          soundEnabled={soundEnabled}
+          onToggleSound={toggleSound}
+        />
       </div>
     </div>
   );
 }
 
 export default function App() {
-  const { refreshToken, setTokens, setUser, logout, isAuthenticated } = useAdminStore();
+  const { refreshToken, setUser, logout, setBootStatus } = useAdminStore();
 
+  // Boot: Single-flight refresh token check
   useEffect(() => {
-    if (!refreshToken) return;
-    api
-      .post('/auth/refresh', { refreshToken })
-      .then(({ data }) => {
-        setTokens(data.accessToken, data.refreshToken);
-        return api.get('/users/me');
-      })
-      .then(({ data }) => setUser(data.user))
-      .catch(() => logout());
-  }, []); // eslint-disable-line
+    let active = true;
+
+    async function initializeSession() {
+      if (!refreshToken) {
+        setBootStatus('ready');
+        return;
+      }
+
+      try {
+        const token = await refreshAccessToken();
+        if (token && active) {
+          const res = await api.get('/users/me');
+          const meUser = res.data?.user;
+          if (meUser && ['admin', 'staff'].includes(meUser.role)) {
+            setUser(meUser);
+          } else {
+            logout();
+          }
+        }
+      } catch {
+        if (active) logout();
+      } finally {
+        if (active) setBootStatus('ready');
+      }
+    }
+
+    initializeSession();
+    return () => {
+      active = false;
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />} />
-      <Route path="/" element={<Private><AdminLayout><DashboardPage /></AdminLayout></Private>} />
-      <Route path="/orders" element={<Private><AdminLayout><OrdersPage /></AdminLayout></Private>} />
-      <Route path="/menu" element={<Private><AdminLayout><MenuPage /></AdminLayout></Private>} />
-      <Route path="/riders" element={<Private><AdminLayout><RidersPage /></AdminLayout></Private>} />
-      <Route path="/customers" element={<Private><AdminLayout><CustomersPage /></AdminLayout></Private>} />
-      <Route path="/analytics" element={<Private><AdminLayout><AnalyticsPage /></AdminLayout></Private>} />
+      <Route
+        path="/login"
+        element={
+          <Suspense fallback={<PageSkeleton />}>
+            <LoginPage />
+          </Suspense>
+        }
+      />
+      <Route path="/" element={<Private />}>
+        <Route index element={<DashboardPage />} />
+        <Route path="orders" element={<OrdersPage />} />
+        <Route path="orders/:id" element={<OrdersPage />} />
+        <Route path="menu" element={<MenuPage />} />
+        <Route path="riders" element={<RidersPage />} />
+        <Route path="customers" element={<CustomersPage />} />
+        <Route path="analytics" element={<AnalyticsPage />} />
+      </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

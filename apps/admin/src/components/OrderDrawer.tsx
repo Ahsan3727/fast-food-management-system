@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { OrderStatus } from '@fastfood/shared-types';
 import { StatusBadge } from './StatusBadge';
 import { Icon } from './Icon';
 import { formatMoneyCompact } from '@fastfood/utils';
+import { useAdminStore } from '@/store/admin.store';
+import { ReasonDialog } from '@/components/ui/ReasonDialog';
 
 interface OrderDrawerProps {
   order: any | null;
@@ -11,9 +13,20 @@ interface OrderDrawerProps {
 }
 
 export const OrderDrawer: React.FC<OrderDrawerProps> = ({ order, onClose, onTransition }) => {
+  const { user } = useAdminStore();
+  const isAdmin = user?.role === 'admin';
+
   const [loading, setLoading] = useState(false);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [cancelReason, setCancelReason] = useState('Kitchen too busy');
+  const [reasonAction, setReasonAction] = useState<'reject' | 'cancel' | null>(null);
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   if (!order) return null;
 
@@ -21,33 +34,53 @@ export const OrderDrawer: React.FC<OrderDrawerProps> = ({ order, onClose, onTran
     setLoading(true);
     try {
       await onTransition(order._id, status, note);
-      if (status === OrderStatus.CANCELLED || status === OrderStatus.REJECTED) {
-        setShowCancelModal(false);
-      }
+      setReasonAction(null);
     } finally {
       setLoading(false);
     }
   };
 
-  const deliveryFee = order.totalPaisa >= 100000 ? 0 : 10000;
-  const subtotalPaisa = order.items?.reduce((sum: number, it: any) => sum + (it.lineTotalPaisa ?? it.totalPaisa ?? it.unitPricePaisa * it.quantity), 0) ?? order.totalPaisa;
+  const handleConfirmReason = async (reason: string) => {
+    if (reasonAction === 'reject') {
+      await handleAction(OrderStatus.REJECTED, reason);
+    } else if (reasonAction === 'cancel') {
+      await handleAction(OrderStatus.CANCELLED, reason);
+    }
+  };
+
+  const items = order.items ?? [];
+  const subtotalPaisa =
+    order.subtotalPaisa ??
+    items.reduce((s: number, it: any) => s + (it.lineTotalPaisa ?? it.totalPaisa ?? it.unitPricePaisa * it.quantity), 0);
+  const deliveryFeePaisa = order.deliveryFeePaisa ?? (order.totalPaisa ? Math.max(0, order.totalPaisa - subtotalPaisa) : 0);
+  const totalPaisa = order.totalPaisa ?? subtotalPaisa + deliveryFeePaisa;
+
+  const addressText =
+    order.address?.street ||
+    order.address?.formatted ||
+    order.address?.address ||
+    (typeof order.address === 'string' ? order.address : 'Standard Delivery');
 
   return (
     <>
-      {/* Scrim */}
+      {/* Scrim Overlay */}
       <div
         onClick={onClose}
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'var(--bg-overlay, rgba(0,0,0,0.6))',
-          zIndex: 40,
-          animation: 'fadeIn 0.2s ease',
+          background: 'var(--bg-overlay)',
+          zIndex: 'var(--z-scrim)',
+          animation: 'fadeIn var(--dur-fast) ease',
         }}
+        aria-hidden="true"
       />
 
-      {/* Drawer */}
+      {/* Drawer Panel */}
       <aside
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="order-drawer-title"
         style={{
           position: 'fixed',
           top: 0,
@@ -57,183 +90,231 @@ export const OrderDrawer: React.FC<OrderDrawerProps> = ({ order, onClose, onTran
           background: 'var(--bg-surface)',
           borderLeft: '1px solid var(--border)',
           boxShadow: 'var(--shadow-3)',
-          zIndex: 41,
+          zIndex: 'var(--z-overlay)',
           display: 'flex',
           flexDirection: 'column',
-          animation: 'slideIn 0.24s cubic-bezier(0.2, 0, 0, 1)',
+          animation: 'slideIn var(--dur-base) var(--ease-enter)',
         }}
       >
-        {/* Header */}
+        {/* 1. Header */}
         <div
           style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            padding: '20px 24px',
+            padding: 'var(--space-5) var(--space-6)',
             borderBottom: '1px solid var(--border)',
+            background: 'var(--bg-surface)',
           }}
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <h2 style={{ fontSize: 20, fontWeight: 800 }}>#{order.orderNumber}</h2>
+              <h2 id="order-drawer-title" style={{ fontSize: 20, fontWeight: 800, margin: 0, color: 'var(--text)' }}>
+                #{order.orderNumber}
+              </h2>
               <StatusBadge status={order.status} />
             </div>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4, margin: '4px 0 0 0' }}>
               Placed at {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Close drawer"
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 'var(--r-sm)',
-              border: '1px solid var(--border)',
-              background: 'var(--bg-sunken)',
-              color: 'var(--text-muted)',
-              display: 'grid',
-              placeItems: 'center',
-              cursor: 'pointer',
-            }}
+            className="btn btn-ghost"
+            style={{ width: 36, height: 36, padding: 0 }}
           >
-            ✕
+            <Icon name="x" size={18} />
           </button>
         </div>
 
-        {/* Scrollable Content */}
-        <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Customer info card */}
-          <div
-            style={{
-              padding: 16,
-              borderRadius: 'var(--r-md)',
-              background: 'var(--bg-sunken)',
-              border: '1px solid var(--border)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        {/* 2. Scrollable Body Content */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+          {/* Customer Section */}
+          <div className="card" style={{ padding: 'var(--space-4)' }}>
+            <div className="card-title" style={{ marginBottom: 12 }}>Customer Details</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--text)' }}>
+                  {order.customerName || 'Walk-in Customer'}
+                </div>
+                {order.customerPhone && (
+                  <a
+                    href={`tel:${order.customerPhone}`}
+                    style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      fontSize: 13,
+                      color: 'var(--link)',
+                      textDecoration: 'none',
+                      marginTop: 4,
+                      fontWeight: 600,
+                    }}
+                  >
+                    <Icon name="phone" size={14} />
+                    <span>{order.customerPhone}</span>
+                  </a>
+                )}
+              </div>
               <div
                 style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  background: 'var(--chip-bg)',
-                  color: 'var(--chip-fg)',
+                  padding: '4px 10px',
+                  borderRadius: 'var(--r-pill)',
+                  background: 'var(--bg-sunken)',
+                  fontSize: 11,
                   fontWeight: 700,
-                  display: 'grid',
-                  placeItems: 'center',
+                  color: 'var(--text-muted)',
                 }}
               >
-                {order.customerName?.[0] || 'C'}
-              </div>
-              <div style={{ flex: 1 }}>
-                <b style={{ fontSize: 15 }}>{order.customerName || 'Customer'}</b>
-                {order.customerPhone && (
-                  <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>
-                    <a href={`tel:${order.customerPhone}`} style={{ color: 'var(--link)', textDecoration: 'none' }}>
-                      {order.customerPhone}
-                    </a>
-                  </p>
-                )}
-              </div>
-            </div>
-
-            <div style={{ fontSize: 13, color: 'var(--text-muted)', display: 'flex', gap: 8, alignItems: 'flex-start', marginTop: 12 }}>
-              <Icon name="pin" size={16} style={{ marginTop: 2, color: 'var(--action-bg)' }} />
-              <div>
-                <b style={{ color: 'var(--text)' }}>Delivery Address:</b>
-                <p>{order.deliveryAddress?.addressLine || 'Address not specified'}</p>
-                {order.deliveryAddress?.landmark && (
-                  <p style={{ color: 'var(--text-subtle)', fontStyle: 'italic', marginTop: 2 }}>
-                    Landmark: {order.deliveryAddress.landmark}
-                  </p>
-                )}
+                COD
               </div>
             </div>
           </div>
 
-          {/* Items breakdown */}
-          <div>
-            <h3 style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 12 }}>
-              Order Items ({order.items?.length || 0})
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {order.items?.map((it: any, idx: number) => (
-                <div
-                  key={idx}
+          {/* Delivery Address */}
+          <div className="card" style={{ padding: 'var(--space-4)' }}>
+            <div className="card-title" style={{ marginBottom: 8 }}>Delivery Location</div>
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+              <Icon name="pin" size={18} style={{ color: 'var(--action-bg)', marginTop: 2 }} />
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.4 }}>
+                  {addressText}
+                </div>
+                {order.address?.landmark && (
+                  <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 2 }}>
+                    Landmark: {order.address.landmark}
+                  </div>
+                )}
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addressText)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    padding: '12px 14px',
-                    borderRadius: 'var(--r-sm)',
-                    background: 'var(--bg-sunken)',
-                    border: '1px solid var(--border)',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    fontSize: 12,
+                    color: 'var(--link)',
+                    marginTop: 8,
+                    fontWeight: 600,
+                    textDecoration: 'none',
                   }}
                 >
-                  <div>
-                    <b style={{ fontSize: 14 }}>
-                      {it.quantity}× {it.nameSnapshot || it.name || 'Menu Item'}
-                    </b>
-                    {it.sizeLabel && (
-                      <span style={{ fontSize: 12, color: 'var(--text-muted)', display: 'block', marginTop: 2 }}>
-                        Size: {it.sizeLabel}
-                      </span>
-                    )}
-                    {it.addOns?.length > 0 && (
-                      <span style={{ fontSize: 12, color: 'var(--text-subtle)', display: 'block' }}>
-                        + {it.addOns.join(', ')}
-                      </span>
-                    )}
-                  </div>
-                  <span style={{ fontWeight: 700, fontSize: 14 }}>
-                    {formatMoneyCompact(it.lineTotalPaisa ?? it.totalPaisa ?? it.unitPricePaisa * it.quantity)}
-                  </span>
-                </div>
-              ))}
+                  <span>Open in Google Maps</span>
+                  <Icon name="arrow-up-right" size={14} />
+                </a>
+              </div>
             </div>
           </div>
 
-          {/* Payment & pricing summary */}
-          <div
-            style={{
-              padding: 16,
-              borderRadius: 'var(--r-md)',
-              border: '1px solid var(--border)',
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 8,
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-muted)' }}>
-              <span>Subtotal</span>
-              <span>{formatMoneyCompact(subtotalPaisa)}</span>
+          {/* Items List */}
+          <div className="card" style={{ padding: 'var(--space-4)' }}>
+            <div className="card-title" style={{ marginBottom: 12 }}>
+              Ordered Items ({items.length})
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-muted)' }}>
-              <span>Delivery Fee</span>
-              <span>{deliveryFee > 0 ? formatMoneyCompact(deliveryFee) : 'Free'}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {items.map((it: any, idx: number) => {
+                const lineTotal = it.lineTotalPaisa ?? (it.unitPricePaisa * it.quantity);
+                return (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'flex-start',
+                      borderBottom: idx < items.length - 1 ? '1px solid var(--border)' : 'none',
+                      paddingBottom: idx < items.length - 1 ? 10 : 0,
+                    }}
+                  >
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span
+                          style={{
+                            fontWeight: 800,
+                            color: 'var(--action-bg)',
+                            fontSize: 13,
+                            minWidth: 20,
+                          }}
+                        >
+                          {it.quantity}×
+                        </span>
+                        <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--text)' }}>
+                          {it.nameSnapshot || it.name}
+                        </span>
+                      </div>
+                      {it.sizeLabel && (
+                        <div style={{ fontSize: 12, color: 'var(--text-muted)', marginLeft: 28 }}>
+                          Size: {it.sizeLabel}
+                        </div>
+                      )}
+                      {it.addOns && it.addOns.length > 0 && (
+                        <div style={{ fontSize: 11, color: 'var(--text-subtle)', marginLeft: 28, marginTop: 2 }}>
+                          + {it.addOns.map((a: any) => a.name).join(', ')}
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 13,
+                        color: 'var(--text)',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {formatMoneyCompact(lineTotal)}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                paddingTop: 10,
-                marginTop: 4,
-                borderTop: '1px solid var(--border)',
-                fontWeight: 800,
-                fontSize: 16,
-              }}
-            >
-              <span>Total COD</span>
-              <span style={{ color: 'var(--action-bg)' }}>{formatMoneyCompact(order.totalPaisa)}</span>
+
+            {/* Totals */}
+            <div style={{ borderTop: '1px solid var(--border)', marginTop: 14, paddingTop: 12, display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-muted)' }}>
+                <span>Subtotal</span>
+                <span>{formatMoneyCompact(subtotalPaisa)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: 'var(--text-muted)' }}>
+                <span>Delivery Fee</span>
+                <span>{deliveryFeePaisa === 0 ? 'FREE' : formatMoneyCompact(deliveryFeePaisa)}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 15, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>
+                <span>Total Amount</span>
+                <span style={{ color: 'var(--action-bg)' }}>{formatMoneyCompact(totalPaisa)}</span>
+              </div>
             </div>
           </div>
+
+          {/* Timeline / History */}
+          {order.statusHistory && order.statusHistory.length > 0 && (
+            <div className="card" style={{ padding: 'var(--space-4)' }}>
+              <div className="card-title" style={{ marginBottom: 12 }}>Status Timeline</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {order.statusHistory.map((h: any, i: number) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, fontSize: 12 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--action-bg)', marginTop: 4, flexShrink: 0 }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--text)' }}>
+                        {String(h.status).replace(/_/g, ' ')}
+                      </div>
+                      <div style={{ color: 'var(--text-muted)', fontSize: 11 }}>
+                        {new Date(h.timestamp || h.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {h.note && ` — "${h.note}"`}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Action Footer */}
+        {/* 3. Sticky Action Bar */}
         <div
           style={{
-            padding: '16px 24px',
+            padding: 'var(--space-4) var(--space-6)',
             borderTop: '1px solid var(--border)',
             background: 'var(--bg-surface)',
             display: 'flex',
@@ -241,199 +322,98 @@ export const OrderDrawer: React.FC<OrderDrawerProps> = ({ order, onClose, onTran
             gap: 10,
           }}
         >
+          {/* PLACED state actions */}
           {order.status === OrderStatus.PLACED && (
             <div style={{ display: 'flex', gap: 10 }}>
               <button
+                type="button"
                 disabled={loading}
                 onClick={() => handleAction(OrderStatus.ACCEPTED)}
-                style={{
-                  flex: 1,
-                  minHeight: 46,
-                  borderRadius: 'var(--r-md)',
-                  background: 'var(--action-bg)',
-                  color: 'var(--action-fg)',
-                  fontWeight: 700,
-                  border: 'none',
-                  cursor: 'pointer',
-                }}
+                className="btn btn-primary btn-lg"
+                style={{ flex: 1, fontWeight: 700 }}
               >
                 Accept Order
               </button>
               <button
+                type="button"
                 disabled={loading}
-                onClick={() => handleAction(OrderStatus.REJECTED, 'Kitchen unable to fulfill')}
-                style={{
-                  minHeight: 46,
-                  padding: '0 16px',
-                  borderRadius: 'var(--r-md)',
-                  background: 'var(--danger-bg)',
-                  color: 'var(--danger)',
-                  border: '1px solid var(--danger)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
+                onClick={() => setReasonAction('reject')}
+                className="btn btn-danger btn-lg"
+                style={{ padding: '0 20px', fontWeight: 700 }}
               >
-                Reject
+                Reject…
               </button>
             </div>
           )}
 
+          {/* ACCEPTED state action */}
           {order.status === OrderStatus.ACCEPTED && (
             <button
+              type="button"
               disabled={loading}
               onClick={() => handleAction(OrderStatus.PREPARING)}
-              style={{
-                width: '100%',
-                minHeight: 46,
-                borderRadius: 'var(--r-md)',
-                background: 'var(--action-bg)',
-                color: 'var(--action-fg)',
-                fontWeight: 700,
-                border: 'none',
-                cursor: 'pointer',
-              }}
+              className="btn btn-primary btn-lg"
+              style={{ width: '100%', fontWeight: 700 }}
             >
               Start Cooking (Preparing)
             </button>
           )}
 
+          {/* PREPARING state action */}
           {order.status === OrderStatus.PREPARING && (
             <button
+              type="button"
               disabled={loading}
               onClick={() => handleAction(OrderStatus.READY)}
-              style={{
-                width: '100%',
-                minHeight: 46,
-                borderRadius: 'var(--r-md)',
-                background: 'var(--success)',
-                color: '#fff',
-                fontWeight: 700,
-                border: 'none',
-                cursor: 'pointer',
-              }}
+              className="btn btn-success btn-lg"
+              style={{ width: '100%', fontWeight: 700 }}
             >
-              Mark Ready for Rider
+              Mark Ready for Pickup
             </button>
           )}
 
+          {/* READY state display */}
           {order.status === OrderStatus.READY && (
             <div
+              data-tone="teal"
               style={{
                 padding: '12px 16px',
                 borderRadius: 'var(--r-md)',
-                background: 'rgba(15, 118, 110, 0.1)',
-                color: 'var(--tone-teal-fg, #0F766E)',
+                background: 'var(--b-bg)',
+                color: 'var(--b-fg)',
                 fontWeight: 600,
                 fontSize: 13,
                 textAlign: 'center',
               }}
             >
-              Dispatched to online riders · Waiting for rider claim...
+              Finding rider · Waiting for fleet claim…
             </div>
           )}
 
-          {['PLACED', 'ACCEPTED', 'PREPARING'].includes(order.status) && (
+          {/* Admin-only Cancel option for orders already accepted/cooking */}
+          {isAdmin && ['ACCEPTED', 'PREPARING'].includes(order.status) && (
             <button
+              type="button"
               disabled={loading}
-              onClick={() => setShowCancelModal(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: 'var(--danger)',
-                fontSize: 13,
-                fontWeight: 600,
-                cursor: 'pointer',
-                padding: '6px 0',
-              }}
+              onClick={() => setReasonAction('cancel')}
+              className="btn btn-ghost"
+              style={{ width: '100%', color: 'var(--danger)', fontSize: 13 }}
             >
-              Cancel Order...
+              Cancel Order (Admin only)…
             </button>
           )}
         </div>
       </aside>
 
-      {/* Cancel Order Modal */}
-      {showCancelModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 60,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            background: 'var(--bg-overlay, rgba(0,0,0,0.6))',
-          }}
-        >
-          <div
-            style={{
-              width: '90%',
-              maxWidth: 420,
-              background: 'var(--bg-surface)',
-              borderRadius: 'var(--r-lg)',
-              padding: 24,
-              border: '1px solid var(--border)',
-              boxShadow: 'var(--shadow-3)',
-            }}
-          >
-            <h3 style={{ fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Cancel Order #{order.orderNumber}?</h3>
-            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 16 }}>
-              The customer will be notified immediately. Please select a reason:
-            </p>
-
-            <select
-              value={cancelReason}
-              onChange={e => setCancelReason(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: 'var(--r-sm)',
-                border: '1px solid var(--border-strong)',
-                background: 'var(--bg-sunken)',
-                color: 'var(--text)',
-                fontSize: 14,
-                marginBottom: 20,
-              }}
-            >
-              <option value="Kitchen too busy / Out of stock">Kitchen too busy / Out of stock</option>
-              <option value="Customer requested cancellation">Customer requested cancellation</option>
-              <option value="Delivery address out of service area">Delivery address out of service area</option>
-              <option value="Other store reason">Other store reason</option>
-            </select>
-
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setShowCancelModal(false)}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: 'var(--r-md)',
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-sunken)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                }}
-              >
-                Keep Order
-              </button>
-              <button
-                disabled={loading}
-                onClick={() => handleAction(OrderStatus.CANCELLED, cancelReason)}
-                style={{
-                  padding: '10px 16px',
-                  borderRadius: 'var(--r-md)',
-                  border: 'none',
-                  background: 'var(--danger-solid)',
-                  color: 'var(--on-danger)',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                {loading ? 'Cancelling...' : 'Confirm Cancel'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Standardized Reason Dialog for Reject / Cancel */}
+      <ReasonDialog
+        isOpen={reasonAction !== null}
+        onClose={() => setReasonAction(null)}
+        onConfirm={handleConfirmReason}
+        orderNumber={order.orderNumber}
+        actionType={reasonAction || 'reject'}
+        loading={loading}
+      />
     </>
   );
 };

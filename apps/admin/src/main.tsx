@@ -5,6 +5,8 @@ import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
 import './styles/tokens.css';
+import './styles/motion.css';
+import './styles/layout.css';
 import './styles/globals.css';
 
 const queryClient = new QueryClient({
@@ -16,9 +18,20 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <App />
-        <Toaster position="top-right" toastOptions={{
-          style: { background: '#1f2937', color: '#f9fafb', borderRadius: '10px', fontFamily: 'Inter, sans-serif', fontSize: '14px' },
-        }} />
+        <Toaster
+          position="top-right"
+          toastOptions={{
+            style: {
+              background: 'var(--bg-surface)',
+              color: 'var(--text)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--r-md)',
+              fontFamily: 'var(--font)',
+              fontSize: '14px',
+              boxShadow: 'var(--shadow-2)',
+            },
+          }}
+        />
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,

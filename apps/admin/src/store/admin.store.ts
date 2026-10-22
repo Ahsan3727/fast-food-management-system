@@ -1,26 +1,53 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
-interface AdminUser { _id: string; name: string; phone?: string; email?: string; role: string; }
+export interface AdminUser {
+  _id: string;
+  name: string;
+  phone?: string;
+  email?: string;
+  role: 'admin' | 'staff';
+}
 
 interface AdminState {
   user: AdminUser | null;
   accessToken: string | null;
   refreshToken: string | null;
-  isAuthenticated: boolean;
-  setTokens: (a: string, r: string) => void;
-  setUser: (u: AdminUser) => void;
+  bootStatus: 'booting' | 'ready';
+  setAuth: (payload: { accessToken: string; refreshToken: string; user: AdminUser }) => void;
+  setTokens: (accessToken: string, refreshToken: string) => void;
+  setUser: (user: AdminUser) => void;
+  setBootStatus: (bootStatus: 'booting' | 'ready') => void;
   logout: () => void;
 }
 
 export const useAdminStore = create<AdminState>()(
   persist(
     (set) => ({
-      user: null, accessToken: null, refreshToken: null, isAuthenticated: false,
-      setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken, isAuthenticated: true }),
+      user: null,
+      accessToken: null,
+      refreshToken: null,
+      bootStatus: 'booting',
+      setAuth: ({ accessToken, refreshToken, user }) =>
+        set({ accessToken, refreshToken, user, bootStatus: 'ready' }),
+      setTokens: (accessToken, refreshToken) => set({ accessToken, refreshToken }),
       setUser: (user) => set({ user }),
-      logout: () => set({ user: null, accessToken: null, refreshToken: null, isAuthenticated: false }),
+      setBootStatus: (bootStatus) => set({ bootStatus }),
+      logout: () =>
+        set({
+          user: null,
+          accessToken: null,
+          refreshToken: null,
+          bootStatus: 'ready',
+        }),
     }),
-    { name: 'fastfood-admin-auth', partialize: s => ({ refreshToken: s.refreshToken, user: s.user, isAuthenticated: s.isAuthenticated }) },
+    {
+      name: 'fastfood-admin-auth',
+      partialize: (s) => ({ refreshToken: s.refreshToken }),
+    },
   ),
 );
+
+export const selectIsAuthenticated = (state: AdminState): boolean =>
+  Boolean(state.accessToken && state.user && ['admin', 'staff'].includes(state.user.role));
+
