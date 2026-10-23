@@ -41,6 +41,11 @@
   --space-10: 40px;
   --space-12: 48px;
 
+  /* Layout dimensions */
+  --sidebar-w:      240px;
+  --sidebar-rail-w: 72px;
+  --header-h:       56px;
+
   /* Radii */
   --r-xs: 4px;
   --r-sm: 8px;

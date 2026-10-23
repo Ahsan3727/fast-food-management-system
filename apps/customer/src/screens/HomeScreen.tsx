@@ -7,8 +7,10 @@ import BottomNav from '@/components/BottomNav';
 import CartBar from '@/components/CartBar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Icon } from '@/components/Icon';
+import { SkeletonCard } from '@/components/Skeleton';
 import { formatMoneyCompact } from '@fastfood/utils';
 import { STATUS_META, OrderStatus } from '@fastfood/shared-types';
+import { QK } from '@/api/queryKeys';
 
 export default function HomeScreen() {
   const navigate = useNavigate();
@@ -16,19 +18,19 @@ export default function HomeScreen() {
   const { addItem, totalItems } = useCartStore();
 
   const { data: categories = [] } = useQuery<any[]>({
-    queryKey: ['categories'],
+    queryKey: QK.categories,
     queryFn: () => api.get('/menu/categories').then(r => r.data),
   });
 
   const { data: menuItems = [], isLoading } = useQuery<any[]>({
-    queryKey: ['menu'],
+    queryKey: QK.menu(),
     queryFn: () => api.get('/menu').then(r => r.data),
   });
 
   const { data: myOrders = [] } = useQuery<any[]>({
-    queryKey: ['my-orders'],
+    queryKey: QK.myOrders,
     queryFn: () => api.get('/orders/my').then(r => r.data),
-    staleTime: 10000,
+    staleTime: 10_000,
   });
 
   const activeOrder = myOrders.find(
@@ -244,18 +246,7 @@ export default function HomeScreen() {
 
           {isLoading ? (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-              {[1, 2, 3, 4].map(n => (
-                <div
-                  key={n}
-                  style={{
-                    height: 180,
-                    borderRadius: 14,
-                    background: 'var(--surface)',
-                    border: '1px solid var(--border)',
-                    opacity: 0.5,
-                  }}
-                />
-              ))}
+              {[1, 2, 3, 4].map(n => <SkeletonCard key={n} />)}
             </div>
           ) : (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -315,8 +306,8 @@ export default function HomeScreen() {
                             fontWeight: 700,
                             padding: '2px 6px',
                             borderRadius: 999,
-                            background: '#1c1917',
-                            color: '#fff',
+                            background: 'var(--stone-900)',
+                            color: 'var(--stone-0)',
                           }}
                         >
                           Sold out
@@ -370,8 +361,8 @@ export default function HomeScreen() {
                         width: 36,
                         height: 36,
                         borderRadius: '50%',
-                        background: item.isAvailable ? 'var(--action)' : 'var(--sunken)',
-                        color: item.isAvailable ? '#fff' : 'var(--subtle)',
+                        background: item.isAvailable ? 'var(--action-bg)' : 'var(--bg-sunken)',
+                        color: item.isAvailable ? 'var(--action-fg)' : 'var(--text-subtle)',
                         border: 'none',
                         display: 'grid',
                         placeItems: 'center',

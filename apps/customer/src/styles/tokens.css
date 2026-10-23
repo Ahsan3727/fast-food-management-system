@@ -95,6 +95,9 @@
   --map-bg: var(--stone-100);
   --map-road: #FFFFFF;
 
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-pressed: rgba(0, 0, 0, 0.08);
+
   --shadow-1: 0 1px 2px rgba(28, 25, 23, 0.06), 0 1px 1px rgba(28, 25, 23, 0.04);
   --shadow-2: 0 4px 12px rgba(28, 25, 23, 0.08);
   --shadow-3: 0 12px 32px rgba(28, 25, 23, 0.16);
@@ -102,6 +105,28 @@
   /* Safe Area for Mobile */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* ── Legacy aliases (screens use these short names) ── */
+  --bg:           var(--bg-page);
+  --surface:      var(--bg-surface);
+  --raised:       var(--bg-raised);
+  --sunken:       var(--bg-sunken);
+  --muted:        var(--text-muted);
+  --subtle:       var(--text-subtle);
+  --action:       var(--action-bg);
+  --primary:      var(--action-bg);
+  --primary-dark: var(--action-bg-hover);
+  --primary-light: var(--chip-bg);
+  --ok:           var(--success);
+  --ok-bg:        var(--success-bg);
+  --bad:          var(--danger);
+  --bad-bg:       var(--danger-bg);
+  /* Shadow alias — module.css files reference --shadow */
+  --shadow:       var(--shadow-1);
+  /* Toggle inactive track — stone-300 in light mode */
+  --strong:       var(--stone-300);
+  /* Nav height — used in globals.css and screen padding */
+  --nav-h:        56px;
 }
 
 /* ── Dark Theme Overrides ──────────────────────────────────── */
@@ -112,6 +137,8 @@
   --bg-raised: var(--stone-800);
   --bg-sunken: #141210;
   --bg-overlay: rgba(0, 0, 0, 0.6);
+  --bg-hover: rgba(255, 255, 255, 0.05);
+  --bg-pressed: rgba(255, 255, 255, 0.1);
 
   --text: var(--stone-50);
   --text-muted: var(--stone-300);
@@ -148,6 +175,9 @@
   --shadow-1: none;
   --shadow-2: 0 0 0 1px var(--stone-700);
   --shadow-3: 0 12px 32px rgba(0, 0, 0, 0.5);
+
+  /* Toggle inactive track — stone-600 in dark mode */
+  --strong: var(--stone-600);
 }
 
 /* ── Order Status Tones (Light Theme) ───────────────────────── */

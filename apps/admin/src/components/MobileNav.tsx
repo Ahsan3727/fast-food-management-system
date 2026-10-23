@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAdminStore } from '@/store/admin.store';
 import api from '@/lib/api';
 import { Icon } from '@/components/Icon';
@@ -20,21 +20,11 @@ export default function MobileNav({
 }: MobileNavProps) {
   const navigate = useNavigate();
   const { logout, user } = useAdminStore();
+  const qc = useQueryClient();
   const [showMore, setShowMore] = useState(false);
 
-  const { data: placedCount = 0 } = useQuery<number>({
-    queryKey: ['orders-placed-count'],
-    queryFn: async () => {
-      try {
-        const res = await api.get('/orders?status=PLACED&limit=50');
-        const list = res.data?.items ?? res.data?.orders ?? (Array.isArray(res.data) ? res.data : []);
-        return list.length;
-      } catch {
-        return 0;
-      }
-    },
-    staleTime: 15_000,
-  });
+  // Read badge count from existing cache (set by AdminLayout's query) — no duplicate fetch
+  const placedCount = (qc.getQueryData<number>(['orders-placed-count']) ?? 0);
 
   const handleLogout = async () => {
     try {
@@ -42,6 +32,7 @@ export default function MobileNav({
     } catch {
       // ignore
     } finally {
+      qc.clear(); // Clear all cached data before logging out
       logout();
       navigate('/login');
     }

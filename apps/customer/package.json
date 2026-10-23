@@ -8,6 +8,7 @@
     "build": "tsc && vite build",
     "lint": "eslint src --ext ts,tsx",
     "typecheck": "tsc --noEmit",
+    "check:tokens": "node ../../scripts/check-tokens.mjs --app customer",
     "preview": "vite preview"
   },
   "dependencies": {

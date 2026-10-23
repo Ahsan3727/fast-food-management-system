@@ -1,0 +1,59 @@
+/* ============================================================
+   FastFood Customer — Motion & Keyframes
+   All animations are inside prefers-reduced-motion: no-preference
+   so they auto-disable for users who prefer reduced motion.
+   ============================================================ */
+
+/* Shimmer — used by .skeleton in globals.css */
+@keyframes shimmer {
+  0%   { background-position: -200% 0; }
+  100% { background-position:  200% 0; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* Page-level entry — subtle lift for route transitions */
+@keyframes pagePop {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Sheet — bottom sheet slide up */
+@keyframes sheetUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* Pulse — live indicators (connection pill, badge) */
+@keyframes pulse {
+  0%, 100% { opacity: 1;   transform: scale(1); }
+  50%       { opacity: 0.4; transform: scale(0.92); }
+}
+
+/* ── Utility animation classes ─────────────────────────── */
+.animate-fade-in   { animation: fadeIn   var(--dur-base, 240ms) var(--ease-enter, ease) forwards; }
+.animate-slide-up  { animation: slideUp  var(--dur-base, 240ms) var(--ease-enter, ease) forwards; }
+.animate-page-pop  { animation: pagePop  160ms var(--ease-enter, ease) forwards; }
+.animate-sheet-up  { animation: sheetUp  var(--dur-base, 240ms) var(--ease-enter, ease) forwards; }
+.animate-pulse     { animation: pulse    2s infinite ease-in-out; }
+
+/* ── Reduced motion: disable all animations ──────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration:       0.01ms !important;
+    animation-iteration-count: 1     !important;
+    transition-duration:      0.01ms !important;
+    scroll-behavior:          auto   !important;
+  }
+  .animate-pulse { animation: none !important; }
+}

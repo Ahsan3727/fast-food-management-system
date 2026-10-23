@@ -7,15 +7,17 @@ import { STATUS_META, OrderStatus } from '@fastfood/shared-types';
 import BottomNav from '@/components/BottomNav';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Icon } from '@/components/Icon';
+import { SkeletonRow } from '@/components/Skeleton';
+import { QK } from '@/api/queryKeys';
 
 export default function OrdersScreen() {
   const navigate = useNavigate();
   const [segment, setSegment] = useState<'active' | 'past'>('active');
 
   const { data: orders = [], isLoading } = useQuery<any[]>({
-    queryKey: ['my-orders'],
+    queryKey: QK.myOrders,
     queryFn: () => api.get('/orders/my').then(r => r.data),
-    refetchInterval: 10000,
+    refetchInterval: 10_000,
   });
 
   const activeOrders = orders.filter(
@@ -90,19 +92,9 @@ export default function OrdersScreen() {
 
         {/* Orders list */}
         {isLoading ? (
-          [1, 2, 3].map(n => (
-            <div
-              key={n}
-              style={{
-                height: 110,
-                borderRadius: 14,
-                background: 'var(--surface)',
-                border: '1px solid var(--border)',
-                marginBottom: 12,
-                opacity: 0.5,
-              }}
-            />
-          ))
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {[1, 2, 3].map(n => <SkeletonRow key={n} />)}
+          </div>
         ) : displayedOrders.length > 0 ? (
           <div style={{ display: 'grid', gap: 12 }}>
             {displayedOrders.map(order => {

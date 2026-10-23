@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import App from './App';
 import './styles/tokens.css';
 import './styles/globals.css';
+import './styles/motion.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {

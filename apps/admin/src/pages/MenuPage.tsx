@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useForm } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import api from '@/lib/api';
 import { queryKeys } from '@/api/queryKeys';
 import { unwrapList } from '@/api/unwrap';
@@ -74,7 +74,9 @@ export default function MenuPage() {
   const items: MenuItem[] = useMemo(() => unwrapList<MenuItem>(rawItems), [rawItems]);
   const categories: Category[] = useMemo(() => unwrapList<Category>(rawCategories), [rawCategories]);
 
-  const { register, handleSubmit, reset, setValue, formState: { errors } } = useForm<any>();
+  const { register, handleSubmit, reset, setValue, control, formState: { errors } } = useForm<any>();
+  const { fields: sizeFields, append: appendSize, remove: removeSize } = useFieldArray({ control, name: 'sizes' });
+  const { fields: addOnFields, append: appendAddOn, remove: removeAddOn } = useFieldArray({ control, name: 'addOns' });
 
   const openCreate = () => {
     setEditItem(null);
@@ -92,6 +94,8 @@ export default function MenuPage() {
       emoji: item.emoji || '🍔',
       imageUrl: item.imageUrl || '',
       isAvailable: item.isAvailable,
+      sizes: (item as any).sizes ?? [],
+      addOns: (item as any).addOns ?? [],
     });
     setShowForm(true);
   };
@@ -106,6 +110,16 @@ export default function MenuPage() {
         emoji: data.emoji,
         imageUrl: data.imageUrl,
         isAvailable: Boolean(data.isAvailable),
+        // Sizes: [{ label: string, price: number (paisa) }]
+        sizes: (data.sizes ?? []).filter((s: any) => s.label?.trim()).map((s: any) => ({
+          label: s.label.trim(),
+          price: Math.round(parseFloat(s.price || 0) * 100),
+        })),
+        // Add-ons: [{ label: string, price: number (paisa) }]
+        addOns: (data.addOns ?? []).filter((a: any) => a.label?.trim()).map((a: any) => ({
+          label: a.label.trim(),
+          price: Math.round(parseFloat(a.price || 0) * 100),
+        })),
       };
       if (editItem) return api.patch(`/menu/${editItem._id}`, payload);
       return api.post('/menu', payload);
@@ -735,6 +749,98 @@ export default function MenuPage() {
                   <Icon name="camera" size={16} />
                   <span>Upload Photo</span>
                 </button>
+              </div>
+
+              {/* ── Sizes Editor ───────────────────────────────────────── */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span className="label" style={{ margin: 0 }}>Sizes (optional)</span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => appendSize({ label: '', price: '' })}
+                  >
+                    <Icon name="plus" size={14} /> Add Size
+                  </button>
+                </div>
+                {sizeFields.length === 0 && (
+                  <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>
+                    No sizes — all orders use the Base Price.
+                  </p>
+                )}
+                {sizeFields.map((field, idx) => (
+                  <div key={field.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      className="input"
+                      placeholder="Label (e.g. Large)"
+                      style={{ flex: 2 }}
+                      {...register(`sizes.${idx}.label`, { required: true })}
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="input"
+                      placeholder="PKR"
+                      style={{ flex: 1 }}
+                      {...register(`sizes.${idx}.price`, { required: true })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeSize(idx)}
+                      className="btn btn-ghost btn-sm"
+                      aria-label={`Remove size ${idx + 1}`}
+                      style={{ color: 'var(--danger)', flexShrink: 0 }}
+                    >
+                      <Icon name="x" size={14} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              {/* ── Add-ons Editor ─────────────────────────────────────── */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span className="label" style={{ margin: 0 }}>Add-ons (optional)</span>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={() => appendAddOn({ label: '', price: '' })}
+                  >
+                    <Icon name="plus" size={14} /> Add Option
+                  </button>
+                </div>
+                {addOnFields.length === 0 && (
+                  <p style={{ fontSize: 12, color: 'var(--text-subtle)', margin: 0 }}>
+                    No add-ons — customer sees no extras at checkout.
+                  </p>
+                )}
+                {addOnFields.map((field, idx) => (
+                  <div key={field.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <input
+                      className="input"
+                      placeholder="Label (e.g. Extra Cheese)"
+                      style={{ flex: 2 }}
+                      {...register(`addOns.${idx}.label`, { required: true })}
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      className="input"
+                      placeholder="PKR"
+                      style={{ flex: 1 }}
+                      {...register(`addOns.${idx}.price`, { required: true })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeAddOn(idx)}
+                      className="btn btn-ghost btn-sm"
+                      aria-label={`Remove add-on ${idx + 1}`}
+                      style={{ color: 'var(--danger)', flexShrink: 0 }}
+                    >
+                      <Icon name="x" size={14} />
+                    </button>
+                  </div>
+                ))}
               </div>
 
               <div style={{ marginTop: 'auto', paddingTop: 'var(--space-4)', borderTop: '1px solid var(--border)', display: 'flex', gap: 10 }}>

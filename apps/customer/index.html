@@ -12,9 +12,19 @@
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { font-family: 'Inter', sans-serif; background: #fafaf9; color: #1c1917; }
-      #root { min-height: 100vh; }
+      body { font-family: 'Inter', sans-serif; }
+      #root { min-height: 100dvh; }
     </style>
+    <!-- Apply saved theme before React mounts to avoid flash of wrong theme -->
+    <script>
+      try {
+        var s = JSON.parse(localStorage.getItem('ember_customer_theme') || '{}');
+        var t = s && s.state && s.state.theme;
+        document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
+      } catch(e) {
+        document.documentElement.setAttribute('data-theme', 'light');
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

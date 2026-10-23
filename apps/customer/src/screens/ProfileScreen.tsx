@@ -1,27 +1,15 @@
-import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
+import { useUiStore } from '@/store/ui.store';
 import BottomNav from '@/components/BottomNav';
 import { Icon } from '@/components/Icon';
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
   const { user, logout } = useAuthStore();
-
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    return (localStorage.getItem('ember_customer_theme') as 'dark' | 'light') || 'light';
-  });
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('ember_customer_theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme(prev => (prev === 'dark' ? 'light' : 'dark'));
-  };
+  const { theme, toggleTheme } = useUiStore();
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
