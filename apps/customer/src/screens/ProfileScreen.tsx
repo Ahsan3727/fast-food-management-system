@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { useUiStore } from '@/store/ui.store';
@@ -8,27 +10,68 @@ import { Icon } from '@/components/Icon';
 
 export default function ProfileScreen() {
   const navigate = useNavigate();
-  const { user, logout } = useAuthStore();
+  const {
+    user,
+    customerName,
+    customerPhone,
+    defaultAddress,
+    setCustomerProfile,
+    logout,
+    isAuthenticated,
+  } = useAuthStore();
   const { theme, toggleTheme } = useUiStore();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [nameInput, setNameInput] = useState(customerName || user?.name || '');
+  const [phoneInput, setPhoneInput] = useState(customerPhone || user?.phone || '');
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
     queryFn: () => api.get('/users/me').then(r => r.data.user),
+    enabled: isAuthenticated,
   });
 
-  const handleLogout = async () => {
-    try {
-      await api.post('/auth/logout');
-    } catch {
-      // ignore
-    } finally {
-      logout();
-      navigate('/login', { replace: true });
+  const displayUser = profile ?? user;
+  const currentName = customerName || displayUser?.name || 'Guest Customer';
+  const currentPhone = customerPhone || displayUser?.phone || 'No phone set';
+  const initial = currentName[0]?.toUpperCase() ?? 'C';
+
+  const handleSaveProfile = async () => {
+    if (!nameInput.trim()) {
+      toast.error('Please enter a name');
+      return;
     }
+    setCustomerProfile({
+      name: nameInput.trim(),
+      phone: phoneInput.trim(),
+    });
+
+    if (isAuthenticated) {
+      try {
+        await api.patch('/users/me', { name: nameInput.trim() });
+      } catch {
+        // saved locally
+      }
+    }
+    setIsEditing(false);
+    toast.success('Details updated!');
   };
 
-  const displayUser = profile ?? user;
-  const initial = displayUser?.name?.[0]?.toUpperCase() ?? 'U';
+  const handleClearData = async () => {
+    if (confirm('Clear saved customer details and order history from this device?')) {
+      try {
+        if (isAuthenticated) await api.post('/auth/logout');
+      } catch {
+        // ignore
+      } finally {
+        logout();
+        setCustomerProfile({ name: '', phone: '', defaultAddress: '' });
+        setNameInput('');
+        setPhoneInput('');
+        toast.success('Saved data cleared');
+      }
+    }
+  };
 
   return (
     <div
@@ -76,13 +119,114 @@ export default function ProfileScreen() {
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
-              {displayUser?.name || 'Customer'}
+              {currentName}
             </h2>
             <p style={{ fontSize: 13, color: 'var(--subtle)', margin: '2px 0 0' }}>
-              {displayUser?.phone || displayUser?.email || 'Registered Customer'}
+              {currentPhone}
             </p>
           </div>
+          <button
+            type="button"
+            onClick={() => {
+              setNameInput(currentName === 'Guest Customer' ? '' : currentName);
+              setPhoneInput(currentPhone === 'No phone set' ? '' : currentPhone);
+              setIsEditing(!isEditing);
+            }}
+            style={{
+              padding: '6px 12px',
+              borderRadius: 8,
+              border: '1px solid var(--border)',
+              background: 'var(--sunken)',
+              color: 'var(--text)',
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {isEditing ? 'Cancel' : 'Edit'}
+          </button>
         </div>
+
+        {/* Inline Edit Form */}
+        {isEditing && (
+          <div
+            style={{
+              padding: 16,
+              borderRadius: 16,
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              marginBottom: 20,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12,
+            }}
+          >
+            <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: 'var(--text)' }}>
+              Update Saved Details
+            </h3>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+                Your Name
+              </label>
+              <input
+                type="text"
+                value={nameInput}
+                onChange={e => setNameInput(e.target.value)}
+                placeholder="Full Name"
+                style={{
+                  width: '100%',
+                  height: 38,
+                  padding: '0 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
+                Phone Number
+              </label>
+              <input
+                type="tel"
+                value={phoneInput}
+                onChange={e => setPhoneInput(e.target.value)}
+                placeholder="03001234567"
+                style={{
+                  width: '100%',
+                  height: 38,
+                  padding: '0 10px',
+                  borderRadius: 8,
+                  border: '1px solid var(--border)',
+                  background: 'var(--bg)',
+                  color: 'var(--text)',
+                  fontSize: 13,
+                  outline: 'none',
+                }}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveProfile}
+              style={{
+                padding: '8px 16px',
+                borderRadius: 8,
+                background: 'var(--action)',
+                color: '#fff',
+                border: 'none',
+                fontWeight: 600,
+                fontSize: 13,
+                cursor: 'pointer',
+                alignSelf: 'flex-start',
+              }}
+            >
+              Save Details
+            </button>
+          </div>
+        )}
 
         {/* Menu rows */}
         <div
@@ -137,7 +281,6 @@ export default function ProfileScreen() {
               </span>
             </div>
 
-            {/* Accessible toggle switch */}
             <button
               type="button"
               onClick={toggleTheme}
@@ -169,9 +312,9 @@ export default function ProfileScreen() {
             </button>
           </div>
 
-          {/* Sign Out */}
+          {/* Clear Saved Data */}
           <button
-            onClick={handleLogout}
+            onClick={handleClearData}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -186,8 +329,8 @@ export default function ProfileScreen() {
               cursor: 'pointer',
             }}
           >
-            <Icon name="out" size={18} />
-            <span>Sign Out</span>
+            <Icon name="trash" size={18} />
+            <span>Clear Saved Data</span>
           </button>
         </div>
 

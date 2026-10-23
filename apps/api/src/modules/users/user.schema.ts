@@ -15,8 +15,8 @@ export class User {
   @Prop({ unique: true, sparse: true, trim: true })
   phone?: string;
 
-  // NOTE: password field removed — customer auth uses OTP.
-  // Admin/Rider accounts can be seeded directly via DB scripts if needed.
+  @Prop({ select: false })
+  password?: string;
 
   @Prop({ type: String, enum: Role, default: Role.CUSTOMER })
   role: Role;

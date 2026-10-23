@@ -9,14 +9,17 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { Icon } from '@/components/Icon';
 import { SkeletonRow } from '@/components/Skeleton';
 import { QK } from '@/api/queryKeys';
+import { useAuthStore } from '@/store/auth.store';
 
 export default function OrdersScreen() {
   const navigate = useNavigate();
   const [segment, setSegment] = useState<'active' | 'past'>('active');
+  const { isAuthenticated } = useAuthStore();
 
   const { data: orders = [], isLoading } = useQuery<any[]>({
     queryKey: QK.myOrders,
     queryFn: () => api.get('/orders/my').then(r => r.data),
+    enabled: isAuthenticated,
     refetchInterval: 10_000,
   });
 

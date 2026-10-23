@@ -4,11 +4,14 @@ import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useCartStore } from '@/store/cart.store';
+import { useAuthStore } from '@/store/auth.store';
 import { formatMoneyCompact } from '@fastfood/utils';
 import { Icon } from '@/components/Icon';
 import { v4 as uuidv4 } from 'uuid';
 
 interface CheckoutForm {
+  customerName: string;
+  customerPhone: string;
   addressLine: string;
   landmark?: string;
   lat: number;
@@ -18,6 +21,7 @@ interface CheckoutForm {
 export default function CheckoutScreen() {
   const navigate = useNavigate();
   const { items, clear, displayTotalPaisa } = useCartStore();
+  const { customerName, customerPhone, defaultAddress, setCustomerProfile, setTokens, setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [pin, setPin] = useState<{ x: number; y: number }>({ x: 34, y: 58 });
   const [locConfirmed, setLocConfirmed] = useState(true);
@@ -34,7 +38,9 @@ export default function CheckoutScreen() {
     formState: { errors },
   } = useForm<CheckoutForm>({
     defaultValues: {
-      addressLine: '',
+      customerName: customerName || '',
+      customerPhone: customerPhone || '',
+      addressLine: defaultAddress || '',
       landmark: '',
       lat: 31.5204,
       lng: 74.3587,
@@ -86,6 +92,25 @@ export default function CheckoutScreen() {
 
     setLoading(true);
     try {
+      // 1. Save customer details in local store (auto-persists in browser)
+      setCustomerProfile({
+        name: values.customerName.trim(),
+        phone: values.customerPhone.trim(),
+        defaultAddress: values.addressLine.trim(),
+      });
+
+      // 2. Ensure customer session is active for the current phone
+      const token = useAuthStore.getState().accessToken;
+      const currentUser = useAuthStore.getState().user;
+      if (!token || currentUser?.phone !== values.customerPhone.trim()) {
+        const { data: session } = await api.post('/auth/customer-session', {
+          name: values.customerName.trim(),
+          phone: values.customerPhone.trim(),
+        });
+        setTokens(session.accessToken, session.refreshToken);
+        if (session.user) setUser(session.user);
+      }
+
       const idempotencyKey = uuidv4();
 
       const { data: order } = await api.post(
@@ -163,6 +188,80 @@ export default function CheckoutScreen() {
 
       <form onSubmit={handleSubmit(onSubmit)} style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
         <div style={{ flex: 1, padding: 16, overflowY: 'auto' }}>
+          {/* Contact Information */}
+          <div style={{ marginBottom: 20 }}>
+            <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>
+              Contact Information
+            </h2>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 12 }}>
+              {/* Customer Name */}
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>
+                  Full Name *
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Ali Khan"
+                  style={{
+                    width: '100%',
+                    height: 42,
+                    padding: '0 12px',
+                    borderRadius: 10,
+                    border: `1px solid ${errors.customerName ? 'var(--bad)' : 'var(--border)'}`,
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    fontSize: 14,
+                    outline: 'none',
+                  }}
+                  {...register('customerName', {
+                    required: 'Name is required',
+                    minLength: { value: 2, message: 'Name must be at least 2 characters' },
+                  })}
+                />
+                {errors.customerName && (
+                  <p style={{ fontSize: 12, color: 'var(--bad)', margin: '4px 0 0' }}>
+                    {errors.customerName.message}
+                  </p>
+                )}
+              </div>
+
+              {/* Customer Phone */}
+              <div>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: 'var(--muted)', marginBottom: 6 }}>
+                  Phone Number *
+                </label>
+                <input
+                  type="tel"
+                  placeholder="e.g. 03001234567"
+                  style={{
+                    width: '100%',
+                    height: 42,
+                    padding: '0 12px',
+                    borderRadius: 10,
+                    border: `1px solid ${errors.customerPhone ? 'var(--bad)' : 'var(--border)'}`,
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    fontSize: 14,
+                    outline: 'none',
+                  }}
+                  {...register('customerPhone', {
+                    required: 'Phone number is required',
+                    pattern: {
+                      value: /^(\+92|0)?3\d{9}$/,
+                      message: 'Enter a valid 11-digit mobile number (e.g. 03001234567)',
+                    },
+                  })}
+                />
+                {errors.customerPhone && (
+                  <p style={{ fontSize: 12, color: 'var(--bad)', margin: '4px 0 0' }}>
+                    {errors.customerPhone.message}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
           {/* Deliver To Section */}
           <div style={{ marginBottom: 20 }}>
             <h2 style={{ fontSize: 16, fontWeight: 700, margin: '0 0 10px', color: 'var(--text)' }}>

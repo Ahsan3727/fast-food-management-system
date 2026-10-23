@@ -29,7 +29,6 @@ const app_config_module_1 = require("./modules/app-config/app-config.module");
 const uploads_module_1 = require("./modules/uploads/uploads.module");
 const redis_module_1 = require("./redis/redis.module");
 const jobs_module_1 = require("./jobs/jobs.module");
-const otp_module_1 = require("./modules/otp/otp.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -113,7 +112,6 @@ exports.AppModule = AppModule = __decorate([
             health_module_1.HealthModule,
             app_config_module_1.AppConfigModule,
             uploads_module_1.UploadsModule,
-            otp_module_1.OtpModule,
         ],
     })
 ], AppModule);

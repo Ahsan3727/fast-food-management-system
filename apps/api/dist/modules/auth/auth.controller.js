@@ -17,7 +17,35 @@ const common_1 = require("@nestjs/common");
 const auth_service_1 = require("./auth.service");
 const jwt_auth_guard_1 = require("./guards/jwt-auth.guard");
 const class_validator_1 = require("class-validator");
-// ── Admin / Rider password login (Customer login moved to /auth/otp) ──
+class LoginDto {
+    identifier; // phone or email
+    password;
+}
+__decorate([
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], LoginDto.prototype, "identifier", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(6),
+    __metadata("design:type", String)
+], LoginDto.prototype, "password", void 0);
+class CustomerSessionDto {
+    name;
+    phone;
+}
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(2),
+    (0, class_validator_1.MaxLength)(60),
+    __metadata("design:type", String)
+], CustomerSessionDto.prototype, "name", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(7),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", String)
+], CustomerSessionDto.prototype, "phone", void 0);
 class RefreshDto {
     refreshToken;
 }
@@ -30,6 +58,14 @@ let AuthController = class AuthController {
     constructor(authService) {
         this.authService = authService;
     }
+    // ── Admin / Rider login with password ────────────────
+    async login(dto) {
+        return this.authService.login(dto.identifier, dto.password);
+    }
+    // ── Customer Direct Session (No password, No OTP code) ──
+    async customerSession(dto) {
+        return this.authService.customerSession(dto.name, dto.phone);
+    }
     async refresh(dto) {
         return this.authService.refresh(dto.refreshToken);
     }
@@ -38,6 +74,22 @@ let AuthController = class AuthController {
     }
 };
 exports.AuthController = AuthController;
+__decorate([
+    (0, common_1.Post)('login'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [LoginDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "login", null);
+__decorate([
+    (0, common_1.Post)('customer-session'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [CustomerSessionDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "customerSession", null);
 __decorate([
     (0, common_1.Post)('refresh'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

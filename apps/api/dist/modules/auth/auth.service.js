@@ -11,17 +11,22 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 var __param = (this && this.__param) || function (paramIndex, decorator) {
     return function (target, key) { decorator(target, key, paramIndex); }
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthService = void 0;
 const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const config_1 = require("@nestjs/config");
 const crypto_1 = require("crypto");
+const argon2_1 = __importDefault(require("argon2"));
 const uuid_1 = require("uuid");
 const users_service_1 = require("../users/users.service");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const refresh_token_schema_1 = require("./refresh-token.schema");
+const shared_types_1 = require("@fastfood/shared-types");
 let AuthService = class AuthService {
     usersService;
     jwtService;
@@ -32,6 +37,86 @@ let AuthService = class AuthService {
         this.jwtService = jwtService;
         this.config = config;
         this.refreshTokenModel = refreshTokenModel;
+    }
+    // ── Register (Staff / General) ──────────────────────────
+    async register(name, phone, password, email) {
+        const existing = await this.usersService.findByPhone(phone);
+        if (existing)
+            throw new common_1.BadRequestException('Phone already registered');
+        const hash = await argon2_1.default.hash(password);
+        const user = await this.usersService.create({
+            name,
+            phone,
+            email,
+            password: hash,
+            role: shared_types_1.Role.CUSTOMER,
+        });
+        const tokens = await this.issueTokens(user._id.toString(), user.role);
+        return {
+            ...tokens,
+            user: {
+                _id: user._id.toString(),
+                name: user.name,
+                phone: user.phone,
+                email: user.email,
+                role: user.role,
+            },
+        };
+    }
+    // ── Login (Staff / Rider / Admin with password) ────────
+    async login(identifier, password) {
+        const user = identifier.includes('@')
+            ? await this.usersService.findByEmail(identifier)
+            : await this.usersService.findByPhone(identifier);
+        if (!user)
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        if (user.isSuspended)
+            throw new common_1.ForbiddenException('Account suspended');
+        if (!user.password)
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        const valid = await argon2_1.default.verify(user.password, password);
+        if (!valid)
+            throw new common_1.UnauthorizedException('Invalid credentials');
+        const tokens = await this.issueTokens(user._id.toString(), user.role);
+        return {
+            ...tokens,
+            user: {
+                _id: user._id.toString(),
+                name: user.name,
+                phone: user.phone,
+                email: user.email,
+                role: user.role,
+            },
+        };
+    }
+    // ── Customer Session (Direct checkout / profile — No password, No OTP code) ──
+    async customerSession(name, phone) {
+        const cleanPhone = phone.trim();
+        if (!cleanPhone) {
+            throw new common_1.BadRequestException('Phone number is required');
+        }
+        let user = await this.usersService.findByPhone(cleanPhone);
+        if (!user) {
+            user = await this.usersService.create({
+                name: name?.trim() || 'Customer',
+                phone: cleanPhone,
+                role: shared_types_1.Role.CUSTOMER,
+            });
+        }
+        else if (name && name.trim() && user.name !== name.trim()) {
+            await this.usersService.updateProfile(user._id.toString(), { name: name.trim() });
+            user.name = name.trim();
+        }
+        const tokens = await this.issueTokens(user._id.toString(), user.role);
+        return {
+            ...tokens,
+            user: {
+                _id: user._id.toString(),
+                name: user.name,
+                phone: user.phone,
+                role: user.role,
+            },
+        };
     }
     // ── Refresh Token Rotation ─────────────────────────────
     async refresh(oldToken) {
