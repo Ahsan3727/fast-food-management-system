@@ -21,6 +21,7 @@ export default function ProfileScreen() {
   } = useAuthStore();
   const { theme, toggleTheme } = useUiStore();
 
+
   const [isEditing, setIsEditing] = useState(false);
   const [nameInput, setNameInput] = useState(customerName || user?.name || '');
   const [phoneInput, setPhoneInput] = useState(customerPhone || user?.phone || '');
