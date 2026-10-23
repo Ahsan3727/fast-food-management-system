@@ -5,7 +5,6 @@ export declare class User {
     name: string;
     email?: string;
     phone?: string;
-    password?: string;
     role: Role;
     isActive: boolean;
     isSuspended: boolean;

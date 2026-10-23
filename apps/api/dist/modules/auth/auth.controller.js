@@ -14,49 +14,10 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
-const throttler_1 = require("@nestjs/throttler");
 const auth_service_1 = require("./auth.service");
 const jwt_auth_guard_1 = require("./guards/jwt-auth.guard");
 const class_validator_1 = require("class-validator");
-class RegisterDto {
-    name;
-    phone;
-    email;
-    password;
-}
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.MinLength)(2),
-    (0, class_validator_1.MaxLength)(60),
-    __metadata("design:type", String)
-], RegisterDto.prototype, "name", void 0);
-__decorate([
-    (0, class_validator_1.IsMobilePhone)(),
-    __metadata("design:type", String)
-], RegisterDto.prototype, "phone", void 0);
-__decorate([
-    (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsEmail)(),
-    __metadata("design:type", String)
-], RegisterDto.prototype, "email", void 0);
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.MinLength)(8),
-    __metadata("design:type", String)
-], RegisterDto.prototype, "password", void 0);
-class LoginDto {
-    identifier; // phone or email
-    password;
-}
-__decorate([
-    (0, class_validator_1.IsString)(),
-    __metadata("design:type", String)
-], LoginDto.prototype, "identifier", void 0);
-__decorate([
-    (0, class_validator_1.IsString)(),
-    (0, class_validator_1.MinLength)(6),
-    __metadata("design:type", String)
-], LoginDto.prototype, "password", void 0);
+// ── Admin / Rider password login (Customer login moved to /auth/otp) ──
 class RefreshDto {
     refreshToken;
 }
@@ -69,12 +30,6 @@ let AuthController = class AuthController {
     constructor(authService) {
         this.authService = authService;
     }
-    async register(dto) {
-        return this.authService.register(dto.name, dto.phone, dto.password, dto.email);
-    }
-    async login(dto) {
-        return this.authService.login(dto.identifier, dto.password);
-    }
     async refresh(dto) {
         return this.authService.refresh(dto.refreshToken);
     }
@@ -83,23 +38,6 @@ let AuthController = class AuthController {
     }
 };
 exports.AuthController = AuthController;
-__decorate([
-    (0, common_1.Post)('register'),
-    (0, throttler_1.Throttle)({ short: { limit: 5, ttl: 60000 } }),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [RegisterDto]),
-    __metadata("design:returntype", Promise)
-], AuthController.prototype, "register", null);
-__decorate([
-    (0, common_1.Post)('login'),
-    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
-    (0, throttler_1.Throttle)({ short: { limit: 10, ttl: 60000 } }),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [LoginDto]),
-    __metadata("design:returntype", Promise)
-], AuthController.prototype, "login", null);
 __decorate([
     (0, common_1.Post)('refresh'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

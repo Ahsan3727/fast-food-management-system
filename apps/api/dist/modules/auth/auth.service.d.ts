@@ -9,20 +9,15 @@ export declare class AuthService {
     private config;
     private refreshTokenModel;
     constructor(usersService: UsersService, jwtService: JwtService, config: ConfigService, refreshTokenModel: Model<RefreshTokenDocument>);
-    register(name: string, phone: string, password: string, email?: string): Promise<{
-        accessToken: string;
-        refreshToken: string;
-    }>;
-    login(identifier: string, password: string): Promise<{
-        accessToken: string;
-        refreshToken: string;
-    }>;
     refresh(oldToken: string): Promise<{
         accessToken: string;
         refreshToken: string;
     }>;
     logout(userId: string): Promise<void>;
-    private issueTokens;
+    issueTokens(userId: string, role: string): Promise<{
+        accessToken: string;
+        refreshToken: string;
+    }>;
     private hashToken;
 }
 //# sourceMappingURL=auth.service.d.ts.map

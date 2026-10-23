@@ -3,9 +3,11 @@ import { useAuthStore } from '@/store/auth.store';
 import { useEffect } from 'react';
 import api from '@/lib/api';
 
-// Screens
-import LoginScreen from '@/screens/LoginScreen';
-import SignupScreen from '@/screens/SignupScreen';
+// Auth screens (OTP flow — no password)
+import PhoneScreen from '@/screens/auth/PhoneScreen';
+import OtpScreen from '@/screens/auth/OtpScreen';
+
+// App screens
 import HomeScreen from '@/screens/HomeScreen';
 import MenuScreen from '@/screens/MenuScreen';
 import ProductDetailScreen from '@/screens/ProductDetailScreen';
@@ -19,7 +21,7 @@ import SearchScreen from '@/screens/SearchScreen';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/auth/phone" replace />;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -44,21 +46,25 @@ export default function App() {
 
   return (
     <Routes>
-      {/* Public */}
-      <Route path="/login" element={<PublicRoute><LoginScreen /></PublicRoute>} />
-      <Route path="/signup" element={<PublicRoute><SignupScreen /></PublicRoute>} />
+      {/* Auth — OTP flow */}
+      <Route path="/auth/phone" element={<PublicRoute><PhoneScreen /></PublicRoute>} />
+      <Route path="/auth/otp"   element={<PublicRoute><OtpScreen /></PublicRoute>} />
+
+      {/* Legacy redirects so old /login and /signup links don't 404 */}
+      <Route path="/login"  element={<Navigate to="/auth/phone" replace />} />
+      <Route path="/signup" element={<Navigate to="/auth/phone" replace />} />
 
       {/* Private */}
-      <Route path="/" element={<PrivateRoute><HomeScreen /></PrivateRoute>} />
-      <Route path="/menu" element={<PrivateRoute><MenuScreen /></PrivateRoute>} />
-      <Route path="/menu/:id" element={<PrivateRoute><ProductDetailScreen /></PrivateRoute>} />
-      <Route path="/search" element={<PrivateRoute><SearchScreen /></PrivateRoute>} />
-      <Route path="/cart" element={<PrivateRoute><CartScreen /></PrivateRoute>} />
-      <Route path="/checkout" element={<PrivateRoute><CheckoutScreen /></PrivateRoute>} />
-      <Route path="/orders" element={<PrivateRoute><OrdersScreen /></PrivateRoute>} />
-      <Route path="/orders/:id" element={<PrivateRoute><OrderDetailScreen /></PrivateRoute>} />
-      <Route path="/orders/:id/track" element={<PrivateRoute><TrackOrderScreen /></PrivateRoute>} />
-      <Route path="/profile" element={<PrivateRoute><ProfileScreen /></PrivateRoute>} />
+      <Route path="/"                  element={<PrivateRoute><HomeScreen /></PrivateRoute>} />
+      <Route path="/menu"              element={<PrivateRoute><MenuScreen /></PrivateRoute>} />
+      <Route path="/menu/:id"          element={<PrivateRoute><ProductDetailScreen /></PrivateRoute>} />
+      <Route path="/search"            element={<PrivateRoute><SearchScreen /></PrivateRoute>} />
+      <Route path="/cart"              element={<PrivateRoute><CartScreen /></PrivateRoute>} />
+      <Route path="/checkout"          element={<PrivateRoute><CheckoutScreen /></PrivateRoute>} />
+      <Route path="/orders"            element={<PrivateRoute><OrdersScreen /></PrivateRoute>} />
+      <Route path="/orders/:id"        element={<PrivateRoute><OrderDetailScreen /></PrivateRoute>} />
+      <Route path="/orders/:id/track"  element={<PrivateRoute><TrackOrderScreen /></PrivateRoute>} />
+      <Route path="/profile"           element={<PrivateRoute><ProfileScreen /></PrivateRoute>} />
 
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

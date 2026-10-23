@@ -16,7 +16,8 @@ let User = class User {
     name;
     email;
     phone;
-    password;
+    // NOTE: password field removed — customer auth uses OTP.
+    // Admin/Rider accounts can be seeded directly via DB scripts if needed.
     role;
     isActive;
     isSuspended;
@@ -37,11 +38,6 @@ __decorate([
     (0, mongoose_1.Prop)({ unique: true, sparse: true, trim: true }),
     __metadata("design:type", String)
 ], User.prototype, "phone", void 0);
-__decorate([
-    (0, mongoose_1.Prop)({ select: false }) // never returned by default
-    ,
-    __metadata("design:type", String)
-], User.prototype, "password", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: String, enum: shared_types_1.Role, default: shared_types_1.Role.CUSTOMER }),
     __metadata("design:type", String)

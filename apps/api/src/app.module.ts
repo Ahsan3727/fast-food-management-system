@@ -18,6 +18,7 @@ import { AppConfigModule } from './modules/app-config/app-config.module';
 import { UploadsModule } from './modules/uploads/uploads.module';
 import { RedisModule } from './redis/redis.module';
 import { JobsModule } from './jobs/jobs.module';
+import { OtpModule } from './modules/otp/otp.module';
 
 @Module({
   imports: [
@@ -104,6 +105,7 @@ import { JobsModule } from './jobs/jobs.module';
     HealthModule,
     AppConfigModule,
     UploadsModule,
+    OtpModule,
   ],
 })
 export class AppModule {}
