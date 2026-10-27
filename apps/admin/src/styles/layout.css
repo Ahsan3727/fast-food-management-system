@@ -100,15 +100,17 @@
   }
 }
 
-/* ── Tablet Icon Rail (768px to 1023px) ────────────────────── */
-@media (min-width: 768px) and (max-width: 1023px) {
+/* ── Tablet Icon Rail (768px to 1279px per spec §5.2) ───────── */
+@media (min-width: 768px) and (max-width: 1279px) {
   .admin-sidebar {
     width: var(--sidebar-rail-w) !important;
   }
 
+  .sidebar-brand-name-wrap,
   .sidebar-brand-name,
   .sidebar-brand-sub,
-  .nav-item-label {
+  .nav-item-label,
+  .nav-item-badge {
     display: none !important;
   }
 
@@ -123,10 +125,26 @@
   }
 }
 
-/* ── Desktop Full Sidebar (>= 1024px) ──────────────────────── */
-@media (min-width: 1024px) {
+/* ── Desktop Full Sidebar (>= 1280px per spec §5.2) ─────────── */
+@media (min-width: 1280px) {
   .admin-sidebar {
     width: var(--sidebar-w);
+  }
+}
+
+/* ── Mobile Compact Adjustments (<= 380px per spec §5.2) ─────── */
+@media (max-width: 380px) {
+  .order-drawer {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* ── Ultra Small Screens (<= 340px per spec §5.2) ───────────── */
+@media (max-width: 340px) {
+  .stat-grid,
+  .kpi-grid {
+    grid-template-columns: 1fr !important;
   }
 }
 

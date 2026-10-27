@@ -70,6 +70,7 @@ function AdminLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const socketRef = useRef<Socket | null>(null);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   const [connectionState, setConnectionState] = useState<'live' | 'connecting' | 'offline'>('connecting');
   const [announcement, setAnnouncement] = useState<string>('');
@@ -77,9 +78,31 @@ function AdminLayout() {
     return localStorage.getItem('ember_admin_sound') !== 'false';
   });
 
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    return (localStorage.getItem('ember_theme') as 'dark' | 'light') || 'dark';
+  type ThemeChoice = 'system' | 'light' | 'dark';
+  const [themeChoice, setThemeChoice] = useState<ThemeChoice>(() => {
+    const saved = localStorage.getItem('ff-admin-theme') || localStorage.getItem('ember_theme');
+    if (saved === 'system' || saved === 'light' || saved === 'dark') return saved;
+    return 'dark';
   });
+
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Global '/' keyboard listener for search (design.md §4.4)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.key === '/' &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Query for placed orders count needing action
   const { data: placedCount = 0 } = useQuery<number>({
@@ -105,11 +128,27 @@ function AdminLayout() {
     }
   }, [placedCount]);
 
-  // Synchronize theme token
+  // Synchronize theme token with matchMedia live listener
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('ember_theme', theme);
-  }, [theme]);
+    localStorage.setItem('ff-admin-theme', themeChoice);
+
+    const applyTheme = () => {
+      let resolved = themeChoice;
+      if (themeChoice === 'system') {
+        resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      }
+      document.documentElement.setAttribute('data-theme', resolved);
+    };
+
+    applyTheme();
+
+    if (themeChoice === 'system') {
+      const mq = window.matchMedia('(prefers-color-scheme: dark)');
+      const handler = () => applyTheme();
+      mq.addEventListener('change', handler);
+      return () => mq.removeEventListener('change', handler);
+    }
+  }, [themeChoice]);
 
   // Global user click unlock for browser audio autoplay
   useEffect(() => {
@@ -132,10 +171,6 @@ function AdminLayout() {
       if (next) playOrderChime();
       return next;
     });
-  };
-
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
   };
 
   const handleSignOut = async () => {
@@ -241,7 +276,7 @@ function AdminLayout() {
       <div className="admin-main">
         {/* Top Header */}
         <header className="admin-header">
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <h1
               style={{
                 fontSize: 18,
@@ -249,18 +284,76 @@ function AdminLayout() {
                 color: 'var(--text)',
                 margin: 0,
                 whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
               }}
             >
               {pageTitles[location.pathname] || 'Admin Panel'}
             </h1>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* Live Connection Pill */}
+          {/* Search bar with / keyboard shortcut */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (searchQuery.trim()) {
+                navigate(`/orders?search=${encodeURIComponent(searchQuery.trim())}`);
+              }
+            }}
+            style={{
+              position: 'relative',
+              flex: 1,
+              maxWidth: 320,
+              margin: '0 auto 0 16px',
+            }}
+          >
+            <span
+              style={{
+                position: 'absolute',
+                left: 12,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: 'var(--text-subtle)',
+                pointerEvents: 'none',
+                display: 'grid',
+                placeItems: 'center',
+              }}
+            >
+              <Icon name="search" size={16} />
+            </span>
+            <input
+              ref={searchInputRef}
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search... (Press /)"
+              style={{
+                width: '100%',
+                height: 40,
+                padding: '0 36px 0 34px',
+                borderRadius: 'var(--r-md)',
+                border: '1px solid var(--border)',
+                background: 'var(--bg-sunken)',
+                color: 'var(--text)',
+                fontSize: 13,
+                outline: 'none',
+              }}
+            />
+            <span
+              style={{
+                position: 'absolute',
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                pointerEvents: 'none',
+              }}
+            >
+              <kbd>/</kbd>
+            </span>
+          </form>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginLeft: 'auto' }}>
+            {/* Live Connection Pill with 2s pulse */}
             <div
-              className={`badge animate-fade-in`}
+              className="badge"
               style={{
                 background:
                   connectionState === 'live'
@@ -279,6 +372,10 @@ function AdminLayout() {
                 fontSize: 11,
                 fontWeight: 700,
                 letterSpacing: '0.4px',
+                borderRadius: 'var(--r-pill)',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
               }}
               role="status"
               aria-label={`Connection status: ${connectionState}`}
@@ -295,66 +392,198 @@ function AdminLayout() {
               <span>{connectionState.toUpperCase()}</span>
             </div>
 
-            {/* Sound Toggle */}
+            {/* Notification Bell with unread placed orders counter */}
+            <button
+              type="button"
+              onClick={() => navigate('/orders')}
+              className="btn btn-ghost"
+              style={{ width: 40, height: 40, padding: 0, position: 'relative' }}
+              title={`${placedCount} orders pending`}
+              aria-label="Order notifications"
+            >
+              <Icon name="bell" size={18} />
+              {placedCount > 0 && (
+                <span
+                  style={{
+                    position: 'absolute',
+                    top: 6,
+                    right: 6,
+                    minWidth: 16,
+                    height: 16,
+                    borderRadius: 'var(--r-pill)',
+                    background: 'var(--danger-solid)',
+                    color: 'var(--on-danger)',
+                    fontSize: 10,
+                    fontWeight: 800,
+                    display: 'grid',
+                    placeItems: 'center',
+                    padding: '0 3px',
+                  }}
+                >
+                  {placedCount}
+                </span>
+              )}
+            </button>
+
+            {/* Sound Alert Toggle */}
             <button
               type="button"
               onClick={toggleSound}
               className="btn btn-ghost"
-              style={{ width: 38, height: 38, padding: 0 }}
+              style={{ width: 40, height: 40, padding: 0 }}
               title={soundEnabled ? 'Alert chime active (click to mute)' : 'Alert chime muted'}
               aria-label="Toggle alert chime"
             >
               <Icon name={soundEnabled ? 'volume-2' : 'volume-x'} size={18} />
             </button>
 
-            {/* Theme Toggle */}
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="btn btn-ghost"
-              style={{ width: 38, height: 38, padding: 0 }}
-              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} mode`}
-              aria-label="Toggle theme"
-            >
-              <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={18} />
-            </button>
-
-            {/* User Profile Capsule */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                padding: '4px 10px',
-                background: 'var(--bg-sunken)',
-                borderRadius: 'var(--r-pill)',
-                border: '1px solid var(--border)',
-              }}
-            >
-              <div
+            {/* User Avatar Menu Popover Container */}
+            <div style={{ position: 'relative' }}>
+              <button
+                type="button"
+                onClick={() => setShowUserMenu(!showUserMenu)}
                 style={{
-                  width: 26,
-                  height: 26,
-                  borderRadius: '50%',
-                  background: 'var(--action-bg)',
-                  color: 'var(--action-fg)',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 700,
-                  fontSize: 12,
+                  gap: 8,
+                  padding: '4px 10px',
+                  background: 'var(--bg-sunken)',
+                  borderRadius: 'var(--r-pill)',
+                  border: '1px solid var(--border)',
+                  cursor: 'pointer',
+                  color: 'inherit',
                 }}
+                aria-label="User profile and theme menu"
+                aria-expanded={showUserMenu}
               >
-                {user?.name?.charAt(0) || 'A'}
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
-                  {user?.name?.split(' ')[0] || 'Admin'}
-                </span>
-                <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'capitalize' }}>
-                  {user?.role || 'Staff'}
-                </span>
-              </div>
+                <div
+                  style={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    background: 'var(--action-bg)',
+                    color: 'var(--action-fg)',
+                    display: 'grid',
+                    placeItems: 'center',
+                    fontWeight: 700,
+                    fontSize: 12,
+                  }}
+                >
+                  {user?.name?.charAt(0) || 'A'}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1, textAlign: 'left' }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)' }}>
+                    {user?.name?.split(' ')[0] || 'Admin'}
+                  </span>
+                  <span style={{ fontSize: 10, color: 'var(--text-muted)', textTransform: 'capitalize' }}>
+                    {user?.role || 'Staff'}
+                  </span>
+                </div>
+                <Icon name="chevron-down" size={14} style={{ color: 'var(--text-subtle)' }} />
+              </button>
+
+              {/* Avatar Popover Menu */}
+              {showUserMenu && (
+                <>
+                  <div
+                    style={{ position: 'fixed', inset: 0, zIndex: 'var(--z-dropdown)' }}
+                    onClick={() => setShowUserMenu(false)}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      right: 0,
+                      top: 'calc(100% + 8px)',
+                      width: 220,
+                      background: 'var(--bg-raised)',
+                      border: '1px solid var(--border)',
+                      borderRadius: 'var(--r-lg)',
+                      boxShadow: 'var(--shadow-2)',
+                      padding: 12,
+                      zIndex: 'calc(var(--z-dropdown) + 1)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 10,
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+                        {user?.name || 'Administrator'}
+                      </div>
+                      <div style={{ fontSize: 11, color: 'var(--text-subtle)', textTransform: 'capitalize' }}>
+                        Role: {user?.role || 'Staff'}
+                      </div>
+                    </div>
+
+                    <div style={{ height: 1, background: 'var(--border)' }} />
+
+                    {/* 3-Choice Theme Switcher */}
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-muted)', marginBottom: 6 }}>
+                        Theme
+                      </div>
+                      <div
+                        role="radiogroup"
+                        aria-label="Theme selection"
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr 1fr 1fr',
+                          gap: 2,
+                          padding: 3,
+                          background: 'var(--bg-sunken)',
+                          borderRadius: 'var(--r-sm)',
+                          border: '1px solid var(--border)',
+                        }}
+                      >
+                        {(['system', 'light', 'dark'] as const).map((choice) => (
+                          <button
+                            key={choice}
+                            role="radio"
+                            aria-checked={themeChoice === choice}
+                            onClick={() => setThemeChoice(choice)}
+                            style={{
+                              height: 28,
+                              borderRadius: 'var(--r-xs)',
+                              border: 'none',
+                              background: themeChoice === choice ? 'var(--bg-surface)' : 'transparent',
+                              color: themeChoice === choice ? 'var(--action-bg)' : 'var(--text-muted)',
+                              fontSize: 11,
+                              fontWeight: themeChoice === choice ? 700 : 500,
+                              cursor: 'pointer',
+                              display: 'grid',
+                              placeItems: 'center',
+                              textTransform: 'capitalize',
+                              boxShadow: themeChoice === choice ? 'var(--shadow-1)' : 'none',
+                            }}
+                          >
+                            {choice}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ height: 1, background: 'var(--border)' }} />
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowUserMenu(false);
+                        handleSignOut();
+                      }}
+                      className="btn btn-ghost btn-sm"
+                      style={{
+                        justifyContent: 'flex-start',
+                        color: 'var(--danger)',
+                        gap: 8,
+                        padding: '6px 8px',
+                      }}
+                    >
+                      <Icon name="out" size={16} />
+                      <span>Sign Out</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </header>
@@ -390,8 +619,8 @@ function AdminLayout() {
 
         {/* Mobile Navigation Bar (< 768px) */}
         <MobileNav
-          theme={theme}
-          onToggleTheme={toggleTheme}
+          themeChoice={themeChoice}
+          onSetThemeChoice={setThemeChoice}
           soundEnabled={soundEnabled}
           onToggleSound={toggleSound}
         />

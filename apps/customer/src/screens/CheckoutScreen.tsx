@@ -7,6 +7,7 @@ import { useCartStore } from '@/store/cart.store';
 import { useAuthStore } from '@/store/auth.store';
 import { formatMoneyCompact } from '@fastfood/utils';
 import { Icon } from '@/components/Icon';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
 import { v4 as uuidv4 } from 'uuid';
 
 interface CheckoutForm {
@@ -155,6 +156,9 @@ export default function CheckoutScreen() {
         color: 'var(--text)',
       }}
     >
+      {/* Network Connectivity Banner */}
+      <ConnectionBanner />
+
       {/* Header */}
       <header
         style={{
@@ -169,8 +173,8 @@ export default function CheckoutScreen() {
         <button
           onClick={() => navigate(-1)}
           style={{
-            width: 36,
-            height: 36,
+            width: 40,
+            height: 40,
             borderRadius: '50%',
             background: 'none',
             border: 'none',
@@ -205,13 +209,13 @@ export default function CheckoutScreen() {
                   placeholder="e.g. Ali Khan"
                   style={{
                     width: '100%',
-                    height: 42,
-                    padding: '0 12px',
+                    height: 48,
+                    padding: '0 14px',
                     borderRadius: 10,
                     border: `1px solid ${errors.customerName ? 'var(--bad)' : 'var(--border)'}`,
                     background: 'var(--surface)',
                     color: 'var(--text)',
-                    fontSize: 14,
+                    fontSize: 16,
                     outline: 'none',
                   }}
                   {...register('customerName', {
@@ -236,13 +240,13 @@ export default function CheckoutScreen() {
                   placeholder="e.g. 03001234567"
                   style={{
                     width: '100%',
-                    height: 42,
-                    padding: '0 12px',
+                    height: 48,
+                    padding: '0 14px',
                     borderRadius: 10,
                     border: `1px solid ${errors.customerPhone ? 'var(--bad)' : 'var(--border)'}`,
                     background: 'var(--surface)',
                     color: 'var(--text)',
-                    fontSize: 14,
+                    fontSize: 16,
                     outline: 'none',
                   }}
                   {...register('customerPhone', {
@@ -389,7 +393,7 @@ export default function CheckoutScreen() {
                   border: `1px solid ${errors.addressLine ? 'var(--bad)' : 'var(--border)'}`,
                   background: 'var(--surface)',
                   color: 'var(--text)',
-                  fontSize: 14,
+                  fontSize: 16,
                   outline: 'none',
                   resize: 'none',
                 }}
@@ -418,13 +422,13 @@ export default function CheckoutScreen() {
                 placeholder="Near mosque, park, or market..."
                 style={{
                   width: '100%',
-                  height: 42,
-                  padding: '0 12px',
+                  height: 48,
+                  padding: '0 14px',
                   borderRadius: 10,
                   border: '1px solid var(--border)',
                   background: 'var(--surface)',
                   color: 'var(--text)',
-                  fontSize: 14,
+                  fontSize: 16,
                   outline: 'none',
                 }}
                 {...register('landmark')}
@@ -593,10 +597,10 @@ export default function CheckoutScreen() {
             disabled={loading}
             style={{
               width: '100%',
-              height: 48,
+              height: 52,
               borderRadius: 12,
-              background: 'var(--action)',
-              color: '#fff',
+              background: 'var(--action-bg)',
+              color: 'var(--action-fg)',
               fontSize: 15,
               fontWeight: 700,
               border: 'none',

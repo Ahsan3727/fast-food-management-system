@@ -8,6 +8,7 @@ import CartBar from '@/components/CartBar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Icon } from '@/components/Icon';
 import { SkeletonCard } from '@/components/Skeleton';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
 import { formatMoneyCompact } from '@fastfood/utils';
 import { STATUS_META, OrderStatus } from '@fastfood/shared-types';
 import { QK } from '@/api/queryKeys';
@@ -50,6 +51,9 @@ export default function HomeScreen() {
         color: 'var(--text)',
       }}
     >
+      {/* Network Connectivity Banner */}
+      <ConnectionBanner />
+
       <div style={{ flex: 1, padding: 16, overflowY: 'auto' }}>
         {/* Header */}
         <div
@@ -96,7 +100,7 @@ export default function HomeScreen() {
                   height: 18,
                   borderRadius: 9,
                   background: 'var(--action)',
-                  color: '#fff',
+                  color: 'var(--action-fg)',
                   fontSize: 11,
                   fontWeight: 700,
                   display: 'grid',

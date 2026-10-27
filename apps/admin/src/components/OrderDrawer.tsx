@@ -173,6 +173,66 @@ export const OrderDrawer: React.FC<OrderDrawerProps> = ({ order, onClose, onTran
             </div>
           </div>
 
+          {/* Assigned Rider (if any) */}
+          {(order.rider || order.riderName || order.riderPhone) && (
+            <div className="card" style={{ padding: 'var(--space-4)' }}>
+              <div className="card-title" style={{ marginBottom: 10 }}>Assigned Rider</div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      background: 'var(--action-bg)',
+                      color: 'var(--action-fg)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Icon name="bike" size={18} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--text)' }}>
+                      {order.rider?.name || order.riderName || 'Assigned Courier'}
+                    </div>
+                    {(order.rider?.phone || order.riderPhone) && (
+                      <a
+                        href={`tel:${order.rider?.phone || order.riderPhone}`}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 4,
+                          fontSize: 12,
+                          color: 'var(--link)',
+                          textDecoration: 'none',
+                          marginTop: 2,
+                          fontWeight: 600,
+                        }}
+                      >
+                        <Icon name="phone" size={12} />
+                        <span>{order.rider?.phone || order.riderPhone}</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    padding: '3px 8px',
+                    borderRadius: 'var(--r-pill)',
+                    background: 'var(--bg-sunken)',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    color: 'var(--success)',
+                  }}
+                >
+                  Active
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Delivery Address */}
           <div className="card" style={{ padding: 'var(--space-4)' }}>
             <div className="card-title" style={{ marginBottom: 8 }}>Delivery Location</div>

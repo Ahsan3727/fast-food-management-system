@@ -121,6 +121,18 @@
   --ok-bg:        var(--success-bg);
   --bad:          var(--danger);
   --bad-bg:       var(--danger-bg);
+  --warn:         var(--warning);
+  --warn-bg:      var(--warning-bg);
+  --tint-bg:      var(--ember-100);
+  --tint-fg:      var(--ember-800);
+  --toast-bg:     var(--stone-900);
+  --toast-fg:     #FFFFFF;
+  --radius-xs:    var(--r-xs);
+  --radius-sm:    var(--r-sm);
+  --radius-md:    var(--r-md);
+  --radius-lg:    var(--r-lg);
+  --radius-xl:    var(--r-xl);
+  --radius-pill:  var(--r-pill);
   /* Shadow alias — module.css files reference --shadow */
   --shadow:       var(--shadow-1);
   /* Toggle inactive track — stone-300 in light mode */
@@ -175,6 +187,11 @@
   --shadow-1: none;
   --shadow-2: 0 0 0 1px var(--stone-700);
   --shadow-3: 0 12px 32px rgba(0, 0, 0, 0.5);
+
+  --tint-bg: rgba(249, 115, 22, 0.16);
+  --tint-fg: var(--ember-400);
+  --toast-bg: var(--stone-100);
+  --toast-fg: var(--stone-900);
 
   /* Toggle inactive track — stone-600 in dark mode */
   --strong: var(--stone-600);

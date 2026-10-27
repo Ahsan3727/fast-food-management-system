@@ -8,8 +8,16 @@ import { SocketEvents, STATUS_META, OrderStatus } from '@fastfood/shared-types';
 import api, { SOCKET_URL } from '@/lib/api';
 import { Icon, IconName } from '@/components/Icon';
 import { StatusBadge } from '@/components/StatusBadge';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
 import toast from 'react-hot-toast';
 import L from 'leaflet';
+
+const storeIcon = L.divIcon({
+  html: '<div style="width:34px;height:34px;border-radius:50%;background:#9a3412;color:#fff;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 4px 10px rgba(0,0,0,0.3);font-size:16px">🏪</div>',
+  iconSize: [34, 34],
+  iconAnchor: [17, 17],
+  className: '',
+});
 
 const riderIcon = L.divIcon({
   html: '<div style="width:34px;height:34px;border-radius:50%;background:#7e22ce;color:#fff;display:grid;place-items:center;border:2px solid #fff;box-shadow:0 4px 10px rgba(0,0,0,0.3);font-size:16px">🏍️</div>',
@@ -52,7 +60,11 @@ export default function TrackOrderScreen() {
   const { data: otpData } = useQuery({
     queryKey: ['order-otp', id],
     queryFn: () => api.get(`/orders/${id}/otp`).then(r => r.data),
-    enabled: !!id && (order?.status === OrderStatus.PICKED_UP || order?.status === OrderStatus.RIDER_ASSIGNED),
+    enabled:
+      !!id &&
+      (order?.status === OrderStatus.PICKED_UP ||
+        order?.status === OrderStatus.RIDER_ASSIGNED ||
+        order?.status === OrderStatus.PREPARING),
   });
 
   const cancelOrderMutation = useMutation({
@@ -112,6 +124,9 @@ export default function TrackOrderScreen() {
         color: 'var(--text)',
       }}
     >
+      {/* Network Connectivity Banner */}
+      <ConnectionBanner />
+
       {/* Top Header */}
       <header
         style={{
@@ -127,8 +142,8 @@ export default function TrackOrderScreen() {
           <button
             onClick={() => navigate('/orders')}
             style={{
-              width: 36,
-              height: 36,
+              width: 40,
+              height: 40,
               borderRadius: '50%',
               background: 'none',
               border: 'none',
@@ -188,6 +203,9 @@ export default function TrackOrderScreen() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
               attribution="&copy; OpenStreetMap"
             />
+            <Marker position={[31.5204, 74.3587]} icon={storeIcon}>
+              <Popup>FastFood Kitchen</Popup>
+            </Marker>
             <Marker position={[deliveryLat, deliveryLng]} icon={homeIcon}>
               <Popup>Your delivery address</Popup>
             </Marker>
@@ -227,39 +245,50 @@ export default function TrackOrderScreen() {
           </div>
         </div>
 
-        {/* Delivery OTP Card (Shown when picked up / in delivery) */}
-        {otpCode && order?.status === OrderStatus.PICKED_UP && (
-          <div
-            style={{
-              textAlign: 'center',
-              border: '2px dashed var(--action)',
-              borderRadius: 16,
-              padding: 20,
-              marginBottom: 16,
-              background: 'var(--surface)',
-            }}
-          >
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--action)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-              Doorstep Delivery Code
-            </div>
+        {/* Delivery OTP Card (Shown when preparing, rider assigned, or picked up) */}
+        {otpCode &&
+          (order?.status === OrderStatus.PICKED_UP ||
+            order?.status === OrderStatus.RIDER_ASSIGNED ||
+            order?.status === OrderStatus.PREPARING) && (
             <div
               style={{
-                fontSize: 40,
-                fontWeight: 800,
-                letterSpacing: '0.3em',
-                paddingLeft: '0.3em',
-                fontFamily: 'monospace',
-                color: 'var(--text)',
-                margin: '8px 0',
+                textAlign: 'center',
+                border: '2px dashed var(--action)',
+                borderRadius: 16,
+                padding: 20,
+                marginBottom: 16,
+                background: 'var(--surface)',
               }}
             >
-              {otpCode}
+              <div
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: 'var(--action)',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                }}
+              >
+                Doorstep Delivery Code
+              </div>
+              <div
+                style={{
+                  fontSize: 40,
+                  fontWeight: 800,
+                  letterSpacing: '0.4em',
+                  paddingLeft: '0.4em',
+                  fontFamily: 'monospace',
+                  color: 'var(--text)',
+                  margin: '8px 0',
+                }}
+              >
+                {otpCode}
+              </div>
+              <p style={{ fontSize: 12, color: 'var(--subtle)', margin: 0 }}>
+                Show this code to the rider at delivery. Don't share it with anyone else.
+              </p>
             </div>
-            <p style={{ fontSize: 12, color: 'var(--subtle)', margin: 0 }}>
-              Show this code to the rider at delivery. Do not share it with anyone else.
-            </p>
-          </div>
-        )}
+          )}
 
         {/* 5-Step Progress Tracker */}
         <div
@@ -307,13 +336,9 @@ export default function TrackOrderScreen() {
                       width: 36,
                       height: 36,
                       borderRadius: '50%',
-                      background: isCurrent
-                        ? 'var(--action)'
-                        : isCompleted
-                        ? 'var(--action)'
-                        : 'var(--surface)',
+                      background: isCompleted ? 'var(--action-bg)' : 'var(--surface)',
                       border: `2px solid ${isCompleted ? 'var(--action)' : 'var(--border)'}`,
-                      color: isCompleted ? '#fff' : 'var(--subtle)',
+                      color: isCompleted ? 'var(--action-fg)' : 'var(--subtle)',
                       display: 'grid',
                       placeItems: 'center',
                       boxShadow: isCurrent ? '0 0 0 5px rgba(194,65,12,0.25)' : 'none',

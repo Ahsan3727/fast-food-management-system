@@ -9,6 +9,9 @@ import { formatMoneyCompact } from '@fastfood/utils';
 import api, { SOCKET_URL } from '@/lib/api';
 import { Icon } from '@/components/Icon';
 import { StatusBadge } from '@/components/StatusBadge';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
+import { SlideToConfirm } from '@/components/SlideToConfirm';
+import { DeliveryOtpInput } from '@/components/DeliveryOtpInput';
 import toast from 'react-hot-toast';
 import L from 'leaflet';
 
@@ -45,7 +48,9 @@ export default function OrderAssignedScreen() {
   const socketRef = useRef<Socket | null>(null);
 
   const [otpInput, setOtpInput] = useState('');
+  const [otpError, setOtpError] = useState<string | null>(null);
   const [cashCollected, setCashCollected] = useState('');
+  const [pickingUp, setPickingUp] = useState(false);
   const [delivering, setDelivering] = useState(false);
   const [showFailedModal, setShowFailedModal] = useState(false);
   const [failedReason, setFailedReason] = useState(FAILED_REASONS[0]);
@@ -104,18 +109,22 @@ export default function OrderAssignedScreen() {
   }, [accessToken, id]);
 
   const markPickedUp = async () => {
+    setPickingUp(true);
     try {
       await api.patch(`/orders/${id}/status`, { status: OrderStatus.PICKED_UP });
       toast.success('Picked up! Heading to customer doorstep', { icon: '🛵' });
       refetch();
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? 'Failed to update status');
+    } finally {
+      setPickingUp(false);
     }
   };
 
   const markDelivered = async () => {
-    if (!otpInput.trim()) {
-      toast.error('Please enter the customer OTP');
+    if (otpInput.trim().length !== 6) {
+      setOtpError('Please enter the customer 6-digit delivery OTP code');
+      toast.error('Please enter the customer 6-digit OTP');
       return;
     }
     const cash = parseFloat(cashCollected) * 100;
@@ -136,7 +145,9 @@ export default function OrderAssignedScreen() {
       });
       navigate('/', { replace: true });
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Invalid OTP or delivery failure');
+      const msg = err?.response?.data?.message ?? 'Invalid OTP code. Please verify with customer.';
+      setOtpError(msg);
+      toast.error(msg);
     } finally {
       setDelivering(false);
     }
@@ -187,6 +198,9 @@ export default function OrderAssignedScreen() {
         color: 'var(--text)',
       }}
     >
+      {/* Network Connectivity Banner */}
+      <ConnectionBanner />
+
       {/* Header */}
       <header
         style={{
@@ -414,7 +428,7 @@ export default function OrderAssignedScreen() {
               </div>
             </div>
 
-            {/* Doorstep OTP Verification Input */}
+            {/* Doorstep OTP Verification & Cash Input */}
             <div
               style={{
                 background: 'var(--surface)',
@@ -424,54 +438,46 @@ export default function OrderAssignedScreen() {
                 marginBottom: 16,
               }}
             >
-              <label style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>
-                Customer Doorstep OTP Code *
-              </label>
-              <p style={{ fontSize: 12, color: 'var(--subtle)', margin: '0 0 10px' }}>
-                Ask the customer for their 4-digit code shown in their app.
-              </p>
-              <input
-                type="text"
-                placeholder="• • • •"
-                maxLength={6}
+              <DeliveryOtpInput
                 value={otpInput}
-                onChange={e => setOtpInput(e.target.value)}
-                style={{
-                  width: '100%',
-                  height: 52,
-                  borderRadius: 12,
-                  border: '2px solid var(--border)',
-                  background: 'var(--sunken)',
-                  color: 'var(--text)',
-                  fontSize: 24,
-                  fontWeight: 800,
-                  letterSpacing: '0.4em',
-                  textAlign: 'center',
-                  outline: 'none',
-                  marginBottom: 12,
+                onChange={val => {
+                  setOtpInput(val);
+                  if (otpError) setOtpError(null);
                 }}
+                error={otpError}
+                disabled={delivering}
               />
 
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--muted)', marginBottom: 4 }}>
-                Cash Amount Collected (Rs.)
-              </label>
-              <input
-                type="number"
-                value={cashCollected}
-                onChange={e => setCashCollected(e.target.value)}
-                style={{
-                  width: '100%',
-                  height: 44,
-                  borderRadius: 10,
-                  border: '1px solid var(--border)',
-                  background: 'var(--surface)',
-                  color: 'var(--text)',
-                  fontSize: 15,
-                  fontWeight: 600,
-                  padding: '0 12px',
-                  outline: 'none',
-                }}
-              />
+              <div style={{ marginTop: 16, paddingTop: 14, borderTop: '1px solid var(--border)' }}>
+                <label
+                  htmlFor="cash-collected-input"
+                  style={{ display: 'block', fontSize: 13, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}
+                >
+                  Cash Amount Collected (Rs.)
+                </label>
+                <p style={{ fontSize: 12, color: 'var(--subtle)', margin: '0 0 8px' }}>
+                  Expected COD cash: {formatMoneyCompact(order.totalPaisa)}
+                </p>
+                <input
+                  id="cash-collected-input"
+                  type="number"
+                  value={cashCollected}
+                  onChange={e => setCashCollected(e.target.value)}
+                  disabled={delivering}
+                  style={{
+                    width: '100%',
+                    height: 48,
+                    borderRadius: 10,
+                    border: '1.5px solid var(--border-strong)',
+                    background: 'var(--surface)',
+                    color: 'var(--text)',
+                    fontSize: 16,
+                    fontWeight: 700,
+                    padding: '0 14px',
+                    outline: 'none',
+                  }}
+                />
+              </div>
             </div>
           </>
         )}
@@ -490,57 +496,26 @@ export default function OrderAssignedScreen() {
         }}
       >
         {!isPickedUp ? (
-          <button
-            onClick={markPickedUp}
-            style={{
-              width: '100%',
-              height: 52,
-              borderRadius: 14,
-              border: 'none',
-              background: 'var(--action)',
-              color: '#fff',
-              fontSize: 16,
-              fontWeight: 800,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 8,
-              cursor: 'pointer',
-              boxShadow: '0 4px 16px rgba(194,65,12,0.35)',
-            }}
-          >
-            <Icon name="package" size={20} />
-            Confirm Pickup at Restaurant
-          </button>
+          <SlideToConfirm
+            label="Slide to Confirm Pickup"
+            onConfirm={markPickedUp}
+            loading={pickingUp}
+            variant="action"
+          />
         ) : (
           <>
-            <button
-              onClick={markDelivered}
-              disabled={delivering}
-              style={{
-                width: '100%',
-                height: 52,
-                borderRadius: 14,
-                border: 'none',
-                background: 'var(--ok)',
-                color: '#fff',
-                fontSize: 16,
-                fontWeight: 800,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 8,
-                cursor: delivering ? 'not-allowed' : 'pointer',
-                opacity: delivering ? 0.7 : 1,
-                boxShadow: '0 4px 16px rgba(22,163,74,0.3)',
-              }}
-            >
-              <Icon name="check" size={20} />
-              {delivering ? 'Verifying OTP...' : 'Verify OTP & Complete Delivery'}
-            </button>
+            <SlideToConfirm
+              label="Slide to Complete Delivery"
+              onConfirm={markDelivered}
+              loading={delivering}
+              disabled={delivering || otpInput.trim().length !== 6}
+              variant="success"
+            />
 
             <button
+              type="button"
               onClick={() => setShowFailedModal(true)}
+              disabled={delivering}
               style={{
                 width: '100%',
                 height: 40,
@@ -551,9 +526,10 @@ export default function OrderAssignedScreen() {
                 fontSize: 13,
                 fontWeight: 600,
                 cursor: 'pointer',
+                marginTop: 2,
               }}
             >
-              Delivery Failed...
+              Report Delivery Issue / Failed...
             </button>
           </>
         )}
@@ -562,10 +538,13 @@ export default function OrderAssignedScreen() {
       {/* Reason-Gated Delivery Failed Modal */}
       {showFailedModal && (
         <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="fail-dialog-title"
           style={{
             position: 'fixed',
             inset: 0,
-            background: 'rgba(0,0,0,0.7)',
+            background: 'var(--bg-overlay, rgba(0,0,0,0.7))',
             display: 'flex',
             alignItems: 'flex-end',
             justifyContent: 'center',
@@ -583,7 +562,7 @@ export default function OrderAssignedScreen() {
               boxShadow: '0 -12px 32px rgba(0,0,0,0.3)',
             }}
           >
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: '0 0 6px', color: 'var(--text)' }}>
+            <h2 id="fail-dialog-title" style={{ fontSize: 18, fontWeight: 800, margin: '0 0 6px', color: 'var(--text)' }}>
               Report Delivery Issue
             </h2>
             <p style={{ fontSize: 13, color: 'var(--subtle)', margin: '0 0 16px' }}>

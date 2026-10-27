@@ -8,6 +8,8 @@ import { formatMoneyCompact } from '@fastfood/utils';
 import api, { SOCKET_URL } from '@/lib/api';
 import { Icon } from '@/components/Icon';
 import RiderBottomNav from '@/components/RiderBottomNav';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
+import { DeliveryRequestSheet } from '@/components/DeliveryRequestSheet';
 import toast from 'react-hot-toast';
 
 export default function DashboardScreen() {
@@ -15,9 +17,8 @@ export default function DashboardScreen() {
   const { rider, accessToken } = useRiderAuthStore();
   const [isOnline, setIsOnline] = useState(false);
   const [pendingRequest, setPendingRequest] = useState<any>(null);
-  const [timer, setTimer] = useState(30);
+  const [isAccepting, setIsAccepting] = useState(false);
   const socketRef = useRef<Socket | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const queryClient = useQueryClient();
 
   const { data: dashboard } = useQuery({
@@ -67,47 +68,23 @@ export default function DashboardScreen() {
 
     socket.on(SocketEvents.DELIVERY_REQUEST, (data: any) => {
       setPendingRequest(data);
-      setTimer(30);
-
-      if (timerRef.current) clearInterval(timerRef.current);
-      timerRef.current = setInterval(() => {
-        setTimer(t => {
-          if (t <= 1) {
-            clearInterval(timerRef.current!);
-            setPendingRequest(null);
-            return 0;
-          }
-          return t - 1;
-        });
-      }, 1000);
-
-      toast('New delivery job nearby!', {
-        icon: '🛵',
-        style: {
-          background: 'var(--action)',
-          color: '#fff',
-          fontWeight: 700,
-        },
-      });
     });
 
     socket.on(SocketEvents.DELIVERY_REQUEST_CANCELLED, () => {
       setPendingRequest(null);
-      if (timerRef.current) clearInterval(timerRef.current);
       toast('Delivery job was reassigned or cancelled');
     });
 
     return () => {
       socket.disconnect();
-      if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [accessToken]);
 
   const acceptOrder = async () => {
-    if (!pendingRequest) return;
+    if (!pendingRequest || isAccepting) return;
+    setIsAccepting(true);
     try {
       await api.post(`/orders/${pendingRequest.orderId}/accept`);
-      if (timerRef.current) clearInterval(timerRef.current);
       const acceptedId = pendingRequest.orderId;
       setPendingRequest(null);
       queryClient.invalidateQueries({ queryKey: ['rider-active-order'] });
@@ -115,11 +92,15 @@ export default function DashboardScreen() {
     } catch (err: any) {
       toast.error(err?.response?.data?.message ?? 'Could not accept order');
       setPendingRequest(null);
+    } finally {
+      setIsAccepting(false);
     }
   };
 
-  const declineRequest = () => {
-    if (timerRef.current) clearInterval(timerRef.current);
+  const declineRequest = (reason?: string) => {
+    if (reason === 'expired') {
+      toast('Delivery offer expired', { icon: '⏳' });
+    }
     setPendingRequest(null);
   };
 
@@ -137,6 +118,9 @@ export default function DashboardScreen() {
         color: 'var(--text)',
       }}
     >
+      {/* Network Connectivity Banner */}
+      <ConnectionBanner />
+
       {/* Top Header */}
       <header
         style={{
@@ -177,7 +161,7 @@ export default function DashboardScreen() {
               height: 8,
               borderRadius: '50%',
               background: isOnline ? 'var(--ok)' : 'var(--subtle)',
-              boxShadow: isOnline ? '0 0 6px var(--ok)' : 'none',
+              boxShadow: isOnline ? '0 0 8px var(--ok)' : 'none',
             }}
           />
           <span>{isOnline ? 'ONLINE' : 'OFFLINE'}</span>
@@ -211,38 +195,55 @@ export default function DashboardScreen() {
             </div>
           </div>
 
-          {/* 68x40 High-contrast Outdoor Switch */}
-          <button
-            type="button"
-            onClick={toggleOnline}
-            style={{
-              width: 68,
-              height: 40,
-              borderRadius: 20,
-              background: isOnline ? 'var(--action)' : 'var(--sunken)',
-              border: `2px solid ${isOnline ? 'var(--action)' : 'var(--strong)'}`,
-              position: 'relative',
-              cursor: 'pointer',
-              flexShrink: 0,
-              padding: 0,
-              transition: 'background 0.2s ease',
-            }}
-            aria-label="Toggle Online Duty Status"
-          >
-            <span
+          {/* 68x40 High-contrast Outdoor Switch with Expanding Pulse */}
+          <div style={{ position: 'relative' }}>
+            {isOnline && (
+              <span
+                style={{
+                  position: 'absolute',
+                  inset: -4,
+                  borderRadius: 24,
+                  border: '2px solid var(--ok)',
+                  opacity: 0.6,
+                  animation: 'dutyPulse 2s cubic-bezier(0,0,0.2,1) infinite',
+                  pointerEvents: 'none',
+                }}
+              />
+            )}
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isOnline}
+              onClick={toggleOnline}
               style={{
-                position: 'absolute',
-                top: 3,
-                left: isOnline ? 31 : 3,
-                width: 30,
-                height: 30,
-                borderRadius: '50%',
-                background: '#fff',
-                boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
-                transition: 'left 0.2s cubic-bezier(0.2,0,0,1)',
+                width: 68,
+                height: 40,
+                borderRadius: 20,
+                background: isOnline ? 'var(--action)' : 'var(--sunken)',
+                border: `2px solid ${isOnline ? 'var(--action)' : 'var(--strong)'}`,
+                position: 'relative',
+                cursor: 'pointer',
+                flexShrink: 0,
+                padding: 0,
+                transition: 'background 0.2s ease',
               }}
-            />
-          </button>
+              aria-label="Toggle Online Duty Status"
+            >
+              <span
+                style={{
+                  position: 'absolute',
+                  top: 3,
+                  left: isOnline ? 31 : 3,
+                  width: 30,
+                  height: 30,
+                  borderRadius: '50%',
+                  background: '#fff',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.25)',
+                  transition: 'left 0.2s cubic-bezier(0.2,0,0,1)',
+                }}
+              />
+            </button>
+          </div>
         </div>
 
         {/* Stats Row */}
@@ -417,161 +418,40 @@ export default function DashboardScreen() {
 
       {/* Incoming Job 30s Sheet Modal */}
       {pendingRequest && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0,0,0,0.7)',
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            zIndex: 1000,
+        <DeliveryRequestSheet
+          request={{
+            orderId: pendingRequest.orderId,
+            orderNumber: pendingRequest.orderNumber,
+            totalPaisa: pendingRequest.totalPaisa,
+            riderPayoutPaisa: pendingRequest.estimatedEarningPaisa,
+            pickupAddress: pendingRequest.restaurantAddress,
+            deliveryAddress: pendingRequest.dropArea
+              ? { addressLine: pendingRequest.dropArea }
+              : undefined,
+            pickupDistance: pendingRequest.pickupDistance,
+            dropoffDistance: pendingRequest.dropoffDistance,
           }}
-        >
-          <div
-            style={{
-              width: '100%',
-              maxWidth: 480,
-              background: 'var(--raised)',
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              padding: 24,
-              boxShadow: '0 -12px 32px rgba(0,0,0,0.3)',
-            }}
-          >
-            {/* Header + 30s Timer */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-              <div>
-                <span
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 700,
-                    textTransform: 'uppercase',
-                    color: 'var(--action)',
-                    letterSpacing: '0.04em',
-                  }}
-                >
-                  Incoming Order
-                </span>
-                <h2 style={{ fontSize: 20, fontWeight: 800, margin: '2px 0 0', color: 'var(--text)' }}>
-                  Order #{pendingRequest.orderNumber}
-                </h2>
-              </div>
-
-              {/* Timer Badge */}
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  background: 'var(--bad-bg)',
-                  border: '2px solid var(--bad)',
-                  color: 'var(--bad)',
-                  fontWeight: 800,
-                  fontSize: 16,
-                  display: 'grid',
-                  placeItems: 'center',
-                }}
-              >
-                {timer}s
-              </div>
-            </div>
-
-            {/* Job Details Card */}
-            <div
-              style={{
-                background: 'var(--sunken)',
-                border: '1px solid var(--border)',
-                borderRadius: 14,
-                padding: 16,
-                display: 'grid',
-                gap: 12,
-                marginBottom: 20,
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--subtle)', textTransform: 'uppercase' }}>
-                  Pickup Restaurant
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginTop: 2 }}>
-                  {pendingRequest.restaurantAddress || 'FastFood Kitchen, Main Boulevard'}
-                </div>
-              </div>
-
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--subtle)', textTransform: 'uppercase' }}>
-                  Delivery Drop Area
-                </div>
-                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)', marginTop: 2 }}>
-                  {pendingRequest.dropArea || 'Customer Delivery Address'}
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'space-between', paddingTop: 8, borderTop: '1px solid var(--border)' }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--subtle)', textTransform: 'uppercase' }}>
-                    Cash to Collect
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--text)', marginTop: 2 }}>
-                    {formatMoneyCompact(pendingRequest.totalPaisa || 0)}
-                  </div>
-                </div>
-
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--subtle)', textTransform: 'uppercase' }}>
-                    Rider Payout
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 800, color: 'var(--ok)', marginTop: 2 }}>
-                    {formatMoneyCompact(pendingRequest.estimatedEarningPaisa || 15000)}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div style={{ display: 'flex', gap: 12 }}>
-              <button
-                type="button"
-                onClick={declineRequest}
-                style={{
-                  flex: 1,
-                  height: 52,
-                  borderRadius: 14,
-                  border: '1px solid var(--border)',
-                  background: 'transparent',
-                  color: 'var(--muted)',
-                  fontSize: 15,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                }}
-              >
-                Decline
-              </button>
-
-              <button
-                type="button"
-                onClick={acceptOrder}
-                style={{
-                  flex: 2,
-                  height: 52,
-                  borderRadius: 14,
-                  border: 'none',
-                  background: 'var(--action)',
-                  color: '#fff',
-                  fontSize: 16,
-                  fontWeight: 800,
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 16px rgba(194,65,12,0.4)',
-                }}
-              >
-                Accept Order
-              </button>
-            </div>
-          </div>
-        </div>
+          onAccept={acceptOrder}
+          onDecline={declineRequest}
+          loading={isAccepting}
+        />
       )}
 
       <RiderBottomNav active="jobs" />
+
+      <style>{`
+        @keyframes dutyPulse {
+          0% { transform: scale(1); opacity: 0.8; }
+          70% { transform: scale(1.12); opacity: 0; }
+          100% { transform: scale(1.12); opacity: 0; }
+        }
+        @keyframes ping {
+          75%, 100% {
+            transform: scale(1.8);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }

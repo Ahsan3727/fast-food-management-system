@@ -6,6 +6,7 @@ import { useCartStore } from '@/store/cart.store';
 import { formatMoneyCompact } from '@fastfood/utils';
 import BottomNav from '@/components/BottomNav';
 import CartBar from '@/components/CartBar';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
 import { Icon } from '@/components/Icon';
 
 export default function MenuScreen() {
@@ -46,6 +47,9 @@ export default function MenuScreen() {
         color: 'var(--text)',
       }}
     >
+      {/* Network Connectivity Banner */}
+      <ConnectionBanner />
+
       <div style={{ flex: 1, padding: 16, overflowY: 'auto' }}>
         {/* Header */}
         <div
@@ -106,7 +110,7 @@ export default function MenuScreen() {
                   height: 18,
                   borderRadius: 9,
                   background: 'var(--action)',
-                  color: '#fff',
+                  color: 'var(--action-fg)',
                   fontSize: 11,
                   fontWeight: 700,
                   display: 'grid',
@@ -126,9 +130,9 @@ export default function MenuScreen() {
             display: 'flex',
             alignItems: 'center',
             gap: 10,
-            height: 44,
-            padding: '0 12px',
-            border: '1px solid var(--border)',
+            height: 48,
+            padding: '0 14px',
+            border: '1.5px solid var(--border-strong)',
             borderRadius: 12,
             background: 'var(--surface)',
             color: 'var(--subtle)',
@@ -147,7 +151,7 @@ export default function MenuScreen() {
               background: 'none',
               outline: 'none',
               color: 'var(--text)',
-              fontSize: 14,
+              fontSize: 16,
             }}
           />
           {searchQuery && (
@@ -158,7 +162,7 @@ export default function MenuScreen() {
                 background: 'none',
                 color: 'var(--subtle)',
                 cursor: 'pointer',
-                fontSize: 16,
+                fontSize: 18,
               }}
             >
               ×
@@ -190,13 +194,12 @@ export default function MenuScreen() {
               gap: 6,
               height: 36,
               padding: '0 14px',
-              borderRadius: 999,
-              border: '1px solid',
-              borderColor: !selectedCat ? 'var(--action)' : 'var(--border)',
-              background: !selectedCat ? 'var(--action)' : 'var(--surface)',
-              color: !selectedCat ? '#fff' : 'var(--muted)',
+              borderRadius: 'var(--radius-pill, 999px)',
+              border: `1.5px solid ${!selectedCat ? 'var(--action-bg)' : 'var(--border-strong)'}`,
+              background: !selectedCat ? 'var(--chip-bg)' : 'var(--surface)',
+              color: !selectedCat ? 'var(--chip-fg)' : 'var(--text-muted)',
               fontSize: 13,
-              fontWeight: 600,
+              fontWeight: 700,
               cursor: 'pointer',
             }}
           >
@@ -217,13 +220,12 @@ export default function MenuScreen() {
                   gap: 6,
                   height: 36,
                   padding: '0 14px',
-                  borderRadius: 999,
-                  border: '1px solid',
-                  borderColor: isSelected ? 'var(--action)' : 'var(--border)',
-                  background: isSelected ? 'var(--action)' : 'var(--surface)',
-                  color: isSelected ? '#fff' : 'var(--muted)',
+                  borderRadius: 'var(--radius-pill, 999px)',
+                  border: `1.5px solid ${isSelected ? 'var(--action-bg)' : 'var(--border-strong)'}`,
+                  background: isSelected ? 'var(--chip-bg)' : 'var(--surface)',
+                  color: isSelected ? 'var(--chip-fg)' : 'var(--text-muted)',
                   fontSize: 13,
-                  fontWeight: 600,
+                  fontWeight: 700,
                   cursor: 'pointer',
                 }}
               >

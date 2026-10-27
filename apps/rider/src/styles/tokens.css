@@ -1,9 +1,59 @@
 /* ============================================================
-   FastFood — Ember Design System Tokens (§6, §15)
+   FastFood — Ember Design System Tokens (design.md §3, §11)
+   Rider App Canonical Token Specification
    ============================================================ */
 
 :root {
-  /* Brand — Ember Scale */
+  /* ── Typography ─────────────────────────────────────────── */
+  --font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+
+  /* ── 4px Spacing Grid ───────────────────────────────────── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── Corner Radii ───────────────────────────────────────── */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+  --radius-pill: 999px;
+  --radius: var(--radius-lg);
+
+  /* Short-form radius aliases */
+  --r-xs: var(--radius-xs);
+  --r-sm: var(--radius-sm);
+  --r-md: var(--radius-md);
+  --r-lg: var(--radius-lg);
+  --r-xl: var(--radius-xl);
+  --r-pill: var(--radius-pill);
+
+  /* ── Motion & Durations ─────────────────────────────────── */
+  --dur-press: 100ms;
+  --dur-fast: 160ms;
+  --dur-base: 240ms;
+  --dur-slow: 400ms;
+  --ease-standard: cubic-bezier(.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0, 1);
+  --ease-exit: cubic-bezier(.3, 0, 1, 1);
+  --ease: var(--ease-standard);
+
+  /* ── Elevation & Layers (z-index) ───────────────────────── */
+  --z-sticky: 20;
+  --z-scrim: 30;
+  --z-drawer: 36;
+  --z-sheet: 40;
+  --z-toast: 50;
+  --z-overlay: 60;
+
+  /* ── Brand & Neutral Scales ─────────────────────────────── */
   --ember-50: #FFF7ED;
   --ember-100: #FFEDD5;
   --ember-200: #FED7AA;
@@ -13,7 +63,6 @@
   --ember-800: #9A3412;
   --ember-900: #7C2D12;
 
-  /* Neutrals — Stone Scale */
   --stone-0: #FFFFFF;
   --stone-50: #FAFAF9;
   --stone-100: #F5F5F4;
@@ -27,35 +76,7 @@
   --stone-900: #1C1917;
   --stone-950: #0C0A09;
 
-  /* Typography */
-  --font: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-
-  /* Spacing */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 20px;
-  --space-6: 24px;
-  --space-8: 32px;
-
-  /* Radii */
-  --r-xs: 4px;
-  --r-sm: 8px;
-  --r-md: 12px;
-  --r-lg: 16px;
-  --r-xl: 24px;
-  --r-pill: 999px;
-
-  /* Animation Durations & Easing */
-  --dur-press: 100ms;
-  --dur-fast: 160ms;
-  --dur-base: 240ms;
-  --dur-slow: 400ms;
-  --ease: cubic-bezier(0.2, 0, 0, 1);
-  --ease-enter: cubic-bezier(0, 0, 0, 1);
-
-  /* Light Theme Semantic Roles */
+  /* ── Semantic Tokens: Light Mode ────────────────────────── */
   color-scheme: light;
   --bg-page: var(--stone-50);
   --bg-surface: var(--stone-0);
@@ -70,11 +91,10 @@
   --border: var(--stone-200);
   --border-strong: var(--stone-500);
 
-  /* Ember #C2410C ensures WCAG AA contrast (5.18:1 on white) */
+  /* Action button in light mode uses ember-700 (5.18:1 contrast on white) */
   --action-bg: var(--ember-700);
   --action-bg-hover: var(--ember-800);
   --action-fg: #FFFFFF;
-
   --link: var(--ember-700);
   --focus: #1D4ED8;
 
@@ -87,24 +107,59 @@
   --danger: #B91C1C;
   --danger-bg: #FEF2F2;
   --danger-solid: #B91C1C;
-  --on-danger: #FFFFFF;
+  --on-danger-solid: #FFFFFF;
 
-  --chip-bg: var(--ember-100);
-  --chip-fg: var(--ember-800);
+  --info: #1D4ED8;
+  --info-bg: #EFF6FF;
 
-  --map-bg: var(--stone-100);
-  --map-road: #FFFFFF;
+  --tint-bg: var(--ember-100);
+  --tint-fg: var(--ember-800);
+
+  --toast-bg: var(--stone-900);
+  --toast-fg: #FFFFFF;
 
   --shadow-1: 0 1px 2px rgba(28, 25, 23, 0.06), 0 1px 1px rgba(28, 25, 23, 0.04);
   --shadow-2: 0 4px 12px rgba(28, 25, 23, 0.08);
   --shadow-3: 0 12px 32px rgba(28, 25, 23, 0.16);
 
+  /* Status tones: Light */
+  --tone-blue-fg:   #1D4ED8; --tone-blue-bg:   #EFF6FF;
+  --tone-indigo-fg: #4338CA; --tone-indigo-bg: #EEF2FF;
+  --tone-amber-fg:  #92400E; --tone-amber-bg:  #FEF3C7;
+  --tone-teal-fg:   #0F766E; --tone-teal-bg:   #F0FDFA;
+  --tone-purple-fg: #7E22CE; --tone-purple-bg: #FAF5FF;
+  --tone-orange-fg: #9A3412; --tone-orange-bg: #FFEDD5;
+  --tone-green-fg:  #15803D; --tone-green-bg:  #F0FDF4;
+  --tone-stone-fg:  #44403C; --tone-stone-bg:  #F5F5F4;
+  --tone-red-fg:    #B91C1C; --tone-red-bg:    #FEF2F2;
+  --tone-rose-fg:   #9F1239; --tone-rose-bg:   #FFF1F2;
+
   /* Safe Area for Mobile */
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* ── Full Alias Bridge for Existing Rider Screen CSS ───── */
+  --bg:           var(--bg-page);
+  --surface:      var(--bg-surface);
+  --surface2:     var(--bg-sunken);
+  --raised:       var(--bg-raised);
+  --sunken:       var(--bg-sunken);
+  --muted:        var(--text-muted);
+  --subtle:       var(--text-subtle);
+  --action:       var(--action-bg);
+  --action-hover: var(--action-bg-hover);
+  --primary:      var(--action-bg);
+  --primary-dark: var(--action-bg-hover);
+  --ok:           var(--success);
+  --ok-bg:        var(--success-bg);
+  --warn:         var(--warning);
+  --warn-bg:      var(--warning-bg);
+  --bad:          var(--danger);
+  --bad-bg:       var(--danger-bg);
+  --strong:       var(--stone-300);
 }
 
-/* ── Dark Theme Overrides ──────────────────────────────────── */
+/* ── Semantic Tokens: Dark Mode ──────────────────────────── */
 [data-theme='dark'] {
   color-scheme: dark;
   --bg-page: var(--stone-950);
@@ -120,11 +175,10 @@
   --border: var(--stone-700);
   --border-strong: var(--stone-500);
 
-  /* Flame #F97316 as action button in dark theme with dark text */
+  /* Action button in dark mode uses flame with dark text (6.24:1 contrast) */
   --action-bg: var(--flame);
   --action-bg-hover: var(--ember-400);
   --action-fg: var(--stone-900);
-
   --link: var(--ember-400);
   --focus: #93C5FD;
 
@@ -137,39 +191,44 @@
   --danger: #F87171;
   --danger-bg: rgba(239, 68, 68, 0.16);
   --danger-solid: #F87171;
-  --on-danger: var(--stone-900);
+  --on-danger-solid: #1C1917;
 
-  --chip-bg: rgba(249, 115, 22, 0.18);
-  --chip-fg: #FDBA74;
+  --info: #60A5FA;
+  --info-bg: rgba(59, 130, 246, 0.16);
 
-  --map-bg: #141210;
-  --map-road: var(--stone-700);
+  --tint-bg: rgba(249, 115, 22, 0.16);
+  --tint-fg: var(--ember-400);
+
+  --toast-bg: var(--stone-100);
+  --toast-fg: var(--stone-900);
 
   --shadow-1: none;
   --shadow-2: 0 0 0 1px var(--stone-700);
   --shadow-3: 0 12px 32px rgba(0, 0, 0, 0.5);
+
+  /* Status tones: Dark */
+  --tone-blue-fg:   #93C5FD; --tone-blue-bg:   rgba(59, 130, 246, 0.16);
+  --tone-indigo-fg: #A5B4FC; --tone-indigo-bg: rgba(99, 102, 241, 0.16);
+  --tone-amber-fg:  #FCD34D; --tone-amber-bg:  rgba(245, 158, 11, 0.16);
+  --tone-teal-fg:   #5EEAD4; --tone-teal-bg:   rgba(20, 184, 166, 0.16);
+  --tone-purple-fg: #D8B4FE; --tone-purple-bg: rgba(168, 85, 247, 0.16);
+  --tone-orange-fg: #FDBA74; --tone-orange-bg: rgba(249, 115, 22, 0.16);
+  --tone-green-fg:  #86EFAC; --tone-green-bg:  rgba(34, 197, 94, 0.16);
+  --tone-stone-fg:  #D6D3D1; --tone-stone-bg:  rgba(168, 162, 158, 0.16);
+  --tone-red-fg:    #FCA5A5; --tone-red-bg:    rgba(239, 68, 68, 0.16);
+  --tone-rose-fg:   #FDA4AF; --tone-rose-bg:   rgba(244, 63, 94, 0.16);
+
+  --strong: var(--stone-600);
 }
 
-/* ── Order Status Tones (Light Theme) ───────────────────────── */
-[data-tone='blue']   { --b-fg: #1D4ED8; --b-bg: #EFF6FF; }
-[data-tone='indigo'] { --b-fg: #4338CA; --b-bg: #EEF2FF; }
-[data-tone='amber']  { --b-fg: #92400E; --b-bg: #FEF3C7; }
-[data-tone='teal']   { --b-fg: #0F766E; --b-bg: #F0FDFA; }
-[data-tone='purple'] { --b-fg: #7E22CE; --b-bg: #FAF5FF; }
-[data-tone='orange'] { --b-fg: #9A3412; --b-bg: #FFEDD5; }
-[data-tone='green']  { --b-fg: #15803D; --b-bg: #F0FDF4; }
-[data-tone='stone']  { --b-fg: #44403C; --b-bg: #F5F5F4; }
-[data-tone='red']    { --b-fg: #B91C1C; --b-bg: #FEF2F2; }
-[data-tone='rose']   { --b-fg: #9F1239; --b-bg: #FFF1F2; }
-
-/* ── Order Status Tones (Dark Theme) ────────────────────────── */
-[data-theme='dark'] [data-tone='blue']   { --b-fg: #93C5FD; --b-bg: rgba(59, 130, 246, 0.16); }
-[data-theme='dark'] [data-tone='indigo'] { --b-fg: #A5B4FC; --b-bg: rgba(99, 102, 241, 0.16); }
-[data-theme='dark'] [data-tone='amber']  { --b-fg: #FCD34D; --b-bg: rgba(245, 158, 11, 0.16); }
-[data-theme='dark'] [data-tone='teal']   { --b-fg: #5EEAD4; --b-bg: rgba(20, 184, 166, 0.16); }
-[data-theme='dark'] [data-tone='purple'] { --b-fg: #D8B4FE; --b-bg: rgba(168, 85, 247, 0.16); }
-[data-theme='dark'] [data-tone='orange'] { --b-fg: #FDBA74; --b-bg: rgba(249, 115, 22, 0.16); }
-[data-theme='dark'] [data-tone='green']  { --b-fg: #86EFAC; --b-bg: rgba(34, 197, 94, 0.16); }
-[data-theme='dark'] [data-tone='stone']  { --b-fg: #D6D3D1; --b-bg: rgba(168, 162, 158, 0.16); }
-[data-theme='dark'] [data-tone='red']    { --b-fg: #FCA5A5; --b-bg: rgba(239, 68, 68, 0.16); }
-[data-theme='dark'] [data-tone='rose']   { --b-fg: #FDA4AF; --b-bg: rgba(244, 63, 94, 0.16); }
+/* ── Order Status Tone Class Mappings ─────────────────────── */
+[data-tone='blue']   { --b-fg: var(--tone-blue-fg);   --b-bg: var(--tone-blue-bg); }
+[data-tone='indigo'] { --b-fg: var(--tone-indigo-fg); --b-bg: var(--tone-indigo-bg); }
+[data-tone='amber']  { --b-fg: var(--tone-amber-fg);  --b-bg: var(--tone-amber-bg); }
+[data-tone='teal']   { --b-fg: var(--tone-teal-fg);   --b-bg: var(--tone-teal-bg); }
+[data-tone='purple'] { --b-fg: var(--tone-purple-fg); --b-bg: var(--tone-purple-bg); }
+[data-tone='orange'] { --b-fg: var(--tone-orange-fg); --b-bg: var(--tone-orange-bg); }
+[data-tone='green']  { --b-fg: var(--tone-green-fg);  --b-bg: var(--tone-green-bg); }
+[data-tone='stone']  { --b-fg: var(--tone-stone-fg);  --b-bg: var(--tone-stone-bg); }
+[data-tone='red']    { --b-fg: var(--tone-red-fg);    --b-bg: var(--tone-red-bg); }
+[data-tone='rose']   { --b-fg: var(--tone-rose-fg);   --b-bg: var(--tone-rose-bg); }

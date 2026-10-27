@@ -10,6 +10,7 @@ import { Icon } from '@/components/Icon';
 import { SkeletonRow } from '@/components/Skeleton';
 import { QK } from '@/api/queryKeys';
 import { useAuthStore } from '@/store/auth.store';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
 
 export default function OrdersScreen() {
   const navigate = useNavigate();
@@ -42,6 +43,9 @@ export default function OrdersScreen() {
         color: 'var(--text)',
       }}
     >
+      {/* Network Connectivity Banner */}
+      <ConnectionBanner />
+
       <div style={{ flex: 1, padding: 16, overflowY: 'auto' }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, margin: '0 0 16px', color: 'var(--text)' }}>
           My Orders
@@ -62,7 +66,8 @@ export default function OrdersScreen() {
           <button
             onClick={() => setSegment('active')}
             style={{
-              padding: '8px 12px',
+              padding: '10px 12px',
+              minHeight: 40,
               borderRadius: 8,
               border: 'none',
               background: segment === 'active' ? 'var(--surface)' : 'transparent',
@@ -78,7 +83,8 @@ export default function OrdersScreen() {
           <button
             onClick={() => setSegment('past')}
             style={{
-              padding: '8px 12px',
+              padding: '10px 12px',
+              minHeight: 40,
               borderRadius: 8,
               border: 'none',
               background: segment === 'past' ? 'var(--surface)' : 'transparent',
@@ -210,8 +216,8 @@ export default function OrdersScreen() {
               style={{
                 padding: '10px 22px',
                 borderRadius: 10,
-                background: 'var(--action)',
-                color: '#fff',
+                background: 'var(--action-bg)',
+                color: 'var(--action-fg)',
                 fontSize: 13,
                 fontWeight: 700,
                 border: 'none',

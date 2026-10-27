@@ -11,13 +11,21 @@ import { OrderDrawer } from '@/components/OrderDrawer';
 import { PageHeader } from '@/components/ui/PageHeader';
 import { ErrorState } from '@/components/ui/ErrorState';
 import { Icon } from '@/components/Icon';
+import { StatusBadge } from '@/components/StatusBadge';
 
 type KanbanTab = 'new' | 'kitchen' | 'ready' | 'transit';
+type ViewMode = 'board' | 'table';
+
+function getOrderAgeMinutes(dateStr: string) {
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  return Math.max(0, Math.floor(diffMs / 60000));
+}
 
 export default function DashboardPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [mobileTab, setMobileTab] = useState<KanbanTab>('new');
+  const [viewMode, setViewMode] = useState<ViewMode>('board');
 
   // Unified transition mutation
   const transitionMutation = useOrderTransition();
@@ -127,26 +135,91 @@ export default function DashboardPage() {
 
   return (
     <div className="page">
-      {/* 1. Header with Freshness */}
+      {/* 1. Header with Freshness & View Switcher */}
       <PageHeader
         title="Live Operations Board"
         subtitle="Real-time kitchen management and active fleet dispatch"
         updatedAt="just now"
         actions={
-          <div style={{ position: 'relative', width: 240 }}>
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search order #, customer…"
-              className="input"
-              style={{ paddingLeft: 34, height: 38 }}
-            />
-            <Icon
-              name="search"
-              size={16}
-              style={{ position: 'absolute', left: 10, top: 11, color: 'var(--text-subtle)' }}
-            />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+            {/* View Mode Segmented Switch (§4.7) */}
+            <div
+              role="radiogroup"
+              aria-label="View layout switcher"
+              style={{
+                display: 'inline-flex',
+                background: 'var(--bg-sunken)',
+                borderRadius: 'var(--r-md)',
+                padding: 2,
+                border: '1px solid var(--border)',
+              }}
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={viewMode === 'board'}
+                onClick={() => setViewMode('board')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 'var(--r-sm)',
+                  border: 'none',
+                  background: viewMode === 'board' ? 'var(--bg-surface)' : 'transparent',
+                  color: viewMode === 'board' ? 'var(--text)' : 'var(--text-muted)',
+                  fontWeight: viewMode === 'board' ? 700 : 500,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  boxShadow: viewMode === 'board' ? 'var(--shadow-1)' : 'none',
+                  transition: 'all var(--dur-fast)',
+                }}
+              >
+                <Icon name="grid" size={14} />
+                <span>Board</span>
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={viewMode === 'table'}
+                onClick={() => setViewMode('table')}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '6px 12px',
+                  borderRadius: 'var(--r-sm)',
+                  border: 'none',
+                  background: viewMode === 'table' ? 'var(--bg-surface)' : 'transparent',
+                  color: viewMode === 'table' ? 'var(--text)' : 'var(--text-muted)',
+                  fontWeight: viewMode === 'table' ? 700 : 500,
+                  fontSize: 13,
+                  cursor: 'pointer',
+                  boxShadow: viewMode === 'table' ? 'var(--shadow-1)' : 'none',
+                  transition: 'all var(--dur-fast)',
+                }}
+              >
+                <Icon name="list" size={14} />
+                <span>Table</span>
+              </button>
+            </div>
+
+            {/* Order Search */}
+            <div style={{ position: 'relative', width: 220 }}>
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search orders…"
+                className="input"
+                style={{ paddingLeft: 34, height: 36, fontSize: 13 }}
+              />
+              <Icon
+                name="search"
+                size={14}
+                style={{ position: 'absolute', left: 10, top: 11, color: 'var(--text-subtle)' }}
+              />
+            </div>
           </div>
         }
       />
@@ -192,127 +265,318 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 3. Mobile Kanban Tabs (< 768px) */}
-      <div
-        className="mobile-only-tabs"
-        style={{
-          display: 'none',
-          gap: 6,
-          overflowX: 'auto',
-          paddingBottom: 4,
-          borderBottom: '1px solid var(--border)',
-        }}
-      >
-        <button
-          type="button"
-          onClick={() => setMobileTab('new')}
+      {viewMode === 'table' ? (
+        <div
+          className="card"
           style={{
-            flex: 1,
-            padding: '8px 12px',
-            borderRadius: 'var(--r-md)',
-            background: mobileTab === 'new' ? 'var(--chip-bg)' : 'var(--bg-sunken)',
-            color: mobileTab === 'new' ? 'var(--chip-fg)' : 'var(--text)',
-            border: '1px solid',
-            borderColor: mobileTab === 'new' ? 'var(--action-bg)' : 'var(--border)',
-            fontWeight: 700,
-            fontSize: 13,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
+            padding: 0,
+            overflowX: 'auto',
+            border: '1px solid var(--border)',
+            borderRadius: 'var(--r-lg)',
           }}
         >
-          New ({placedOrders.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileTab('kitchen')}
-          style={{
-            flex: 1,
-            padding: '8px 12px',
-            borderRadius: 'var(--r-md)',
-            background: mobileTab === 'kitchen' ? 'var(--chip-bg)' : 'var(--bg-sunken)',
-            color: mobileTab === 'kitchen' ? 'var(--chip-fg)' : 'var(--text)',
-            border: '1px solid',
-            borderColor: mobileTab === 'kitchen' ? 'var(--action-bg)' : 'var(--border)',
-            fontWeight: 700,
-            fontSize: 13,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Kitchen ({kitchenOrders.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileTab('ready')}
-          style={{
-            flex: 1,
-            padding: '8px 12px',
-            borderRadius: 'var(--r-md)',
-            background: mobileTab === 'ready' ? 'var(--chip-bg)' : 'var(--bg-sunken)',
-            color: mobileTab === 'ready' ? 'var(--chip-fg)' : 'var(--text)',
-            border: '1px solid',
-            borderColor: mobileTab === 'ready' ? 'var(--action-bg)' : 'var(--border)',
-            fontWeight: 700,
-            fontSize: 13,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Ready ({readyOrders.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setMobileTab('transit')}
-          style={{
-            flex: 1,
-            padding: '8px 12px',
-            borderRadius: 'var(--r-md)',
-            background: mobileTab === 'transit' ? 'var(--chip-bg)' : 'var(--bg-sunken)',
-            color: mobileTab === 'transit' ? 'var(--chip-fg)' : 'var(--text)',
-            border: '1px solid',
-            borderColor: mobileTab === 'transit' ? 'var(--action-bg)' : 'var(--border)',
-            fontWeight: 700,
-            fontSize: 13,
-            cursor: 'pointer',
-            whiteSpace: 'nowrap',
-          }}
-        >
-          Transit ({transitOrders.length})
-        </button>
-      </div>
+          <table
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+              textAlign: 'left',
+              fontSize: 13,
+            }}
+          >
+            <thead>
+              <tr
+                style={{
+                  background: 'var(--bg-sunken)',
+                  borderBottom: '1px solid var(--border)',
+                  color: 'var(--text-subtle)',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.04em',
+                  height: 40,
+                }}
+              >
+                <th style={{ padding: '8px 16px' }}>Order #</th>
+                <th style={{ padding: '8px 16px' }}>Customer</th>
+                <th style={{ padding: '8px 16px' }}>Items</th>
+                <th style={{ padding: '8px 16px' }}>Age</th>
+                <th style={{ padding: '8px 16px' }}>Total</th>
+                <th style={{ padding: '8px 16px' }}>Status</th>
+                <th style={{ padding: '8px 16px', textAlign: 'right' }}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredOrders.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={7}
+                    style={{
+                      textAlign: 'center',
+                      padding: '48px 16px',
+                      color: 'var(--text-muted)',
+                      fontSize: 14,
+                    }}
+                  >
+                    No orders matching search
+                  </td>
+                </tr>
+              ) : (
+                filteredOrders.map((order) => {
+                  const ageMins = getOrderAgeMinutes(order.createdAt);
+                  const isRed = ageMins >= 20;
+                  const isAmber = ageMins >= 10 && ageMins < 20;
+                  const ageColor = isRed
+                    ? 'var(--danger)'
+                    : isAmber
+                    ? 'var(--warning)'
+                    : 'var(--text-muted)';
 
-      <style>{`
-        @media (max-width: 767px) {
-          .mobile-only-tabs {
-            display: flex !important;
-          }
-          .kanban-grid {
-            display: block !important;
-          }
-          .kanban-col {
-            display: none !important;
-          }
-          .kanban-col.mobile-active {
-            display: flex !important;
-          }
-        }
-        @media (min-width: 768px) and (max-width: 1023px) {
-          .kanban-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-          }
-        }
-      `}</style>
+                  const items = order.items ?? [];
+                  const itemsSummary =
+                    items.length > 0
+                      ? `${items.slice(0, 2).map((it: any) => `${it.quantity}× ${it.nameSnapshot || it.name}`).join(', ')}${
+                          items.length > 2 ? ` +${items.length - 2} more` : ''
+                        }`
+                      : 'Standard order';
 
-      {/* 4. Kanban Board Grid */}
-      <div
-        className="kanban-grid"
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(4, 1fr)',
-          gap: 'var(--space-4)',
-          alignItems: 'start',
-        }}
-      >
+                  let nextStatus: OrderStatus | undefined;
+                  let nextLabel: string | undefined;
+                  if (order.status === OrderStatus.PLACED) {
+                    nextStatus = OrderStatus.ACCEPTED;
+                    nextLabel = 'Accept';
+                  } else if (order.status === OrderStatus.ACCEPTED) {
+                    nextStatus = OrderStatus.PREPARING;
+                    nextLabel = 'Start Cooking';
+                  } else if (order.status === OrderStatus.PREPARING) {
+                    nextStatus = OrderStatus.READY;
+                    nextLabel = 'Mark Ready';
+                  }
+
+                  return (
+                    <tr
+                      key={order._id}
+                      onClick={() => setSelectedOrderId(order._id)}
+                      style={{
+                        borderBottom: '1px solid var(--border)',
+                        cursor: 'pointer',
+                        transition: 'background var(--dur-fast)',
+                        height: 48,
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'var(--bg-sunken)';
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'transparent';
+                      }}
+                    >
+                      <td style={{ padding: '10px 16px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--text)' }}>
+                        #{order.orderNumber}
+                      </td>
+                      <td style={{ padding: '10px 16px' }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text)' }}>
+                          {order.customerName || 'Walk-in Customer'}
+                        </div>
+                        {order.customerPhone && (
+                          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>
+                            {order.customerPhone}
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '10px 16px', maxWidth: 260 }}>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: 'var(--text-muted)',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {itemsSummary}
+                        </div>
+                      </td>
+                      <td style={{ padding: '10px 16px' }}>
+                        <span
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 4,
+                            fontWeight: 700,
+                            fontSize: 12,
+                            color: ageColor,
+                            fontVariantNumeric: 'tabular-nums',
+                          }}
+                        >
+                          <Icon name="clock" size={13} />
+                          <span>{ageMins}m</span>
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 16px', fontWeight: 800, fontVariantNumeric: 'tabular-nums', color: 'var(--text)' }}>
+                        {formatMoneyCompact(order.totalPaisa)}
+                      </td>
+                      <td style={{ padding: '10px 16px' }}>
+                        <StatusBadge status={order.status} size="sm" />
+                      </td>
+                      <td style={{ padding: '10px 16px', textAlign: 'right' }}>
+                        {nextStatus && nextLabel ? (
+                          <button
+                            type="button"
+                            disabled={transitionMutation.isPending}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleAction(order._id, nextStatus!);
+                            }}
+                            className="btn btn-primary btn-sm"
+                            style={{ fontWeight: 700, minHeight: 30, padding: '0 12px' }}
+                          >
+                            {nextLabel}
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedOrderId(order._id);
+                            }}
+                            className="btn btn-secondary btn-sm"
+                            style={{ minHeight: 30, padding: '0 10px', fontSize: 12 }}
+                          >
+                            View
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <>
+          {/* 3. Mobile Kanban Tabs (< 768px) */}
+          <div
+            className="mobile-only-tabs"
+            style={{
+              display: 'none',
+              gap: 6,
+              overflowX: 'auto',
+              paddingBottom: 4,
+              borderBottom: '1px solid var(--border)',
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setMobileTab('new')}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: 'var(--r-md)',
+                background: mobileTab === 'new' ? 'var(--chip-bg)' : 'var(--bg-sunken)',
+                color: mobileTab === 'new' ? 'var(--chip-fg)' : 'var(--text)',
+                border: '1px solid',
+                borderColor: mobileTab === 'new' ? 'var(--action-bg)' : 'var(--border)',
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              New ({placedOrders.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('kitchen')}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: 'var(--r-md)',
+                background: mobileTab === 'kitchen' ? 'var(--chip-bg)' : 'var(--bg-sunken)',
+                color: mobileTab === 'kitchen' ? 'var(--chip-fg)' : 'var(--text)',
+                border: '1px solid',
+                borderColor: mobileTab === 'kitchen' ? 'var(--action-bg)' : 'var(--border)',
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Kitchen ({kitchenOrders.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('ready')}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: 'var(--r-md)',
+                background: mobileTab === 'ready' ? 'var(--chip-bg)' : 'var(--bg-sunken)',
+                color: mobileTab === 'ready' ? 'var(--chip-fg)' : 'var(--text)',
+                border: '1px solid',
+                borderColor: mobileTab === 'ready' ? 'var(--action-bg)' : 'var(--border)',
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Ready ({readyOrders.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setMobileTab('transit')}
+              style={{
+                flex: 1,
+                padding: '8px 12px',
+                borderRadius: 'var(--r-md)',
+                background: mobileTab === 'transit' ? 'var(--chip-bg)' : 'var(--bg-sunken)',
+                color: mobileTab === 'transit' ? 'var(--chip-fg)' : 'var(--text)',
+                border: '1px solid',
+                borderColor: mobileTab === 'transit' ? 'var(--action-bg)' : 'var(--border)',
+                fontWeight: 700,
+                fontSize: 13,
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Transit ({transitOrders.length})
+            </button>
+          </div>
+
+          <style>{`
+            @media (max-width: 767px) {
+              .mobile-only-tabs {
+                display: flex !important;
+              }
+              .kanban-grid {
+                display: block !important;
+              }
+              .kanban-col {
+                display: none !important;
+              }
+              .kanban-col.mobile-active {
+                display: flex !important;
+              }
+            }
+            @media (min-width: 768px) and (max-width: 1023px) {
+              .kanban-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+              }
+            }
+          `}</style>
+
+          {/* 4. Kanban Board Grid */}
+          <div
+            className="kanban-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(4, minmax(230px, 1fr))',
+              gap: 'var(--space-4)',
+              alignItems: 'start',
+              overflowX: 'auto',
+              paddingBottom: 'var(--space-2)',
+            }}
+          >
         {/* Column 1: New (PLACED) */}
         <section
           className={`kanban-col ${mobileTab === 'new' ? 'mobile-active' : ''}`}
@@ -532,6 +796,8 @@ export default function DashboardPage() {
           </div>
         </section>
       </div>
+        </>
+      )}
 
       {/* Dynamic Order Detail Drawer */}
       <OrderDrawer

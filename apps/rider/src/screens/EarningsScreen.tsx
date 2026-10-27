@@ -4,6 +4,22 @@ import api from '@/lib/api';
 import { formatMoneyCompact } from '@fastfood/utils';
 import { Icon } from '@/components/Icon';
 import RiderBottomNav from '@/components/RiderBottomNav';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
+
+function getPayPeriodString(): string {
+  const now = new Date();
+  const day = now.getDay();
+  const diffToMonday = (day + 6) % 7;
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - diffToMonday);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+
+  const startDay = monday.getDate();
+  const endDay = sunday.getDate();
+  const month = sunday.toLocaleString('en-US', { month: 'short' });
+  return `${startDay}–${endDay} ${month}`;
+}
 
 export default function EarningsScreen() {
   const navigate = useNavigate();
@@ -17,6 +33,7 @@ export default function EarningsScreen() {
   const totalDeliveries = dashboard?.totalDeliveries ?? 0;
   // Estimated earnings: Rs. 150 per completed run
   const estimatedEarnings = totalDeliveries * 15000;
+  const payPeriod = getPayPeriodString();
 
   return (
     <div
@@ -28,6 +45,9 @@ export default function EarningsScreen() {
         color: 'var(--text)',
       }}
     >
+      {/* Network Connectivity Banner */}
+      <ConnectionBanner />
+
       {/* Header */}
       <header
         style={{
@@ -56,9 +76,14 @@ export default function EarningsScreen() {
         >
           <Icon name="left" size={20} />
         </button>
-        <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
-          Earnings & Cash
-        </h1>
+        <div>
+          <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
+            Earnings & Cash
+          </h1>
+          <div style={{ fontSize: 12, color: 'var(--subtle)', marginTop: 2 }}>
+            Pay Cycle: {payPeriod}
+          </div>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -85,6 +110,7 @@ export default function EarningsScreen() {
               color: unsettledCash > 0 ? 'var(--warn)' : 'var(--text)',
               marginTop: 6,
               letterSpacing: '-0.02em',
+              fontVariantNumeric: 'tabular-nums',
             }}
           >
             {formatMoneyCompact(unsettledCash)}
@@ -110,7 +136,15 @@ export default function EarningsScreen() {
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--subtle)' }}>
               Completed Runs
             </div>
-            <div style={{ fontSize: 26, fontWeight: 800, color: 'var(--text)', marginTop: 4 }}>
+            <div
+              style={{
+                fontSize: 26,
+                fontWeight: 800,
+                color: 'var(--text)',
+                marginTop: 4,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
               {totalDeliveries}
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>
@@ -129,7 +163,15 @@ export default function EarningsScreen() {
             <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', color: 'var(--subtle)' }}>
               Estimated Payout
             </div>
-            <div style={{ fontSize: 24, fontWeight: 800, color: 'var(--ok)', marginTop: 4 }}>
+            <div
+              style={{
+                fontSize: 24,
+                fontWeight: 800,
+                color: 'var(--ok)',
+                marginTop: 4,
+                fontVariantNumeric: 'tabular-nums',
+              }}
+            >
               {formatMoneyCompact(estimatedEarnings)}
             </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 2 }}>

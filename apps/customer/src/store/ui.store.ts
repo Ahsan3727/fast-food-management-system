@@ -1,34 +1,41 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
+export type ThemeChoice = 'system' | 'light' | 'dark';
+
 interface UiState {
-  theme: 'light' | 'dark';
-  setTheme: (t: 'light' | 'dark') => void;
+  theme: ThemeChoice;
+  setTheme: (t: ThemeChoice) => void;
   toggleTheme: () => void;
 }
 
 /**
- * UI preferences store (WP11).
- * Single source of truth for the customer app's light/dark theme.
- * Persisted under 'ember_customer_theme' so index.html's inline
+ * UI preferences store.
+ * Single source of truth for the customer app's light/dark/system theme.
+ * Persisted under 'ff-customer-theme' so index.html's inline
  * script can read it before React mounts (no FOUC).
  */
 export const useUiStore = create<UiState>()(
   persist(
     (set, get) => ({
-      theme: 'light',
+      theme: 'system',
       setTheme: (theme) => {
         set({ theme });
-        document.documentElement.setAttribute('data-theme', theme);
+        let resolved = theme;
+        if (theme === 'system') {
+          resolved = typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        if (typeof document !== 'undefined') {
+          document.documentElement.setAttribute('data-theme', resolved);
+        }
       },
       toggleTheme: () => {
         const next = get().theme === 'dark' ? 'light' : 'dark';
-        set({ theme: next });
-        document.documentElement.setAttribute('data-theme', next);
+        get().setTheme(next);
       },
     }),
     {
-      name: 'ember_customer_theme',
+      name: 'ff-customer-theme',
     },
   ),
 );

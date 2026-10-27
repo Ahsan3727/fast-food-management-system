@@ -5,6 +5,7 @@ import api from '@/lib/api';
 import { useCartStore } from '@/store/cart.store';
 import { formatMoneyCompact } from '@fastfood/utils';
 import { Icon } from '@/components/Icon';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
 import toast from 'react-hot-toast';
 
 export default function ProductDetailScreen() {
@@ -59,8 +60,8 @@ export default function ProductDetailScreen() {
           style={{
             padding: '8px 16px',
             borderRadius: 10,
-            background: 'var(--action)',
-            color: '#fff',
+            background: 'var(--action-bg)',
+            color: 'var(--action-fg)',
             border: 'none',
             fontWeight: 600,
           }}
@@ -123,6 +124,9 @@ export default function ProductDetailScreen() {
         color: 'var(--text)',
       }}
     >
+      {/* Network Connectivity Banner */}
+      <ConnectionBanner />
+
       <div style={{ flex: 1, overflowY: 'auto' }}>
         {/* Hero banner */}
         <div
@@ -195,7 +199,7 @@ export default function ProductDetailScreen() {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    minHeight: 50,
+                    minHeight: 56,
                     padding: '0 16px',
                     borderRadius: 12,
                     border: '1px solid',
@@ -239,7 +243,7 @@ export default function ProductDetailScreen() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        minHeight: 50,
+                        minHeight: 56,
                         padding: '0 16px',
                         borderRadius: 12,
                         border: '1px solid',
@@ -295,7 +299,7 @@ export default function ProductDetailScreen() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        minHeight: 50,
+                        minHeight: 56,
                         padding: '0 16px',
                         borderRadius: 12,
                         border: '1px solid',
@@ -433,11 +437,11 @@ export default function ProductDetailScreen() {
           onClick={handleAdd}
           style={{
             flex: 1,
-            height: 48,
+            height: 52,
             borderRadius: 12,
             border: 'none',
-            background: item.isAvailable ? 'var(--action)' : 'var(--sunken)',
-            color: item.isAvailable ? '#fff' : 'var(--subtle)',
+            background: item.isAvailable ? 'var(--action-bg)' : 'var(--sunken)',
+            color: item.isAvailable ? 'var(--action-fg)' : 'var(--subtle)',
             fontSize: 15,
             fontWeight: 700,
             cursor: item.isAvailable ? 'pointer' : 'not-allowed',

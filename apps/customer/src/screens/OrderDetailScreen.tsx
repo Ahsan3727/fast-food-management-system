@@ -2,6 +2,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { formatMoneyCompact, formatDateTime } from '@fastfood/utils';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
 import styles from './OrderDetailScreen.module.css';
 
 const STATUS_STEPS = [
@@ -33,6 +34,7 @@ export default function OrderDetailScreen() {
 
   return (
     <div className={styles.page}>
+      <ConnectionBanner />
       <div className={styles.header}>
         <button className={styles.back} onClick={() => navigate('/orders')}>←</button>
         <div>

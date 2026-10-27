@@ -68,7 +68,7 @@ export default function BottomNav({ active }: Props) {
               height: '100%',
               background: 'none',
               border: 'none',
-              fontSize: 10,
+              fontSize: 12,
               fontWeight: isCurrent ? 700 : 500,
               color: isCurrent ? 'var(--action-bg)' : 'var(--text-muted)',
               cursor: 'pointer',
@@ -84,8 +84,8 @@ export default function BottomNav({ active }: Props) {
                   top: 0,
                   left: '25%',
                   right: '25%',
-                  height: 2,
-                  borderRadius: '0 0 2px 2px',
+                  height: 3,
+                  borderRadius: '0 0 3px 3px',
                   background: 'var(--action-bg)',
                 }}
               />
@@ -94,7 +94,7 @@ export default function BottomNav({ active }: Props) {
             <div style={{ position: 'relative' }}>
               <Icon
                 name={item.icon}
-                size={22}
+                size={20}
                 style={{ color: isCurrent ? 'var(--action-bg)' : 'var(--text-muted)' }}
               />
               {/* Active orders dot */}
@@ -114,7 +114,7 @@ export default function BottomNav({ active }: Props) {
               )}
             </div>
 
-            <span style={{ fontSize: 10, lineHeight: 1 }}>{item.label}</span>
+            <span style={{ fontSize: 12, lineHeight: 1 }}>{item.label}</span>
           </button>
         );
       })}

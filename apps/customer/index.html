@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="theme-color" content="#f97316" />
     <title>FastFood — Order Online</title>
     <meta name="description" content="Order fresh food delivered to your door. Track your order live." />
@@ -17,13 +17,22 @@
     </style>
     <!-- Apply saved theme before React mounts to avoid flash of wrong theme -->
     <script>
-      try {
-        var s = JSON.parse(localStorage.getItem('ember_customer_theme') || '{}');
-        var t = s && s.state && s.state.theme;
-        document.documentElement.setAttribute('data-theme', t === 'dark' ? 'dark' : 'light');
-      } catch(e) {
-        document.documentElement.setAttribute('data-theme', 'light');
-      }
+      (function() {
+        try {
+          var saved = localStorage.getItem('ff-customer-theme');
+          if (!saved) {
+            var legacy = JSON.parse(localStorage.getItem('ember_customer_theme') || '{}');
+            saved = legacy && legacy.state && legacy.state.theme;
+          }
+          var theme = saved || 'system';
+          if (theme === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch(e) {
+          document.documentElement.setAttribute('data-theme', 'light');
+        }
+      })();
     </script>
   </head>
   <body>

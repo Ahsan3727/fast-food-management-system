@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom';
 import { useCartStore } from '@/store/cart.store';
 import { formatMoneyCompact } from '@fastfood/utils';
 import { Icon } from '@/components/Icon';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
 
 export default function CartScreen() {
   const navigate = useNavigate();
@@ -28,6 +29,7 @@ export default function CartScreen() {
           textAlign: 'center',
         }}
       >
+        <ConnectionBanner />
         <div
           style={{
             width: 80,
@@ -51,8 +53,8 @@ export default function CartScreen() {
           style={{
             padding: '12px 28px',
             borderRadius: 12,
-            background: 'var(--action)',
-            color: '#fff',
+            background: 'var(--action-bg)',
+            color: 'var(--action-fg)',
             fontSize: 14,
             fontWeight: 700,
             border: 'none',
@@ -75,6 +77,9 @@ export default function CartScreen() {
         color: 'var(--text)',
       }}
     >
+      {/* Network Connectivity Banner */}
+      <ConnectionBanner />
+
       {/* Top Header */}
       <header
         style={{
@@ -90,8 +95,8 @@ export default function CartScreen() {
           <button
             onClick={() => navigate(-1)}
             style={{
-              width: 36,
-              height: 36,
+              width: 40,
+              height: 40,
               borderRadius: '50%',
               background: 'none',
               border: 'none',
@@ -194,7 +199,7 @@ export default function CartScreen() {
                     border: '1px solid var(--border)',
                     borderRadius: 999,
                     background: 'var(--sunken)',
-                    height: 38,
+                    height: 42,
                     padding: '0 4px',
                     flexShrink: 0,
                   }}
@@ -202,8 +207,8 @@ export default function CartScreen() {
                   <button
                     onClick={() => updateQuantity(item.menuItemId, item.sizeLabel, -1)}
                     style={{
-                      width: 30,
-                      height: 30,
+                      width: 36,
+                      height: 36,
                       borderRadius: '50%',
                       border: 'none',
                       background: 'none',
@@ -215,18 +220,18 @@ export default function CartScreen() {
                     title={item.quantity === 1 ? 'Remove item' : 'Decrease quantity'}
                     aria-label={item.quantity === 1 ? 'Remove item' : 'Decrease quantity'}
                   >
-                    <Icon name={item.quantity === 1 ? 'trash' : 'minus'} size={14} />
+                    <Icon name={item.quantity === 1 ? 'trash' : 'minus'} size={15} />
                   </button>
 
-                  <span style={{ minWidth: 22, textAlign: 'center', fontWeight: 700, fontSize: 13 }}>
+                  <span style={{ minWidth: 26, textAlign: 'center', fontWeight: 700, fontSize: 14 }}>
                     {item.quantity}
                   </span>
 
                   <button
                     onClick={() => updateQuantity(item.menuItemId, item.sizeLabel, 1)}
                     style={{
-                      width: 30,
-                      height: 30,
+                      width: 36,
+                      height: 36,
                       borderRadius: '50%',
                       border: 'none',
                       background: 'none',
@@ -237,7 +242,7 @@ export default function CartScreen() {
                     }}
                     aria-label="Increase quantity"
                   >
-                    <Icon name="plus" size={14} />
+                    <Icon name="plus" size={15} />
                   </button>
                 </div>
               </div>
@@ -328,10 +333,10 @@ export default function CartScreen() {
           onClick={() => navigate('/checkout')}
           style={{
             width: '100%',
-            height: 48,
+            height: 52,
             borderRadius: 12,
-            background: 'var(--action)',
-            color: '#fff',
+            background: 'var(--action-bg)',
+            color: 'var(--action-fg)',
             fontSize: 15,
             fontWeight: 700,
             border: 'none',

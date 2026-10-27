@@ -33,7 +33,9 @@ export type IconName =
   | 'chart'
   | 'bell'
   | 'flame'
-  | 'users';
+  | 'users'
+  | 'sparkle'
+  | 'device';
 
 interface IconProps extends React.SVGProps<SVGSVGElement> {
   name: IconName;
@@ -230,6 +232,15 @@ export const Icon: React.FC<IconProps> = ({ name, size = 20, className = '', sty
           <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
           <path d="M16 3.13a4 4 0 0 1 0 7.75" />
         </>
+      )}
+      {name === 'device' && (
+        <>
+          <rect x="5" y="2" width="14" height="20" rx="2" ry="2" />
+          <path d="M12 18h.01" />
+        </>
+      )}
+      {name === 'sparkle' && (
+        <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
       )}
     </svg>
   );

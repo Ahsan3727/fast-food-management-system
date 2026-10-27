@@ -4,19 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#1C1917" />
-    <title>FastFood Admin</title>
+    <title>FastFood Admin — Restaurant Panel</title>
+    <meta name="description" content="FastFood Restaurant Panel for live kitchen operations, dispatch, menu and fleet management." />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
     <script>
       (function() {
         try {
-          var saved = localStorage.getItem('ember_theme');
+          var saved = localStorage.getItem('ff-admin-theme') || localStorage.getItem('ember_theme');
           var theme = saved || 'dark';
-          if (saved === 'system') {
-            theme = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+          if (theme === 'system') {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
           }
           document.documentElement.setAttribute('data-theme', theme);
-        } catch(e) {}
+        } catch(e) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
       })();
     </script>
   </head>

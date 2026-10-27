@@ -17,7 +17,15 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <App />
         <Toaster position="top-center" toastOptions={{
-          style: { background: '#1e293b', color: '#f8fafc', borderRadius: '12px', fontFamily: 'Inter, sans-serif' },
+          style: {
+            background: 'var(--toast-bg)',
+            color: 'var(--toast-fg)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--border)',
+            fontFamily: 'var(--font)',
+            fontSize: '14px',
+            boxShadow: 'var(--shadow-2)',
+          },
         }} />
       </BrowserRouter>
     </QueryClientProvider>

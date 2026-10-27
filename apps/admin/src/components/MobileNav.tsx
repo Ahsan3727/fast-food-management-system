@@ -5,16 +5,18 @@ import { useAdminStore } from '@/store/admin.store';
 import api from '@/lib/api';
 import { Icon } from '@/components/Icon';
 
+export type ThemeChoice = 'system' | 'light' | 'dark';
+
 interface MobileNavProps {
-  theme: 'dark' | 'light';
-  onToggleTheme: () => void;
+  themeChoice: ThemeChoice;
+  onSetThemeChoice: (choice: ThemeChoice) => void;
   soundEnabled: boolean;
   onToggleSound: () => void;
 }
 
 export default function MobileNav({
-  theme,
-  onToggleTheme,
+  themeChoice,
+  onSetThemeChoice,
   soundEnabled,
   onToggleSound,
 }: MobileNavProps) {
@@ -172,17 +174,54 @@ export default function MobileNav({
 
             <div style={{ height: 1, background: 'var(--border)' }} />
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Theme</span>
-              <button
-                type="button"
-                onClick={onToggleTheme}
-                className="btn btn-ghost btn-sm"
-                style={{ gap: 6 }}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontSize: 14, fontWeight: 600, color: 'var(--text)' }}>Theme Appearance</span>
+                <span style={{ fontSize: 12, color: 'var(--text-subtle)', textTransform: 'capitalize' }}>
+                  {themeChoice}
+                </span>
+              </div>
+              <div
+                role="radiogroup"
+                aria-label="Theme selection"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: '1fr 1fr 1fr',
+                  gap: 4,
+                  padding: 4,
+                  background: 'var(--bg-sunken)',
+                  borderRadius: 'var(--r-md)',
+                  border: '1px solid var(--border)',
+                }}
               >
-                <Icon name={theme === 'dark' ? 'sun' : 'moon'} size={16} />
-                <span>{theme === 'dark' ? 'Light Theme' : 'Dark Theme'}</span>
-              </button>
+                {(['system', 'light', 'dark'] as const).map((choice) => (
+                  <button
+                    key={choice}
+                    role="radio"
+                    aria-checked={themeChoice === choice}
+                    onClick={() => onSetThemeChoice(choice)}
+                    style={{
+                      height: 36,
+                      borderRadius: 'var(--r-sm)',
+                      border: 'none',
+                      background: themeChoice === choice ? 'var(--bg-surface)' : 'transparent',
+                      color: themeChoice === choice ? 'var(--action-bg)' : 'var(--text-muted)',
+                      fontSize: 13,
+                      fontWeight: themeChoice === choice ? 700 : 500,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: 6,
+                      textTransform: 'capitalize',
+                      boxShadow: themeChoice === choice ? 'var(--shadow-1)' : 'none',
+                    }}
+                  >
+                    <Icon name={choice === 'system' ? 'bell' : choice === 'light' ? 'sun' : 'moon'} size={15} />
+                    <span>{choice}</span>
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
