@@ -1,20 +1,464 @@
-.page { background: var(--bg); min-height: 100vh; padding-bottom: 80px; }
-.header { display: flex; align-items: center; gap: 12px; padding: calc(var(--safe-top) + 12px) 16px 12px; background: white; border-bottom: 1px solid var(--border); }
-.header h1 { font-size: 20px; font-weight: 700; }
-.back { background: none; border: 1.5px solid var(--border); border-radius: 10px; width: 36px; height: 36px; font-size: 18px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
-.filterRow { display: flex; gap: 8px; padding: 12px 16px; overflow-x: auto; scrollbar-width: none; background: white; }
-.filterRow::-webkit-scrollbar { display: none; }
-.pill { flex-shrink: 0; padding: 6px 16px; border: 1.5px solid var(--border); border-radius: 20px; background: white; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; transition: all 0.15s; }
-.pillActive { background: var(--primary); border-color: var(--primary); color: white; }
-.list { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
-.skeletonRow { height: 80px; border-radius: 14px; }
-.row { background: white; border-radius: 14px; border: 1px solid var(--border); display: flex; align-items: center; gap: 12px; padding: 12px; cursor: pointer; box-shadow: var(--shadow); transition: transform 0.15s; }
-.row:hover { transform: translateY(-1px); }
-.rowImage { width: 70px; height: 70px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; }
-.rowImg { width: 100%; height: 100%; object-fit: cover; }
-.rowEmoji { font-size: 32px; }
-.rowInfo { flex: 1; min-width: 0; }
-.rowName { font-weight: 600; font-size: 15px; }
-.rowDesc { font-size: 12px; color: var(--text-muted); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rowPrice { font-size: 14px; font-weight: 700; color: var(--primary); margin-top: 4px; }
-.addBtn { flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px; background: var(--primary); border: none; color: white; font-size: 24px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+/*
+ * MenuScreen.module.css
+ * All colours are design-system tokens — zero raw hex values.
+ * Verified against apps/customer/src/styles/tokens.css
+ */
+
+/* ── Page shell: non-scrolling full-viewport flex column ── */
+.page {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;          /* fallback for older WebViews */
+  height: 100dvh;         /* respects mobile browser chrome */
+  background: var(--bg);
+  color: var(--text);
+  overflow: hidden;       /* page itself never scrolls */
+}
+
+/* ── Compact search bar (44 px) ── */
+.searchBarWrap {
+  flex-shrink: 0;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-4);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.searchIcon {
+  color: var(--text-subtle);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  border: none;
+  background: none;
+  outline: none;
+  font-size: 14px;
+  color: var(--text);
+  font-family: var(--font);
+}
+
+/* Hide the native browser clear button — we render our own */
+.searchInput::-webkit-search-cancel-button { display: none; }
+
+.searchClearBtn {
+  background: none;
+  border: none;
+  padding: var(--space-1);
+  display: grid;
+  place-items: center;
+  color: var(--text-subtle);
+  cursor: pointer;
+  min-width: 32px;
+  min-height: 32px;
+  border-radius: var(--r-pill);
+}
+.searchClearBtn:hover { background: var(--bg-hover); }
+
+/* ── Menu area: flex 1, no outer scroll ── */
+.menuArea {
+  flex: 1;
+  min-height: 0;    /* allow shrinking below content height */
+  overflow: hidden; /* outer scroll disabled; inner may scroll as last resort */
+  position: relative;
+}
+
+/* ── Board mode: 2-column grid ── */
+.boardGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 100%;
+  overflow: hidden;
+}
+
+.boardColumn {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Category block inside a board column */
+.boardCatBlock {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* flex value set inline via JS (proportional to item count weight) */
+}
+
+/* 28 px category header strip */
+.boardCatHeader {
+  flex-shrink: 0;
+  height: 28px;
+  padding: 0 var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--action-bg);
+  color: var(--action-fg);
+  font-size: 11px;
+  font-weight: 700;
+  user-select: none;
+}
+
+.boardCatName {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.boardCatCount {
+  font-size: 10px;
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+/* Item rows container — shares available height among its flex children */
+.boardCatItems {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* One item row in board mode */
+.boardItemRow {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border: none;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  overflow: hidden;
+  transition: background var(--dur-fast) var(--ease);
+}
+.boardItemRow:hover  { background: var(--bg-hover); }
+.boardItemRow:active { background: var(--bg-pressed); }
+.boardItemRow:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.boardItemInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.boardItemName {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.boardItemPrice {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--action-bg);
+}
+
+/* ── Focus mode: full-width accordion ── */
+.focusContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Category wrapper — closed = 36 px, open = flex 1 */
+.focusCat {
+  flex: 0 0 36px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: flex var(--dur-base) var(--ease-enter);
+}
+
+.focusCatOpen {
+  flex: 1 1 auto;
+}
+
+/* Accordion bar button */
+.focusBar {
+  flex-shrink: 0;
+  height: 36px;
+  padding: 0 var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-surface);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background var(--dur-fast) var(--ease);
+}
+.focusBar:hover  { background: var(--bg-hover); }
+.focusBar:active { background: var(--bg-pressed); }
+.focusBar:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.focusCatOpen .focusBar {
+  background: var(--action-bg);
+  color: var(--action-fg);
+  border-bottom-color: var(--action-bg);
+}
+
+.focusBarName {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.focusMatchBadge {
+  flex-shrink: 0;
+  min-width: 18px;
+  height: 18px;
+  border-radius: var(--r-pill);
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+  font-size: 10px;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  padding: 0 var(--space-1);
+}
+
+.focusBarArrow {
+  flex-shrink: 0;
+  color: currentColor;
+}
+
+/* Items area inside open accordion — 2-column grid */
+.focusItems {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-content: start;
+  overflow-y: auto;      /* inner scroll as last-resort if items overflow */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+/* Single item cell in focus 2-col grid */
+.focusItemCell {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2);
+  border: none;
+  border-top: 1px solid var(--border);
+  border-right: 1px solid var(--border);
+  background: var(--bg);
+  cursor: pointer;
+  text-align: left;
+  overflow: hidden;
+  transition: background var(--dur-fast) var(--ease);
+  min-height: 44px;   /* accessible touch target */
+}
+.focusItemCell:nth-child(2n) { border-right: none; }
+.focusItemCell:hover  { background: var(--bg-hover); }
+.focusItemCell:active { background: var(--bg-pressed); }
+.focusItemCell:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.focusItemInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+
+.focusItemName {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+
+.focusItemPrice {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--action-bg);
+}
+
+/* ── Shared: thumbnail ── */
+.thumb {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--r-sm);
+  background: var(--bg-sunken);
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.thumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.thumbEmoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* ── Shared: Add button ── */
+.addBtnWrap {
+  flex-shrink: 0;
+  /* Transparent padding expands touch target to 44×44 without visual change */
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
+}
+
+.addBtn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: var(--action-bg);
+  color: var(--action-fg);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform var(--dur-press) ease, background var(--dur-fast) var(--ease);
+}
+.addBtn:hover  { background: var(--action-bg-hover); }
+.addBtn:active { transform: scale(0.88); }
+.addBtn:disabled {
+  background: var(--bg-sunken);
+  color: var(--text-subtle);
+  cursor: not-allowed;
+}
+.addBtn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Cart badge variant — shows current quantity */
+.addBtnHasItems {
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+}
+
+.addBtnCount {
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+/* ── Search dim: non-matching items ── */
+.dimmed {
+  opacity: 0.3;
+}
+
+/* ── CartBar slot: always reserved (64 px) ── */
+.cartBarSlot {
+  flex-shrink: 0;
+  min-height: 64px;
+  /* CartBar renders inside here with its own sticky logic;
+     in a non-scrolling column, it behaves as a normal in-flow element */
+}
+
+/* ── Spacer for fixed BottomNav (56 px) ── */
+.navSpacer {
+  flex-shrink: 0;
+  height: var(--nav-h);
+}
+
+/* ── Empty state ── */
+.emptyState {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+/* ── Accessibility: reduced-motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .focusCat,
+  .addBtn {
+    transition: none;
+  }
+}
+
+/* ── Search match highlight (rendered inside item name span) ── */
+.searchHighlight {
+  background: var(--chip-bg);
+  color: var(--chip-fg);
+  border-radius: var(--r-xs);
+  padding: 0 1px;
+  font-style: normal;    /* <mark> defaults to italic in some browsers */
+}
+
+/* ── Sold-out label (appears below item name) ── */
+.soldOutLabel {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bad);
+  line-height: 1.2;
+}
+
+/* ── Sold-out row: dim the whole button ── */
+.unavailable {
+  opacity: 0.5;
+}
+
+/* ── CartBar bump: subtle pulse when an item is added to cart ── */
+@keyframes cartBump {
+  0%   { transform: scale(1);     }
+  35%  { transform: scale(1.034); }
+  100% { transform: scale(1);     }
+}
+
+.cartBarBump {
+  animation: cartBump 320ms var(--ease-enter);
+  transform-origin: center bottom;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cartBarBump { animation: none; }
+}

@@ -96,7 +96,7 @@ export default function ProductDetailScreen() {
     addItem({
       menuItemId: item._id,
       name: item.name,
-      image: item.imageUrl,
+      image: item.image,
       emoji: item.emoji,
       sizeLabel: selectedSize,
       addOns: selectedAddOns,
@@ -165,9 +165,9 @@ export default function ProductDetailScreen() {
             <Icon name="left" size={20} />
           </button>
 
-          {item.imageUrl ? (
+          {item.image ? (
             <img
-              src={item.imageUrl}
+              src={item.image}
               alt={item.name}
               style={{ width: '100%', height: '100%', objectFit: 'cover' }}
             />
