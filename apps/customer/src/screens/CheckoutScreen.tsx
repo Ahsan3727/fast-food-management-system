@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import toast from 'react-hot-toast';
+import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import api from '@/lib/api';
 import { useCartStore } from '@/store/cart.store';
 import { useAuthStore } from '@/store/auth.store';
@@ -9,6 +10,13 @@ import { formatMoneyCompact } from '@fastfood/utils';
 import { Icon } from '@/components/Icon';
 import { ConnectionBanner } from '@/components/ConnectionBanner';
 import { v4 as uuidv4 } from 'uuid';
+
+/** Pans the Leaflet map when markerPos changes (MapContainer ignores prop updates after mount). */
+function MapRecenter({ pos }: { pos: [number, number] }) {
+  const map = useMap();
+  useEffect(() => { map.setView(pos); }, [pos[0], pos[1]]); // eslint-disable-line react-hooks/exhaustive-deps
+  return null;
+}
 
 interface CheckoutForm {
   customerName: string;
@@ -24,7 +32,7 @@ export default function CheckoutScreen() {
   const { items, clear, displayTotalPaisa } = useCartStore();
   const { customerName, customerPhone, defaultAddress, setCustomerProfile, setTokens, setUser } = useAuthStore();
   const [loading, setLoading] = useState(false);
-  const [pin, setPin] = useState<{ x: number; y: number }>({ x: 34, y: 58 });
+  const [markerPos, setMarkerPos] = useState<[number, number]>([31.5204, 74.3587]);
   const [locConfirmed, setLocConfirmed] = useState(true);
 
   const subtotalPaisa = displayTotalPaisa();
@@ -66,7 +74,7 @@ export default function CheckoutScreen() {
       pos => {
         setValue('lat', pos.coords.latitude);
         setValue('lng', pos.coords.longitude);
-        setPin({ x: 42, y: 64 });
+        setMarkerPos([pos.coords.latitude, pos.coords.longitude]);
         setLocConfirmed(true);
         if (!addressValue) {
           setValue('addressLine', 'Current GPS Location, Lahore');
@@ -272,87 +280,41 @@ export default function CheckoutScreen() {
               Deliver to
             </h2>
 
-            {/* Map Preview Graphic */}
+            {/* Delivery location — drag the pin to the exact drop point */}
             <div
               style={{
-                position: 'relative',
-                height: 180,
                 borderRadius: 14,
                 overflow: 'hidden',
-                background: 'var(--sunken)',
-                border: '1px solid var(--border)',
                 marginBottom: 10,
+                border: '1px solid var(--border)',
               }}
             >
-              <svg
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-                viewBox="0 0 300 200"
-                preserveAspectRatio="none"
+              <MapContainer
+                center={markerPos}
+                zoom={14}
+                style={{ height: 200, width: '100%' }}
+                scrollWheelZoom={false}
+                zoomControl={false}
               >
-                <path
-                  d="M0 60H300M0 140H300M80 0V200M210 0V200M0 190 300 20"
-                  stroke="var(--border)"
-                  strokeWidth="8"
-                  fill="none"
+                <TileLayer
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                  attribution="&copy; OpenStreetMap"
                 />
-              </svg>
-
-              {/* Restaurant Pin */}
-              <div
-                style={{
-                  position: 'absolute',
-                  left: '78%',
-                  top: '26%',
-                  width: 32,
-                  height: 32,
-                  borderRadius: '50%',
-                  background: 'var(--action)',
-                  color: '#fff',
-                  display: 'grid',
-                  placeItems: 'center',
-                  transform: 'translate(-50%, -50%)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-                }}
-                title="Restaurant"
-              >
-                <Icon name="store" size={16} />
-              </div>
-
-              {/* Customer Home Pin */}
-              <div
-                style={{
-                  position: 'absolute',
-                  left: `${pin.x}%`,
-                  top: `${pin.y}%`,
-                  width: 34,
-                  height: 34,
-                  borderRadius: '50%',
-                  background: '#1d4ed8',
-                  color: '#fff',
-                  display: 'grid',
-                  placeItems: 'center',
-                  transform: 'translate(-50%, -50%)',
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
-                }}
-                title="Delivery Location"
-              >
-                <Icon name="pin" size={18} />
-              </div>
-
-              <span
-                style={{
-                  position: 'absolute',
-                  right: 8,
-                  bottom: 6,
-                  fontSize: 11,
-                  background: 'rgba(0,0,0,0.4)',
-                  padding: '2px 6px',
-                  borderRadius: 4,
-                  color: '#fff',
-                }}
-              >
-                Interactive Pin
-              </span>
+                <MapRecenter pos={markerPos} />
+                <Marker
+                  position={markerPos}
+                  draggable
+                  eventHandlers={{
+                    dragend: (e: any) => {
+                      const latlng = e.target.getLatLng();
+                      setMarkerPos([latlng.lat, latlng.lng]);
+                      setValue('lat', latlng.lat);
+                      setValue('lng', latlng.lng);
+                      setLocConfirmed(true);
+                    },
+                  }}
+                />
+              </MapContainer>
             </div>
 
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>

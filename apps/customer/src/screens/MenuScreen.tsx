@@ -8,11 +8,8 @@
  *
  * Note: ProductDetailScreen.tsx also reads item.imageUrl (lines 99, 168).
  *       That bug is fixed in ProductDetailScreen.tsx (see separate edit).
- *
- * Why no inline bottom sheet for sized items:
- *   Replicating the full size-selection + add-on UI from ProductDetailScreen
- *   faithfully would require copying ~220 lines of JSX and pricing logic.
- *   That exceeds the ~80-line threshold, so we navigate to /menu/:id instead.
+ * Item detail is now shown in an in-page bottom sheet (ItemDetailSheet.tsx)
+ * so the customer never leaves the menu while browsing.
  */
 
 import React, {
@@ -24,7 +21,7 @@ import React, {
   type ReactNode,
 } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { ItemDetailSheet } from './ItemDetailSheet';
 import api from '@/lib/api';
 import { useCartStore } from '@/store/cart.store';
 import { formatMoneyCompact } from '@fastfood/utils';
@@ -51,7 +48,7 @@ interface Category {
   sortOrder: number;
 }
 
-interface MenuItem {
+export interface MenuItem {
   _id: string;
   name: string;
   description?: string;
@@ -420,10 +417,11 @@ function FocusMode({
 // MenuScreen
 // ─────────────────────────────────────────────────────────────────────────────
 export default function MenuScreen() {
-  const navigate = useNavigate();
+
   const [searchQ,    setSearchQ   ] = useState('');
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>('board');
-  const [openCatId,  setOpenCatId ] = useState('');
+  const [layoutMode, setLayoutMode ] = useState<LayoutMode>('board');
+  const [openCatId,  setOpenCatId  ] = useState('');
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
 
   const { addItem, items: cartItems } = useCartStore();
 
@@ -523,11 +521,18 @@ export default function MenuScreen() {
   );
 
   // ── Item action handlers ──────────────────────────────────────────────────
+  const bumpCartBar = useCallback(() => {
+    const slot = cartBarSlotRef.current;
+    if (!slot) return;
+    slot.classList.remove(styles.cartBarBump);
+    void slot.offsetWidth; // force reflow so animation restarts if already playing
+    slot.classList.add(styles.cartBarBump);
+  }, []);
+
   const handleAdd = useCallback(async (item: MenuItem) => {
-    // BUG 2 FIX: items with sizes or add-ons require the detail screen so the
-    // customer can pick a size before we add to cart.
     if (isComplex(item)) {
-      navigate(`/menu/${item._id}`);
+      // Open the detail sheet so the customer can pick size / add-ons
+      setSelectedItem(item);
       return;
     }
     if (!item.isAvailable) return;
@@ -535,24 +540,18 @@ export default function MenuScreen() {
     addItem({
       menuItemId:     item._id,
       name:           item.name,
-      image:          item.image,  // BUG 1 FIX: was item.imageUrl
+      image:          item.image,
       emoji:          item.emoji,
       addOns:         [],
       unitPricePaisa: item.basePrice,
       quantity:       1,
     });
-    // Pulse the CartBar slot so the user sees visual confirmation of the add
-    const slot = cartBarSlotRef.current;
-    if (slot) {
-      slot.classList.remove(styles.cartBarBump);
-      void slot.offsetWidth; // force reflow so animation restarts if already playing
-      slot.classList.add(styles.cartBarBump);
-    }
-  }, [navigate, addItem]);
+    bumpCartBar();
+  }, [addItem, bumpCartBar]);
 
   const handleTap = useCallback((item: MenuItem) => {
-    navigate(`/menu/${item._id}`);
-  }, [navigate]);
+    setSelectedItem(item);
+  }, []);
 
   const handlers: ItemHandlers = useMemo(
     () => ({ onAdd: handleAdd, onTap: handleTap, cartCounts, searchQ }),
@@ -687,6 +686,13 @@ export default function MenuScreen() {
       {/* Spacer for the fixed-position BottomNav */}
       <div className={styles.navSpacer} />
       <BottomNav active="menu" />
+
+      {/* In-page item detail sheet — rendered over the menu, no navigation */}
+      <ItemDetailSheet
+        item={selectedItem}
+        onClose={() => setSelectedItem(null)}
+        onAdded={bumpCartBar}
+      />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
@@ -12,11 +13,14 @@ import { ConnectionBanner } from '@/components/ConnectionBanner';
 import { formatMoneyCompact } from '@fastfood/utils';
 import { STATUS_META, OrderStatus } from '@fastfood/shared-types';
 import { QK } from '@/api/queryKeys';
+import { ItemDetailSheet } from './ItemDetailSheet';
+import type { MenuItem } from './MenuScreen';
 
 export default function HomeScreen() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const { addItem, totalItems } = useCartStore();
+  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
 
   const { data: categories = [] } = useQuery<any[]>({
     queryKey: QK.categories,
@@ -116,7 +120,7 @@ export default function HomeScreen() {
 
         {/* Search bar button */}
         <button
-          onClick={() => navigate('/menu')}
+          onClick={() => navigate('/search')}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -268,7 +272,7 @@ export default function HomeScreen() {
                   }}
                 >
                   <button
-                    onClick={() => navigate(`/menu/${item._id}`)}
+                    onClick={() => setSelectedItem(item as unknown as MenuItem)}
                     style={{
                       background: 'none',
                       border: 'none',
@@ -291,9 +295,9 @@ export default function HomeScreen() {
                         marginBottom: 8,
                       }}
                     >
-                      {item.imageUrl ? (
+                      {item.image ? (
                         <img
-                          src={item.imageUrl}
+                          src={item.image}
                           alt={item.name}
                           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                         />
@@ -354,7 +358,7 @@ export default function HomeScreen() {
                         addItem({
                           menuItemId: item._id,
                           name: item.name,
-                          image: item.imageUrl,
+                          image: item.image,
                           emoji: item.emoji,
                           addOns: [],
                           unitPricePaisa: item.basePrice,
@@ -387,6 +391,12 @@ export default function HomeScreen() {
 
       <CartBar />
       <BottomNav active="home" />
+
+      <ItemDetailSheet
+        item={selectedItem}
+        onClose={() => setSelectedItem(null)}
+        onAdded={() => {}}
+      />
     </div>
   );
 }
