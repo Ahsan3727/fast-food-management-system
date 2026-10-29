@@ -67,22 +67,74 @@ export default function OrderDetailScreen() {
   const deliveryFee: number =
     order.deliveryFeePaisa ?? (itemsTotal >= 100_000 ? 0 : 10_000);
 
+  const { data: currentMenuItems } = useQuery<any[]>({
+    queryKey: ['menu'],
+    queryFn:  () => api.get('/menu').then(r => r.data),
+    staleTime: 60_000,
+  });
+
   // ── Reorder ──────────────────────────────────────────────────────────────
-  const handleReorder = () => {
-    for (const item of (order.items || [])) {
-      addItem({
-        menuItemId:     item.menuItemId,
-        name:           item.name,
-        image:          item.image     ?? undefined,
-        emoji:          item.emoji     ?? undefined,
-        sizeLabel:      item.sizeLabel ?? undefined,
-        addOns:         item.addOns    || [],
-        unitPricePaisa: Math.round((item.lineTotalPaisa || 0) / (item.quantity || 1)),
-        quantity:       item.quantity  || 1,
-      });
+  const handleReorder = async () => {
+    let itemsList = currentMenuItems;
+    if (!itemsList || itemsList.length === 0) {
+      try {
+        const res = await api.get('/menu');
+        itemsList = res.data;
+      } catch {
+        toast.error('Could not refresh menu items. Please try again.');
+        return;
+      }
     }
-    toast.success('Items added to cart!');
-    navigate('/cart');
+
+    const menuMap = new Map((itemsList || []).map((m: any) => [m._id, m]));
+    let addedCount = 0;
+    let skippedCount = 0;
+
+    for (const item of (order.items || [])) {
+      const current = menuMap.get(item.menuItemId);
+      if (!current || !current.isAvailable) {
+        skippedCount++;
+        toast.error(`"${item.name}" is currently unavailable and was skipped`);
+        continue;
+      }
+
+      // Re-calculate current unit price from active menu
+      let unitPrice = current.basePrice;
+      if (item.sizeLabel) {
+        const matchingSize = current.sizes?.find((s: any) => s.label === item.sizeLabel);
+        if (matchingSize) {
+          unitPrice = matchingSize.price;
+        }
+      }
+      for (const addOnLabel of (item.addOns || [])) {
+        const matchingAddon = current.addOns?.find((a: any) => a.label === addOnLabel);
+        if (matchingAddon) {
+          unitPrice += matchingAddon.price;
+        }
+      }
+
+      addItem({
+        menuItemId:     current._id,
+        name:           current.name,
+        image:          current.image ?? undefined,
+        sizeLabel:      item.sizeLabel ?? undefined,
+        addOns:         item.addOns || [],
+        unitPricePaisa: unitPrice,
+        quantity:       item.quantity || 1,
+      });
+      addedCount++;
+    }
+
+    if (addedCount > 0) {
+      toast.success(
+        skippedCount > 0
+          ? `${addedCount} items added to cart (${skippedCount} unavailable)`
+          : 'Items added to cart!'
+      );
+      navigate('/cart');
+    } else {
+      toast.error('None of the items from this order are currently available');
+    }
   };
 
   // ── Cancel ───────────────────────────────────────────────────────────────
@@ -226,13 +278,19 @@ export default function OrderDetailScreen() {
         <button className={styles.reorderBtn} onClick={handleReorder}>
           🔁 Reorder
         </button>
-        {order.status === 'PLACED' && (
+        {order.status === 'PLACED' ? (
           <button
             className={styles.cancelBtn}
             onClick={() => setShowCancel(true)}
           >
             Cancel Order
           </button>
+        ) : (
+          isActive && (
+            <p style={{ fontSize: 12, color: 'var(--text-muted)', textAlign: 'center', margin: '4px 0' }}>
+              Order is being prepared. To request cancellation, please contact the restaurant directly.
+            </p>
+          )
         )}
       </div>
 

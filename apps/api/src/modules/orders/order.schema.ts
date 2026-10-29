@@ -30,6 +30,12 @@ export class Order {
     lineTotalPaisa: number;
   }[];
 
+  @Prop({ default: 0 })
+  subtotalPaisa: number;
+
+  @Prop({ default: 0 })
+  deliveryFeePaisa: number;
+
   @Prop({ required: true })
   totalPaisa: number; // integer paisa — never decimals
 
@@ -75,4 +81,3 @@ export const OrderSchema = SchemaFactory.createForClass(Order);
 OrderSchema.index({ customerId: 1, createdAt: -1 });
 OrderSchema.index({ status: 1, createdAt: -1 });
 OrderSchema.index({ riderId: 1, status: 1 });
-OrderSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });

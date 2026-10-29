@@ -11,6 +11,7 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const bullmq_1 = require("@nestjs/bullmq");
 const order_schema_1 = require("./order.schema");
+const order_counter_schema_1 = require("./order-counter.schema");
 const orders_service_1 = require("./orders.service");
 const orders_controller_1 = require("./orders.controller");
 const menu_module_1 = require("../menu/menu.module");
@@ -25,7 +26,10 @@ exports.OrdersModule = OrdersModule;
 exports.OrdersModule = OrdersModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([{ name: order_schema_1.Order.name, schema: order_schema_1.OrderSchema }]),
+            mongoose_1.MongooseModule.forFeature([
+                { name: order_schema_1.Order.name, schema: order_schema_1.OrderSchema },
+                { name: order_counter_schema_1.OrderCounter.name, schema: order_counter_schema_1.OrderCounterSchema },
+            ]),
             menu_module_1.MenuModule,
             notifications_module_1.NotificationsModule,
             realtime_module_1.RealtimeModule,

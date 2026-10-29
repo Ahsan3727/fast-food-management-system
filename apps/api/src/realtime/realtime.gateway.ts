@@ -13,15 +13,21 @@ import { ConfigService } from '@nestjs/config';
 import { SocketEvents, Role } from '@fastfood/shared-types';
 import { Logger } from '@nestjs/common';
 import { RedisService } from '../redis/redis.service';
+import { parseCorsOrigins, isOriginAllowed } from '../common/cors';
 
 interface AuthenticatedSocket extends Socket {
   userId: string;
   role: Role;
 }
 
+const isProduction = process.env.NODE_ENV === 'production';
+const corsConfig = parseCorsOrigins(process.env.CORS_ORIGINS, isProduction);
+
 @WebSocketGateway({
   cors: {
-    origin: process.env.CORS_ORIGINS?.split(',') ?? ['http://localhost:5173'],
+    origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+      callback(null, isOriginAllowed(origin, corsConfig));
+    },
     credentials: true,
   },
   transports: ['websocket'], // No polling — websocket only

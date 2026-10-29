@@ -18,7 +18,7 @@ import type { MenuItem } from './MenuScreen';
 
 export default function HomeScreen() {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const { addItem, totalItems } = useCartStore();
   const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
 
@@ -35,6 +35,7 @@ export default function HomeScreen() {
   const { data: myOrders = [] } = useQuery<any[]>({
     queryKey: QK.myOrders,
     queryFn: () => api.get('/orders/my').then(r => r.data),
+    enabled: Boolean(isAuthenticated || user),
     staleTime: 10_000,
   });
 

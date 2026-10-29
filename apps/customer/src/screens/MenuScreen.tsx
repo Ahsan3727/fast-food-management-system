@@ -32,7 +32,7 @@ import { Icon } from '@/components/Icon';
 import { Skeleton } from '@/components/Skeleton';
 import { QK } from '@/api/queryKeys';
 import { isNative } from '@/lib/platform';
-import { chooseLayout } from '@/lib/chooseLayout';
+import { chooseLayout, partitionCategories } from '@/lib/chooseLayout';
 import type { LayoutMode } from '@/lib/chooseLayout';
 import styles from './MenuScreen.module.css';
 
@@ -100,27 +100,6 @@ function highlight(text: string, q: string): ReactNode {
   );
 }
 
-/**
- * Balance-split categories into 2 columns by weight.
- * Returns the _id arrays for each column.
- */
-function splitTwoCols(
-  cats: Category[],
-  itemCounts: Map<string, number>,
-): [string[], string[]] {
-  const weighted = cats
-    .map(c => ({ id: c._id, w: (itemCounts.get(c._id) ?? 0) + 0.6 }))
-    .sort((a, b) => b.w - a.w); // heaviest first for best balance
-
-  const cols: [string[], string[]] = [[], []];
-  const wt:  [number,   number  ] = [0,  0 ];
-  for (const { id, w } of weighted) {
-    if (wt[0] <= wt[1]) { cols[0].push(id); wt[0] += w; }
-    else                  { cols[1].push(id); wt[1] += w; }
-  }
-  return cols;
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-components
 // ─────────────────────────────────────────────────────────────────────────────
@@ -149,11 +128,8 @@ function AddBtn({
         type="button"
         className={`${styles.addBtn} ${cartCount > 0 ? styles.addBtnHasItems : ''}`}
         disabled={!item.isAvailable}
-        aria-label={complex ? `Customise ${item.name}` : `Add ${item.name} to cart`}
-        onClick={e => {
-          e.stopPropagation();
-          onAdd(item);
-        }}
+        aria-label={!item.isAvailable ? `${item.name} is sold out` : complex ? `Customise ${item.name}` : `Add ${item.name} to cart`}
+        onClick={() => onAdd(item)}
       >
         {cartCount > 0 ? (
           <span className={styles.addBtnCount}>{cartCount}</span>
@@ -195,45 +171,49 @@ function BoardCatBlock({
             || (item.description?.toLowerCase().includes(q) ?? false);
 
           return (
-            <button
+            <div
               key={item._id}
-              type="button"
               className={`${styles.boardItemRow} ${!match && q ? styles.dimmed : ''} ${!item.isAvailable ? styles.unavailable : ''}`}
-              onClick={() => onTap(item)}
-              aria-label={item.isAvailable ? item.name : `${item.name} — sold out`}
             >
-              <div className={styles.thumb}>
-                {item.image ? (
-                  <img
-                    src={item.image}
-                    alt=""
-                    className={styles.thumbImg}
-                    loading="lazy"
-                  />
-                ) : (
-                  <span className={styles.thumbEmoji} aria-hidden="true">
-                    {item.emoji || '🍔'}
-                  </span>
-                )}
-              </div>
+              <button
+                type="button"
+                className={styles.boardItemMainBtn}
+                onClick={() => onTap(item)}
+                aria-label={item.isAvailable ? item.name : `${item.name} — sold out`}
+              >
+                <div className={styles.thumb}>
+                  {item.image ? (
+                    <img
+                      src={item.image}
+                      alt=""
+                      className={styles.thumbImg}
+                      loading="lazy"
+                    />
+                  ) : (
+                    <span className={styles.thumbEmoji} aria-hidden="true">
+                      {item.emoji || '🍔'}
+                    </span>
+                  )}
+                </div>
 
-              <div className={styles.boardItemInfo}>
-                <span className={styles.boardItemName}>{highlight(item.name, q)}</span>
-                {!item.isAvailable && (
-                  <span className={styles.soldOutLabel}>Sold out</span>
-                )}
-                <span className={styles.boardItemPrice}>
-                  {isComplex(item) ? 'from ' : ''}
-                  {formatMoneyCompact(minDisplayPrice(item))}
-                </span>
-              </div>
+                <div className={styles.boardItemInfo}>
+                  <span className={styles.boardItemName}>{highlight(item.name, q)}</span>
+                  {!item.isAvailable && (
+                    <span className={styles.soldOutLabel}>Sold out</span>
+                  )}
+                  <span className={styles.boardItemPrice}>
+                    {isComplex(item) ? 'from ' : ''}
+                    {formatMoneyCompact(minDisplayPrice(item))}
+                  </span>
+                </div>
+              </button>
 
               <AddBtn
                 item={item}
                 cartCount={cartCounts.get(item._id) ?? 0}
                 onAdd={onAdd}
               />
-            </button>
+            </div>
           );
         })}
       </div>
@@ -302,16 +282,21 @@ function FocusMode({
   const q = searchQ.toLowerCase().trim();
 
   // ── Swipe left/right to navigate between categories ──────────────────────
+  // ── Swipe left/right to navigate between categories ──────────────────────
   const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
   const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   };
   const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
-    if (Math.abs(dx) < 50) return; // minimum swipe distance (px)
-    const idx = cats.findIndex(c => c._id === openCatId);
-    if (dx < 0 && idx < cats.length - 1) onOpen(cats[idx + 1]._id); // left → next
-    if (dx > 0 && idx > 0)               onOpen(cats[idx - 1]._id); // right → prev
+    const dy = e.changedTouches[0].clientY - touchStartY.current;
+    if (Math.abs(dx) >= 50 && Math.abs(dx) > 2 * Math.abs(dy)) {
+      const idx = cats.findIndex(c => c._id === openCatId);
+      if (dx < 0 && idx < cats.length - 1) onOpen(cats[idx + 1]._id); // left → next
+      if (dx > 0 && idx > 0)               onOpen(cats[idx - 1]._id); // right → prev
+    }
   };
 
   return (
@@ -344,6 +329,11 @@ function FocusMode({
             >
               <span aria-hidden="true">{cat.icon || '🍽️'}</span>
               <span className={styles.focusBarName}>{cat.name}</span>
+              {!isOpen && cats.length <= 4 && items.length > 0 && (
+                <span className={styles.focusBarPreview}>
+                  {items.slice(0, 3).map(i => i.name).join(' · ')}
+                </span>
+              )}
               {q && matches > 0 && (
                 <span className={styles.focusMatchBadge} aria-label={`${matches} matches`}>
                   {matches}
@@ -364,45 +354,49 @@ function FocusMode({
                   || (item.description?.toLowerCase().includes(q) ?? false);
 
                 return (
-                  <button
+                  <div
                     key={item._id}
-                    type="button"
                     className={`${styles.focusItemCell} ${!match && q ? styles.dimmed : ''} ${!item.isAvailable ? styles.unavailable : ''}`}
-                    onClick={() => onTap(item)}
-                    aria-label={item.isAvailable ? item.name : `${item.name} — sold out`}
                   >
-                    <div className={styles.thumb}>
-                      {item.image ? (
-                        <img
-                          src={item.image}
-                          alt=""
-                          className={styles.thumbImg}
-                          loading="lazy"
-                        />
-                      ) : (
-                        <span className={styles.thumbEmoji} aria-hidden="true">
-                          {item.emoji || '🍔'}
-                        </span>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      className={styles.focusItemMainBtn}
+                      onClick={() => onTap(item)}
+                      aria-label={item.isAvailable ? item.name : `${item.name} — sold out`}
+                    >
+                      <div className={styles.thumb}>
+                        {item.image ? (
+                          <img
+                            src={item.image}
+                            alt=""
+                            className={styles.thumbImg}
+                            loading="lazy"
+                          />
+                        ) : (
+                          <span className={styles.thumbEmoji} aria-hidden="true">
+                            {item.emoji || '🍔'}
+                          </span>
+                        )}
+                      </div>
 
-                    <div className={styles.focusItemInfo}>
-                      <span className={styles.focusItemName}>{highlight(item.name, q)}</span>
-                      {!item.isAvailable && (
-                        <span className={styles.soldOutLabel}>Sold out</span>
-                      )}
-                      <span className={styles.focusItemPrice}>
-                        {isComplex(item) ? 'from ' : ''}
-                        {formatMoneyCompact(minDisplayPrice(item))}
-                      </span>
-                    </div>
+                      <div className={styles.focusItemInfo}>
+                        <span className={styles.focusItemName}>{highlight(item.name, q)}</span>
+                        {!item.isAvailable && (
+                          <span className={styles.soldOutLabel}>Sold out</span>
+                        )}
+                        <span className={styles.focusItemPrice}>
+                          {isComplex(item) ? 'from ' : ''}
+                          {formatMoneyCompact(minDisplayPrice(item))}
+                        </span>
+                      </div>
+                    </button>
 
                     <AddBtn
                       item={item}
                       cartCount={cartCounts.get(item._id) ?? 0}
                       onAdd={onAdd}
                     />
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -445,11 +439,10 @@ export default function MenuScreen() {
     staleTime: 60_000,
   });
 
-  // Fetch ALL items once; filter/group on the client.
-  // Avoids re-fetching when the user switches category tabs.
+  // Fetch ALL items once (including unavailable to show dimmed sold-out rows)
   const { data: items = [], isLoading } = useQuery<MenuItem[]>({
-    queryKey: QK.menu(),
-    queryFn:  () => api.get('/menu').then(r => r.data),
+    queryKey: QK.menu(undefined, true),
+    queryFn:  () => api.get('/menu?includeUnavailable=true').then(r => r.data),
     staleTime: 60_000,
   });
 
@@ -470,17 +463,20 @@ export default function MenuScreen() {
     [cats, grouped],
   );
 
-  // ── Layout recalculation ──────────────────────────────────────────────────
+  // ── Layout recalculation (using observed clientHeight) ─────────────────────
   const recalcLayout = useCallback(() => {
     if (searchFocusedRef.current) return; // don't jump mode while search is open
+    const el = menuAreaRef.current;
+    const measuredHeight = el?.clientHeight || (window.innerHeight - 164);
     const counts = activeCats.map(c => grouped.get(c._id)?.length ?? 0);
     const result = chooseLayout({
-      width:      window.innerWidth,
-      height:     window.innerHeight,
-      categories: counts,
+      width:  window.innerWidth,
+      height: measuredHeight,
+      counts,
+      prev:   layoutMode,
     });
     setLayoutMode(prev => (prev === result.mode ? prev : result.mode));
-  }, [activeCats, grouped]);
+  }, [activeCats, grouped, layoutMode]);
 
   useEffect(() => {
     recalcLayout();
@@ -511,14 +507,15 @@ export default function MenuScreen() {
     if (first) setOpenCatId(first._id);
   }, [searchQ, layoutMode, activeCats, grouped]);
 
-  // ── Board column split ────────────────────────────────────────────────────
-  const [col0Ids, col1Ids] = useMemo(
-    () => splitTwoCols(
-      activeCats,
-      new Map(activeCats.map(c => [c._id, grouped.get(c._id)?.length ?? 0])),
-    ),
-    [activeCats, grouped],
-  );
+  // ── Board column partition (order-preserving contiguous split) ─────────────
+  const { col0Ids, col1Ids } = useMemo(() => {
+    const counts = activeCats.map(c => grouped.get(c._id)?.length ?? 0);
+    const part = partitionCategories(counts);
+    return {
+      col0Ids: part.left.map(i => activeCats[i]._id),
+      col1Ids: part.right.map(i => activeCats[i]._id),
+    };
+  }, [activeCats, grouped]);
 
   // ── Item action handlers ──────────────────────────────────────────────────
   const bumpCartBar = useCallback(() => {

@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { initPush, clearPushToken } from '@/lib/push';
 
 export interface User {
   _id: string;
@@ -42,8 +43,10 @@ export const useAuthStore = create<AuthState>()(
           defaultAddress: data.defaultAddress !== undefined ? data.defaultAddress : state.defaultAddress,
         })),
 
-      setTokens: (accessToken, refreshToken) =>
-        set({ accessToken, refreshToken, isAuthenticated: true }),
+      setTokens: (accessToken, refreshToken) => {
+        set({ accessToken, refreshToken, isAuthenticated: true });
+        void initPush();
+      },
 
       setUser: (user) =>
         set({
@@ -52,13 +55,15 @@ export const useAuthStore = create<AuthState>()(
           customerPhone: user.phone || '',
         }),
 
-      logout: () =>
+      logout: () => {
+        void clearPushToken();
         set({
           user: null,
           accessToken: null,
           refreshToken: null,
           isAuthenticated: false,
-        }),
+        });
+      },
     }),
     {
       name: 'fastfood-auth',

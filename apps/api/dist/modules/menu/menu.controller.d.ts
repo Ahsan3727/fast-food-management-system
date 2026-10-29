@@ -7,7 +7,7 @@ export declare class MenuController {
     }> & {
         __v: number;
     })[]>;
-    getMenu(categoryId?: string): Promise<(import("mongoose").FlattenMaps<import("./menu.schema").MenuItemDocument> & Required<{
+    getMenu(categoryId?: string, includeUnavailable?: string): Promise<(import("mongoose").FlattenMaps<import("./menu.schema").MenuItemDocument> & Required<{
         _id: import("mongoose").Types.ObjectId;
     }> & {
         __v: number;

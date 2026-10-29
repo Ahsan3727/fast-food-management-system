@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom';
-import { useCartStore } from '@/store/cart.store';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
+import { useCartStore, lineKey } from '@/store/cart.store';
 import { formatMoneyCompact } from '@fastfood/utils';
 import { Icon } from '@/components/Icon';
 import { ConnectionBanner } from '@/components/ConnectionBanner';
@@ -8,11 +10,21 @@ export default function CartScreen() {
   const navigate = useNavigate();
   const { items, updateQuantity, clear, displayTotalPaisa } = useCartStore();
 
+  const { data: appConfig } = useQuery<{
+    deliveryFeePaisa: number;
+    freeDeliveryOverPaisa: number;
+  }>({
+    queryKey: ['app-config'],
+    queryFn: () => api.get('/app-config').then(r => r.data),
+    staleTime: 5 * 60_000,
+  });
+
   const subtotalPaisa = displayTotalPaisa();
-  // Free delivery over Rs. 1000 (100000 paisa), otherwise Rs. 100 (10000 paisa)
-  const deliveryPaisa = subtotalPaisa >= 100000 ? 0 : 10000;
+  const freeThreshold = appConfig?.freeDeliveryOverPaisa ?? 100000;
+  const standardFee = appConfig?.deliveryFeePaisa ?? 10000;
+  const deliveryPaisa = subtotalPaisa >= freeThreshold ? 0 : standardFee;
   const totalWithDelivery = subtotalPaisa + deliveryPaisa;
-  const freeThresholdRemaining = Math.max(0, 100000 - subtotalPaisa);
+  const freeThresholdRemaining = Math.max(0, freeThreshold - subtotalPaisa);
 
   if (items.length === 0) {
     return (
@@ -133,7 +145,7 @@ export default function CartScreen() {
       <div style={{ flex: 1, padding: 16, overflowY: 'auto' }}>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           {items.map(item => {
-            const key = `${item.menuItemId}:${item.sizeLabel || ''}`;
+            const key = lineKey(item);
             const lineTotal = item.unitPricePaisa * item.quantity;
             return (
               <div
@@ -205,7 +217,7 @@ export default function CartScreen() {
                   }}
                 >
                   <button
-                    onClick={() => updateQuantity(item.menuItemId, item.sizeLabel, -1)}
+                    onClick={() => updateQuantity(key, -1)}
                     style={{
                       width: 36,
                       height: 36,
@@ -228,7 +240,7 @@ export default function CartScreen() {
                   </span>
 
                   <button
-                    onClick={() => updateQuantity(item.menuItemId, item.sizeLabel, 1)}
+                    onClick={() => updateQuantity(key, 1)}
                     style={{
                       width: 36,
                       height: 36,

@@ -3,13 +3,15 @@ import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
 import { Model } from 'mongoose';
 import { RefreshTokenDocument } from './refresh-token.schema';
+import { PhoneOtpDocument } from './phone-otp.schema';
 import { Role } from '@fastfood/shared-types';
 export declare class AuthService {
     private usersService;
     private jwtService;
     private config;
     private refreshTokenModel;
-    constructor(usersService: UsersService, jwtService: JwtService, config: ConfigService, refreshTokenModel: Model<RefreshTokenDocument>);
+    private phoneOtpModel;
+    constructor(usersService: UsersService, jwtService: JwtService, config: ConfigService, refreshTokenModel: Model<RefreshTokenDocument>, phoneOtpModel: Model<PhoneOtpDocument>);
     register(name: string, phone: string, password: string, email?: string): Promise<{
         user: {
             _id: string;
@@ -33,6 +35,21 @@ export declare class AuthService {
         refreshToken: string;
     }>;
     customerSession(name: string, phone: string): Promise<{
+        user: {
+            _id: string;
+            name: string;
+            phone: string | undefined;
+            role: Role;
+        };
+        accessToken: string;
+        refreshToken: string;
+    }>;
+    requestOtp(phone: string): Promise<{
+        success: boolean;
+        message: string;
+        cooldownSeconds: number;
+    }>;
+    verifyOtp(phone: string, code: string, name?: string): Promise<{
         user: {
             _id: string;
             name: string;

@@ -21,6 +21,9 @@ const config_1 = require("@nestjs/config");
 const shared_types_1 = require("@fastfood/shared-types");
 const common_1 = require("@nestjs/common");
 const redis_service_1 = require("../redis/redis.service");
+const cors_1 = require("../common/cors");
+const isProduction = process.env.NODE_ENV === 'production';
+const corsConfig = (0, cors_1.parseCorsOrigins)(process.env.CORS_ORIGINS, isProduction);
 let RealtimeGateway = RealtimeGateway_1 = class RealtimeGateway {
     jwtService;
     config;
@@ -132,7 +135,9 @@ __decorate([
 exports.RealtimeGateway = RealtimeGateway = RealtimeGateway_1 = __decorate([
     (0, websockets_1.WebSocketGateway)({
         cors: {
-            origin: process.env.CORS_ORIGINS?.split(',') ?? ['http://localhost:5173'],
+            origin: (origin, callback) => {
+                callback(null, (0, cors_1.isOriginAllowed)(origin, corsConfig));
+            },
             credentials: true,
         },
         transports: ['websocket'], // No polling — websocket only

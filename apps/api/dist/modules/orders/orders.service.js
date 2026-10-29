@@ -17,7 +17,9 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const bullmq_1 = require("@nestjs/bullmq");
+const crypto_1 = require("crypto");
 const order_schema_1 = require("./order.schema");
+const order_counter_schema_1 = require("./order-counter.schema");
 const shared_types_1 = require("@fastfood/shared-types");
 const order_state_machine_1 = require("./order.state-machine");
 const menu_service_1 = require("../menu/menu.service");
@@ -26,17 +28,30 @@ const realtime_gateway_1 = require("../../realtime/realtime.gateway");
 const users_service_1 = require("../users/users.service");
 const riders_module_1 = require("../riders/riders.module");
 const rider_dispatch_processor_1 = require("../../jobs/rider-dispatch.processor");
-let orderCounter = 1000;
+function calculateHaversineDistanceKm(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth radius in km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLon / 2) *
+            Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+}
 let OrdersService = class OrdersService {
     orderModel;
+    counterModel;
     menuService;
     notifications;
     gateway;
     usersService;
     ridersService;
     dispatchQueue;
-    constructor(orderModel, menuService, notifications, gateway, usersService, ridersService, dispatchQueue) {
+    constructor(orderModel, counterModel, menuService, notifications, gateway, usersService, ridersService, dispatchQueue) {
         this.orderModel = orderModel;
+        this.counterModel = counterModel;
         this.menuService = menuService;
         this.notifications = notifications;
         this.gateway = gateway;
@@ -44,19 +59,26 @@ let OrdersService = class OrdersService {
         this.ridersService = ridersService;
         this.dispatchQueue = dispatchQueue;
     }
-    async onModuleInit() {
-        try {
-            const latest = await this.orderModel.findOne({}, { orderNumber: 1 }).sort({ createdAt: -1 }).lean();
-            if (latest?.orderNumber) {
-                const match = latest.orderNumber.match(/\d+$/);
-                if (match) {
-                    orderCounter = Math.max(orderCounter, parseInt(match[0], 10));
+    async getNextOrderNumber() {
+        const counter = await this.counterModel.findOneAndUpdate({ _id: 'order_number' }, { $inc: { seq: 1 } }, { new: true, upsert: true });
+        // If first initialized (seq === 1), seed from highest existing order number
+        if (counter.seq === 1) {
+            let highest = 1000;
+            try {
+                const latest = await this.orderModel.findOne({}, { orderNumber: 1 }).sort({ createdAt: -1 }).lean();
+                if (latest?.orderNumber) {
+                    const match = latest.orderNumber.match(/\d+$/);
+                    if (match)
+                        highest = Math.max(highest, parseInt(match[0], 10));
                 }
             }
+            catch {
+                // Fallback to 1000 if empty
+            }
+            const seeded = await this.counterModel.findOneAndUpdate({ _id: 'order_number' }, { $set: { seq: highest + 1 } }, { new: true });
+            return `FD-${seeded?.seq ?? (highest + 1)}`;
         }
-        catch {
-            // Keep default counter if collection is empty or initial connection
-        }
+        return `FD-${counter.seq}`;
     }
     // ── Create Order ───────────────────────────────────────
     async create(customerId, body) {
@@ -66,17 +88,32 @@ let OrdersService = class OrdersService {
             if (dup)
                 return dup;
         }
+        // Validate delivery service area
+        const restaurantLat = parseFloat(process.env.RESTAURANT_LAT ?? '31.5204');
+        const restaurantLng = parseFloat(process.env.RESTAURANT_LNG ?? '74.3587');
+        const maxRadiusKm = parseFloat(process.env.MAX_DELIVERY_RADIUS_KM ?? '25');
+        const distanceKm = calculateHaversineDistanceKm(restaurantLat, restaurantLng, body.deliveryAddress.lat, body.deliveryAddress.lng);
+        if (distanceKm > maxRadiusKm) {
+            throw new common_1.BadRequestException(`Delivery address is outside our delivery area (${Math.round(distanceKm)} km away, maximum is ${maxRadiusKm} km)`);
+        }
         // Server calculates price — never trusting the client
-        const { itemSnapshots, totalPaisa } = await this.menuService.validateCartAndPrice(body.items);
+        const { itemSnapshots, totalPaisa: subtotalPaisa } = await this.menuService.validateCartAndPrice(body.items);
+        // Calculate delivery fee on server
+        const freeThreshold = parseInt(process.env.FREE_DELIVERY_OVER_PAISA ?? '100000', 10);
+        const standardFee = parseInt(process.env.DELIVERY_FEE_PAISA ?? '10000', 10);
+        const deliveryFeePaisa = subtotalPaisa >= freeThreshold ? 0 : standardFee;
+        const totalPaisa = subtotalPaisa + deliveryFeePaisa;
         // Generate delivery OTP (6 digits)
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const otp = (0, crypto_1.randomInt)(100000, 1000000).toString();
         // Atomic order number
-        const orderNumber = `FD-${++orderCounter}`;
+        const orderNumber = await this.getNextOrderNumber();
         const order = await new this.orderModel({
             orderNumber,
             customerId,
             status: shared_types_1.OrderStatus.PLACED,
             items: itemSnapshots,
+            subtotalPaisa,
+            deliveryFeePaisa,
             totalPaisa,
             deliveryAddress: body.deliveryAddress,
             payment: { method: body.payment.method ?? shared_types_1.PaymentMethod.COD, status: shared_types_1.PaymentStatus.PENDING },
@@ -205,17 +242,25 @@ let OrdersService = class OrdersService {
             throw new common_1.NotFoundException('Order not found');
         if (order.customerId.toString() !== customerId)
             throw new common_1.ForbiddenException('Access denied');
-        const cancellableStatuses = [shared_types_1.OrderStatus.PLACED, shared_types_1.OrderStatus.ACCEPTED];
-        if (!cancellableStatuses.includes(order.status)) {
-            throw new common_1.BadRequestException('Cannot cancel order at this stage');
+        if (!(0, order_state_machine_1.canTransition)(order.status, shared_types_1.OrderStatus.CANCELLED, shared_types_1.Role.CUSTOMER)) {
+            throw new common_1.BadRequestException(`Orders can only be cancelled while in PLACED status (current: ${order.status}). For assistance, please call the restaurant directly.`);
         }
         order.status = shared_types_1.OrderStatus.CANCELLED;
         order.cancellationReason = reason;
         order.statusHistory.push({ status: shared_types_1.OrderStatus.CANCELLED, by: customerId, at: new Date(), note: reason });
         const saved = await order.save();
+        // Emit to order room (so customer on tracking screen updates) & restaurant
+        this.gateway.emitToOrder(saved._id.toString(), shared_types_1.SocketEvents.ORDER_STATUS, {
+            orderId: saved._id.toString(), status: shared_types_1.OrderStatus.CANCELLED,
+        });
         this.gateway.emitToRestaurant(shared_types_1.SocketEvents.ORDER_STATUS, {
             orderId: saved._id.toString(), status: shared_types_1.OrderStatus.CANCELLED,
         });
+        if (saved.riderId) {
+            this.gateway.emitToCustomer(saved.riderId.toString(), shared_types_1.SocketEvents.ORDER_STATUS, {
+                orderId: saved._id.toString(), status: shared_types_1.OrderStatus.CANCELLED,
+            });
+        }
         return saved;
     }
     // ── Get order OTP (for customer tracking screen only) ──
@@ -274,6 +319,9 @@ let OrdersService = class OrdersService {
         this.gateway.emitToCustomer(customerId.toString(), shared_types_1.SocketEvents.ORDER_STATUS, {
             orderId, status,
         });
+        this.gateway.emitToOrder(orderId, shared_types_1.SocketEvents.ORDER_STATUS, {
+            orderId, status,
+        });
         this.gateway.emitToRestaurant(shared_types_1.SocketEvents.ORDER_STATUS, { orderId, status });
         const customer = await this.usersService.findById(customerId.toString());
         if (customer?.fcmToken) {
@@ -319,9 +367,11 @@ exports.OrdersService = OrdersService;
 exports.OrdersService = OrdersService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(order_schema_1.Order.name)),
-    __param(6, (0, common_1.Optional)()),
-    __param(6, (0, bullmq_1.InjectQueue)(rider_dispatch_processor_1.RIDER_DISPATCH_QUEUE)),
+    __param(1, (0, mongoose_1.InjectModel)(order_counter_schema_1.OrderCounter.name)),
+    __param(7, (0, common_1.Optional)()),
+    __param(7, (0, bullmq_1.InjectQueue)(rider_dispatch_processor_1.RIDER_DISPATCH_QUEUE)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         menu_service_1.MenuService,
         notifications_service_1.NotificationsService,
         realtime_gateway_1.RealtimeGateway,

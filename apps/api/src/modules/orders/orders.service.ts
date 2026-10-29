@@ -1,12 +1,14 @@
 import {
   Injectable, BadRequestException, NotFoundException,
-  ForbiddenException, ConflictException, Optional, OnModuleInit,
+  ForbiddenException, ConflictException, Optional,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { randomInt } from 'crypto';
 import { Order, OrderDocument } from './order.schema';
+import { OrderCounter, OrderCounterDocument } from './order-counter.schema';
 import { OrderStatus, PaymentMethod, PaymentStatus, Role, SocketEvents } from '@fastfood/shared-types';
 import { canTransition } from './order.state-machine';
 import { MenuService } from '../menu/menu.service';
@@ -16,12 +18,25 @@ import { UsersService } from '../users/users.service';
 import { RidersService } from '../riders/riders.module';
 import { RIDER_DISPATCH_QUEUE, JOB_DISPATCH_OFFER } from '../../jobs/rider-dispatch.processor';
 
-let orderCounter = 1000;
+function calculateHaversineDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth radius in km
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 @Injectable()
-export class OrdersService implements OnModuleInit {
+export class OrdersService {
   constructor(
     @InjectModel(Order.name) private orderModel: Model<OrderDocument>,
+    @InjectModel(OrderCounter.name) private counterModel: Model<OrderCounterDocument>,
     private menuService: MenuService,
     private notifications: NotificationsService,
     private gateway: RealtimeGateway,
@@ -30,18 +45,34 @@ export class OrdersService implements OnModuleInit {
     @Optional() @InjectQueue(RIDER_DISPATCH_QUEUE) private dispatchQueue: Queue | null,
   ) {}
 
-  async onModuleInit() {
-    try {
-      const latest = await this.orderModel.findOne({}, { orderNumber: 1 }).sort({ createdAt: -1 }).lean();
-      if (latest?.orderNumber) {
-        const match = latest.orderNumber.match(/\d+$/);
-        if (match) {
-          orderCounter = Math.max(orderCounter, parseInt(match[0], 10));
+  private async getNextOrderNumber(): Promise<string> {
+    const counter = await this.counterModel.findOneAndUpdate(
+      { _id: 'order_number' },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true },
+    );
+
+    // If first initialized (seq === 1), seed from highest existing order number
+    if (counter.seq === 1) {
+      let highest = 1000;
+      try {
+        const latest = await this.orderModel.findOne({}, { orderNumber: 1 }).sort({ createdAt: -1 }).lean();
+        if (latest?.orderNumber) {
+          const match = latest.orderNumber.match(/\d+$/);
+          if (match) highest = Math.max(highest, parseInt(match[0], 10));
         }
+      } catch {
+        // Fallback to 1000 if empty
       }
-    } catch {
-      // Keep default counter if collection is empty or initial connection
+      const seeded = await this.counterModel.findOneAndUpdate(
+        { _id: 'order_number' },
+        { $set: { seq: highest + 1 } },
+        { new: true },
+      );
+      return `FD-${seeded?.seq ?? (highest + 1)}`;
     }
+
+    return `FD-${counter.seq}`;
   }
 
   // ── Create Order ───────────────────────────────────────
@@ -58,20 +89,45 @@ export class OrdersService implements OnModuleInit {
       if (dup) return dup;
     }
 
+    // Validate delivery service area
+    const restaurantLat = parseFloat(process.env.RESTAURANT_LAT ?? '31.5204');
+    const restaurantLng = parseFloat(process.env.RESTAURANT_LNG ?? '74.3587');
+    const maxRadiusKm = parseFloat(process.env.MAX_DELIVERY_RADIUS_KM ?? '25');
+
+    const distanceKm = calculateHaversineDistanceKm(
+      restaurantLat,
+      restaurantLng,
+      body.deliveryAddress.lat,
+      body.deliveryAddress.lng,
+    );
+    if (distanceKm > maxRadiusKm) {
+      throw new BadRequestException(
+        `Delivery address is outside our delivery area (${Math.round(distanceKm)} km away, maximum is ${maxRadiusKm} km)`,
+      );
+    }
+
     // Server calculates price — never trusting the client
-    const { itemSnapshots, totalPaisa } = await this.menuService.validateCartAndPrice(body.items);
+    const { itemSnapshots, totalPaisa: subtotalPaisa } = await this.menuService.validateCartAndPrice(body.items);
+
+    // Calculate delivery fee on server
+    const freeThreshold = parseInt(process.env.FREE_DELIVERY_OVER_PAISA ?? '100000', 10);
+    const standardFee = parseInt(process.env.DELIVERY_FEE_PAISA ?? '10000', 10);
+    const deliveryFeePaisa = subtotalPaisa >= freeThreshold ? 0 : standardFee;
+    const totalPaisa = subtotalPaisa + deliveryFeePaisa;
 
     // Generate delivery OTP (6 digits)
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otp = randomInt(100000, 1000000).toString();
 
     // Atomic order number
-    const orderNumber = `FD-${++orderCounter}`;
+    const orderNumber = await this.getNextOrderNumber();
 
     const order = await new this.orderModel({
       orderNumber,
       customerId,
       status: OrderStatus.PLACED,
       items: itemSnapshots,
+      subtotalPaisa,
+      deliveryFeePaisa,
       totalPaisa,
       deliveryAddress: body.deliveryAddress,
       payment: { method: body.payment.method ?? PaymentMethod.COD, status: PaymentStatus.PENDING },
@@ -225,9 +281,10 @@ export class OrdersService implements OnModuleInit {
     if (!order) throw new NotFoundException('Order not found');
     if (order.customerId.toString() !== customerId) throw new ForbiddenException('Access denied');
 
-    const cancellableStatuses = [OrderStatus.PLACED, OrderStatus.ACCEPTED];
-    if (!cancellableStatuses.includes(order.status)) {
-      throw new BadRequestException('Cannot cancel order at this stage');
+    if (!canTransition(order.status, OrderStatus.CANCELLED, Role.CUSTOMER)) {
+      throw new BadRequestException(
+        `Orders can only be cancelled while in PLACED status (current: ${order.status}). For assistance, please call the restaurant directly.`,
+      );
     }
 
     order.status = OrderStatus.CANCELLED;
@@ -235,9 +292,19 @@ export class OrdersService implements OnModuleInit {
     order.statusHistory.push({ status: OrderStatus.CANCELLED, by: customerId, at: new Date(), note: reason });
     const saved = await order.save();
 
+    // Emit to order room (so customer on tracking screen updates) & restaurant
+    this.gateway.emitToOrder(saved._id.toString(), SocketEvents.ORDER_STATUS, {
+      orderId: saved._id.toString(), status: OrderStatus.CANCELLED,
+    });
     this.gateway.emitToRestaurant(SocketEvents.ORDER_STATUS, {
       orderId: saved._id.toString(), status: OrderStatus.CANCELLED,
     });
+
+    if (saved.riderId) {
+      this.gateway.emitToCustomer(saved.riderId.toString(), SocketEvents.ORDER_STATUS, {
+        orderId: saved._id.toString(), status: OrderStatus.CANCELLED,
+      });
+    }
 
     return saved;
   }
@@ -299,6 +366,9 @@ export class OrdersService implements OnModuleInit {
 
     // 1. Notify customer via socket + FCM on every status change
     this.gateway.emitToCustomer(customerId.toString(), SocketEvents.ORDER_STATUS, {
+      orderId, status,
+    });
+    this.gateway.emitToOrder(orderId, SocketEvents.ORDER_STATUS, {
       orderId, status,
     });
     this.gateway.emitToRestaurant(SocketEvents.ORDER_STATUS, { orderId, status });

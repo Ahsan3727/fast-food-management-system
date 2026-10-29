@@ -7,6 +7,14 @@ declare class CustomerSessionDto {
     name: string;
     phone: string;
 }
+declare class RequestOtpDto {
+    phone: string;
+}
+declare class VerifyOtpDto {
+    phone: string;
+    code: string;
+    name?: string;
+}
 declare class RefreshDto {
     refreshToken: string;
 }
@@ -25,6 +33,21 @@ export declare class AuthController {
         refreshToken: string;
     }>;
     customerSession(dto: CustomerSessionDto): Promise<{
+        user: {
+            _id: string;
+            name: string;
+            phone: string | undefined;
+            role: import("@fastfood/shared-types").Role;
+        };
+        accessToken: string;
+        refreshToken: string;
+    }>;
+    requestOtp(dto: RequestOtpDto): Promise<{
+        success: boolean;
+        message: string;
+        cooldownSeconds: number;
+    }>;
+    verifyOtp(dto: VerifyOtpDto): Promise<{
         user: {
             _id: string;
             name: string;

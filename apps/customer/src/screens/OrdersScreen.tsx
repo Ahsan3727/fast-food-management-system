@@ -11,13 +11,15 @@ import { SkeletonRow } from '@/components/Skeleton';
 import { QK } from '@/api/queryKeys';
 import { useAuthStore } from '@/store/auth.store';
 import { ConnectionBanner } from '@/components/ConnectionBanner';
+import { OtpModal } from '@/components/OtpModal';
 
 export default function OrdersScreen() {
   const navigate = useNavigate();
   const [segment, setSegment] = useState<'active' | 'past'>('active');
-  const { isAuthenticated } = useAuthStore();
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const { isAuthenticated, customerPhone } = useAuthStore();
 
-  const { data: orders = [], isLoading } = useQuery<any[]>({
+  const { data: orders = [], isLoading, refetch } = useQuery<any[]>({
     queryKey: QK.myOrders,
     queryFn: () => api.get('/orders/my').then(r => r.data),
     enabled: isAuthenticated,
@@ -180,6 +182,53 @@ export default function OrdersScreen() {
               );
             })}
           </div>
+        ) : !isAuthenticated ? (
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '60px 16px',
+              textAlign: 'center',
+            }}
+          >
+            <div
+              style={{
+                width: 72,
+                height: 72,
+                borderRadius: '50%',
+                background: 'var(--bg-sunken)',
+                display: 'grid',
+                placeItems: 'center',
+                color: 'var(--action-bg)',
+                marginBottom: 14,
+              }}
+            >
+              <Icon name="search" size={32} />
+            </div>
+            <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 6px', color: 'var(--text)' }}>
+              Find Your Orders
+            </h3>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', maxWidth: 260 }}>
+              Verify your phone number with a quick code to view all your past and live orders.
+            </p>
+            <button
+              onClick={() => setShowOtpModal(true)}
+              style={{
+                padding: '10px 24px',
+                borderRadius: 10,
+                background: 'var(--action-bg)',
+                color: 'var(--action-fg)',
+                fontSize: 13,
+                fontWeight: 700,
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Find My Orders
+            </button>
+          </div>
         ) : (
           <div
             style={{
@@ -196,10 +245,10 @@ export default function OrdersScreen() {
                 width: 72,
                 height: 72,
                 borderRadius: '50%',
-                background: 'var(--sunken)',
+                background: 'var(--bg-sunken)',
                 display: 'grid',
                 placeItems: 'center',
-                color: 'var(--action)',
+                color: 'var(--action-bg)',
                 marginBottom: 14,
               }}
             >
@@ -208,7 +257,7 @@ export default function OrdersScreen() {
             <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 6px', color: 'var(--text)' }}>
               {segment === 'active' ? 'No active orders' : 'No past orders yet'}
             </h3>
-            <p style={{ fontSize: 13, color: 'var(--muted)', margin: '0 0 20px', maxWidth: 240 }}>
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: '0 0 20px', maxWidth: 240 }}>
               Hungry? Browse the menu and place your next order.
             </p>
             <button
@@ -231,6 +280,17 @@ export default function OrdersScreen() {
       </div>
 
       <BottomNav active="orders" />
+
+      <OtpModal
+        isOpen={showOtpModal}
+        phone={customerPhone || ''}
+        title="Find My Orders"
+        subtitle="Enter your phone number to find your active and past orders."
+        onClose={() => setShowOtpModal(false)}
+        onSuccess={() => {
+          void refetch();
+        }}
+      />
     </div>
   );
 }

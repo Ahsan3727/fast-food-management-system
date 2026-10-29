@@ -7,13 +7,77 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { OrderStatus, Role } from '@fastfood/shared-types';
-import { IsString, IsNumber, IsOptional, IsArray, IsObject } from 'class-validator';
+import {
+  IsString, IsNumber, IsOptional, IsArray,
+  IsMongoId, IsInt, Min, Max, MaxLength, MinLength,
+  IsLatitude, IsLongitude, IsIn, ArrayMinSize, ArrayMaxSize,
+  ValidateNested,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 
-class CreateOrderDto {
-  @IsArray() items: any[];
-  @IsObject() deliveryAddress: any;
-  @IsObject() payment: any;
-  @IsOptional() @IsString() notes?: string;
+export class OrderItemDto {
+  @IsMongoId()
+  menuItemId: string;
+
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  quantity: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(50)
+  sizeLabel?: string;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(10)
+  @IsString({ each: true })
+  addOns?: string[];
+}
+
+export class DeliveryAddressDto {
+  @IsLatitude()
+  lat: number;
+
+  @IsLongitude()
+  lng: number;
+
+  @IsString()
+  @MinLength(3)
+  @MaxLength(200)
+  addressLine: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  landmark?: string;
+}
+
+export class PaymentDto {
+  @IsIn(['cod'])
+  method: string;
+}
+
+export class CreateOrderDto {
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => OrderItemDto)
+  items: OrderItemDto[];
+
+  @ValidateNested()
+  @Type(() => DeliveryAddressDto)
+  deliveryAddress: DeliveryAddressDto;
+
+  @ValidateNested()
+  @Type(() => PaymentDto)
+  payment: PaymentDto;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
 }
 
 class TransitionDto {

@@ -49,12 +49,13 @@ export default function TrackOrderScreen() {
   const [riderPos, setRiderPos] = useState<{ lat: number; lng: number } | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('Changed my mind');
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
   const socketRef = useRef<Socket | null>(null);
 
   const { data: order } = useQuery({
     queryKey: ['order', id],
     queryFn: () => api.get(`/orders/${id}`).then(r => r.data),
-    refetchInterval: 10000,
+    refetchInterval: isSocketConnected ? 30000 : 10000,
   });
 
   const { data: otpData } = useQuery({
@@ -91,10 +92,15 @@ export default function TrackOrderScreen() {
     socketRef.current = socket;
 
     socket.on('connect', () => {
+      setIsSocketConnected(true);
       socket.emit('join:order', { orderId: id });
     });
 
-    socket.on('order:status_update', () => {
+    socket.on('disconnect', () => {
+      setIsSocketConnected(false);
+    });
+
+    socket.on(SocketEvents.ORDER_STATUS, () => {
       qc.invalidateQueries({ queryKey: ['order', id] });
     });
 
@@ -103,6 +109,7 @@ export default function TrackOrderScreen() {
     });
 
     return () => {
+      setIsSocketConnected(false);
       socket.disconnect();
     };
   }, [accessToken, id, qc]);

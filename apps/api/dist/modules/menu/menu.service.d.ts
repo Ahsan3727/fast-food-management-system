@@ -36,7 +36,7 @@ export declare class MenuService {
     }> & {
         __v: number;
     }>;
-    getMenu(categoryId?: string): Promise<(import("mongoose").FlattenMaps<MenuItemDocument> & Required<{
+    getMenu(categoryId?: string, includeUnavailable?: boolean): Promise<(import("mongoose").FlattenMaps<MenuItemDocument> & Required<{
         _id: import("mongoose").Types.ObjectId;
     }> & {
         __v: number;

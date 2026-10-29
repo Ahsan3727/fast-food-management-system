@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Category, CategoryDocument, MenuItem, MenuItemDocument } from './menu.schema';
@@ -39,8 +39,11 @@ export class MenuService {
   }
 
   // ── Menu Items ─────────────────────────────
-  async getMenu(categoryId?: string) {
-    const filter: Record<string, unknown> = { isAvailable: true };
+  async getMenu(categoryId?: string, includeUnavailable = false) {
+    const filter: Record<string, unknown> = {};
+    if (!includeUnavailable) {
+      filter['isAvailable'] = true;
+    }
     if (categoryId) filter['categoryId'] = categoryId;
     return this.menuItemModel.find(filter).lean();
   }
@@ -73,34 +76,51 @@ export class MenuService {
   async validateCartAndPrice(
     items: { menuItemId: string; quantity: number; sizeLabel?: string; addOns?: string[] }[],
   ): Promise<{ itemSnapshots: object[]; totalPaisa: number }> {
+    if (!items || items.length === 0) {
+      throw new BadRequestException('Order items cannot be empty');
+    }
+
+    const itemIds = [...new Set(items.map((i) => i.menuItemId))];
+    const menuItems = await this.menuItemModel.find({ _id: { $in: itemIds } }).lean();
+    const menuItemMap = new Map(menuItems.map((m) => [m._id.toString(), m]));
+
     let totalPaisa = 0;
     const snapshots = [];
 
     for (const item of items) {
-      const menuItem = await this.menuItemModel.findById(item.menuItemId).lean();
-      if (!menuItem || !menuItem.isAvailable) {
-        throw new Error(`Item ${item.menuItemId} is unavailable`);
+      const menuItem = menuItemMap.get(item.menuItemId);
+      if (!menuItem) {
+        throw new BadRequestException(`Item with ID "${item.menuItemId}" not found`);
+      }
+      if (!menuItem.isAvailable) {
+        throw new BadRequestException(`"${menuItem.name}" is currently unavailable`);
       }
 
       let unitPrice = menuItem.basePrice;
 
-      // Add size premium
+      // Validate and apply size
       if (item.sizeLabel) {
         const size = menuItem.sizes?.find((s) => s.label === item.sizeLabel);
-        if (size) unitPrice = size.price;
+        if (!size) {
+          throw new BadRequestException(`Invalid size "${item.sizeLabel}" for "${menuItem.name}"`);
+        }
+        unitPrice = size.price;
       }
 
-      // Add add-on prices
+      // Validate and apply add-ons
       for (const addOnLabel of item.addOns ?? []) {
         const addOn = menuItem.addOns?.find((a) => a.label === addOnLabel);
-        if (addOn) unitPrice += addOn.price;
+        if (!addOn) {
+          throw new BadRequestException(`Invalid add-on "${addOnLabel}" for "${menuItem.name}"`);
+        }
+        unitPrice += addOn.price;
       }
 
       const lineTotal = unitPrice * item.quantity;
       totalPaisa += lineTotal;
 
       snapshots.push({
-        menuItemId: menuItem._id,
+        menuItemId: menuItem._id.toString(),
         name: menuItem.name,
         image: menuItem.image,
         sizeLabel: item.sizeLabel,

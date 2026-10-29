@@ -18,6 +18,8 @@ let Order = class Order {
     riderId;
     status;
     items;
+    subtotalPaisa;
+    deliveryFeePaisa;
     totalPaisa; // integer paisa — never decimals
     deliveryAddress;
     payment;
@@ -51,6 +53,14 @@ __decorate([
     (0, mongoose_1.Prop)({ type: Array, default: [] }),
     __metadata("design:type", Array)
 ], Order.prototype, "items", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: 0 }),
+    __metadata("design:type", Number)
+], Order.prototype, "subtotalPaisa", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ default: 0 }),
+    __metadata("design:type", Number)
+], Order.prototype, "deliveryFeePaisa", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true }),
     __metadata("design:type", Number)
@@ -95,5 +105,4 @@ exports.OrderSchema = mongoose_1.SchemaFactory.createForClass(Order);
 exports.OrderSchema.index({ customerId: 1, createdAt: -1 });
 exports.OrderSchema.index({ status: 1, createdAt: -1 });
 exports.OrderSchema.index({ riderId: 1, status: 1 });
-exports.OrderSchema.index({ idempotencyKey: 1 }, { unique: true, sparse: true });
 //# sourceMappingURL=order.schema.js.map

@@ -16,6 +16,8 @@ export declare class Order {
         quantity: number;
         lineTotalPaisa: number;
     }[];
+    subtotalPaisa: number;
+    deliveryFeePaisa: number;
     totalPaisa: number;
     deliveryAddress: {
         lat: number;

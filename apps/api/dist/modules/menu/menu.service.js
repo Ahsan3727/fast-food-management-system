@@ -105,8 +105,11 @@ let MenuService = class MenuService {
         return new this.categoryModel(dto).save();
     }
     // ── Menu Items ─────────────────────────────
-    async getMenu(categoryId) {
-        const filter = { isAvailable: true };
+    async getMenu(categoryId, includeUnavailable = false) {
+        const filter = {};
+        if (!includeUnavailable) {
+            filter['isAvailable'] = true;
+        }
         if (categoryId)
             filter['categoryId'] = categoryId;
         return this.menuItemModel.find(filter).lean();
@@ -135,30 +138,43 @@ let MenuService = class MenuService {
     }
     /** Validate cart items and return calculated total in paisa */
     async validateCartAndPrice(items) {
+        if (!items || items.length === 0) {
+            throw new common_1.BadRequestException('Order items cannot be empty');
+        }
+        const itemIds = [...new Set(items.map((i) => i.menuItemId))];
+        const menuItems = await this.menuItemModel.find({ _id: { $in: itemIds } }).lean();
+        const menuItemMap = new Map(menuItems.map((m) => [m._id.toString(), m]));
         let totalPaisa = 0;
         const snapshots = [];
         for (const item of items) {
-            const menuItem = await this.menuItemModel.findById(item.menuItemId).lean();
-            if (!menuItem || !menuItem.isAvailable) {
-                throw new Error(`Item ${item.menuItemId} is unavailable`);
+            const menuItem = menuItemMap.get(item.menuItemId);
+            if (!menuItem) {
+                throw new common_1.BadRequestException(`Item with ID "${item.menuItemId}" not found`);
+            }
+            if (!menuItem.isAvailable) {
+                throw new common_1.BadRequestException(`"${menuItem.name}" is currently unavailable`);
             }
             let unitPrice = menuItem.basePrice;
-            // Add size premium
+            // Validate and apply size
             if (item.sizeLabel) {
                 const size = menuItem.sizes?.find((s) => s.label === item.sizeLabel);
-                if (size)
-                    unitPrice = size.price;
+                if (!size) {
+                    throw new common_1.BadRequestException(`Invalid size "${item.sizeLabel}" for "${menuItem.name}"`);
+                }
+                unitPrice = size.price;
             }
-            // Add add-on prices
+            // Validate and apply add-ons
             for (const addOnLabel of item.addOns ?? []) {
                 const addOn = menuItem.addOns?.find((a) => a.label === addOnLabel);
-                if (addOn)
-                    unitPrice += addOn.price;
+                if (!addOn) {
+                    throw new common_1.BadRequestException(`Invalid add-on "${addOnLabel}" for "${menuItem.name}"`);
+                }
+                unitPrice += addOn.price;
             }
             const lineTotal = unitPrice * item.quantity;
             totalPaisa += lineTotal;
             snapshots.push({
-                menuItemId: menuItem._id,
+                menuItemId: menuItem._id.toString(),
                 name: menuItem.name,
                 image: menuItem.image,
                 sizeLabel: item.sizeLabel,

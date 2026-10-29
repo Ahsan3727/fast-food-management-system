@@ -135,20 +135,31 @@
   min-height: 0;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-2);
-  border: none;
   border-top: 1px solid var(--border);
   background: var(--bg);
-  cursor: pointer;
-  text-align: left;
   width: 100%;
   overflow: hidden;
   transition: background var(--dur-fast) var(--ease);
 }
 .boardItemRow:hover  { background: var(--bg-hover); }
-.boardItemRow:active { background: var(--bg-pressed); }
-.boardItemRow:focus-visible {
+
+.boardItemMainBtn {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 var(--space-2);
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  overflow: hidden;
+}
+.boardItemMainBtn:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
@@ -228,12 +239,24 @@
 }
 
 .focusBarName {
-  flex: 1;
+  flex-shrink: 0;
   font-size: 13px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.focusBarPreview {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-subtle);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 0 var(--space-2);
 }
 
 .focusMatchBadge {
@@ -271,22 +294,33 @@
 .focusItemCell {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-2);
-  border: none;
   border-top: 1px solid var(--border);
   border-right: 1px solid var(--border);
   background: var(--bg);
-  cursor: pointer;
-  text-align: left;
   overflow: hidden;
   transition: background var(--dur-fast) var(--ease);
   min-height: 44px;   /* accessible touch target */
 }
 .focusItemCell:nth-child(2n) { border-right: none; }
 .focusItemCell:hover  { background: var(--bg-hover); }
-.focusItemCell:active { background: var(--bg-pressed); }
-.focusItemCell:focus-visible {
+
+.focusItemMainBtn {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2);
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  overflow: hidden;
+}
+.focusItemMainBtn:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }

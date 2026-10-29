@@ -1,9 +1,24 @@
 import { OrdersService } from './orders.service';
 import { OrderStatus } from '@fastfood/shared-types';
-declare class CreateOrderDto {
-    items: any[];
-    deliveryAddress: any;
-    payment: any;
+export declare class OrderItemDto {
+    menuItemId: string;
+    quantity: number;
+    sizeLabel?: string;
+    addOns?: string[];
+}
+export declare class DeliveryAddressDto {
+    lat: number;
+    lng: number;
+    addressLine: string;
+    landmark?: string;
+}
+export declare class PaymentDto {
+    method: string;
+}
+export declare class CreateOrderDto {
+    items: OrderItemDto[];
+    deliveryAddress: DeliveryAddressDto;
+    payment: PaymentDto;
     notes?: string;
 }
 declare class TransitionDto {

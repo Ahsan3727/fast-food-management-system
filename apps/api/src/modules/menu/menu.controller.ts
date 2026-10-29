@@ -15,8 +15,12 @@ export class MenuController {
   }
 
   @Get()
-  getMenu(@Query('categoryId') categoryId?: string) {
-    return this.menuService.getMenu(categoryId);
+  getMenu(
+    @Query('categoryId') categoryId?: string,
+    @Query('includeUnavailable') includeUnavailable?: string,
+  ) {
+    const include = includeUnavailable === 'true';
+    return this.menuService.getMenu(categoryId, include);
   }
 
   @Get('search')

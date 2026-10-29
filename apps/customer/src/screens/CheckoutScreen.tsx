@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
+import { useQuery } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import { MapContainer, TileLayer, Marker, useMap } from 'react-leaflet';
 import api from '@/lib/api';
@@ -9,6 +10,7 @@ import { useAuthStore } from '@/store/auth.store';
 import { formatMoneyCompact } from '@fastfood/utils';
 import { Icon } from '@/components/Icon';
 import { ConnectionBanner } from '@/components/ConnectionBanner';
+import { OtpModal } from '@/components/OtpModal';
 import { v4 as uuidv4 } from 'uuid';
 
 /** Pans the Leaflet map when markerPos changes (MapContainer ignores prop updates after mount). */
@@ -30,13 +32,29 @@ interface CheckoutForm {
 export default function CheckoutScreen() {
   const navigate = useNavigate();
   const { items, clear, displayTotalPaisa } = useCartStore();
-  const { customerName, customerPhone, defaultAddress, setCustomerProfile, setTokens, setUser } = useAuthStore();
+  const { customerName, customerPhone, defaultAddress, setCustomerProfile } = useAuthStore();
   const [loading, setLoading] = useState(false);
   const [markerPos, setMarkerPos] = useState<[number, number]>([31.5204, 74.3587]);
-  const [locConfirmed, setLocConfirmed] = useState(true);
+  const [locConfirmed, setLocConfirmed] = useState(Boolean(defaultAddress));
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [pendingValues, setPendingValues] = useState<CheckoutForm | null>(null);
+
+  const { data: appConfig } = useQuery<{
+    deliveryFeePaisa: number;
+    freeDeliveryOverPaisa: number;
+    restaurantLat: number;
+    restaurantLng: number;
+    maxDeliveryRadiusKm: number;
+  }>({
+    queryKey: ['app-config'],
+    queryFn: () => api.get('/app-config').then(r => r.data),
+    staleTime: 5 * 60_000,
+  });
 
   const subtotalPaisa = displayTotalPaisa();
-  const deliveryPaisa = subtotalPaisa >= 100000 ? 0 : 10000;
+  const freeThreshold = appConfig?.freeDeliveryOverPaisa ?? 100000;
+  const standardFee = appConfig?.deliveryFeePaisa ?? 10000;
+  const deliveryPaisa = subtotalPaisa >= freeThreshold ? 0 : standardFee;
   const totalWithDelivery = subtotalPaisa + deliveryPaisa;
 
   const {
@@ -99,6 +117,56 @@ export default function CheckoutScreen() {
       return;
     }
 
+    if (!locConfirmed) {
+      toast.error('Please confirm your delivery location on the map or tap "Use my location"');
+      return;
+    }
+
+    const lat = Number(values.lat);
+    const lng = Number(values.lng);
+    if (!lat || !lng || isNaN(lat) || isNaN(lng)) {
+      toast.error('Please select a valid delivery location on the map');
+      return;
+    }
+
+    // Client-side service area check
+    const restLat = appConfig?.restaurantLat ?? 31.5204;
+    const restLng = appConfig?.restaurantLng ?? 74.3587;
+    const maxRadiusKm = appConfig?.maxDeliveryRadiusKm ?? 25;
+
+    const R = 6371;
+    const dLat = ((lat - restLat) * Math.PI) / 180;
+    const dLon = ((lng - restLng) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((restLat * Math.PI) / 180) *
+        Math.cos((lat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distKm = R * c;
+
+    if (distKm > maxRadiusKm) {
+      toast.error(
+        `Selected location is outside our delivery area (${Math.round(distKm)} km away, max is ${maxRadiusKm} km)`
+      );
+      return;
+    }
+
+    const token = useAuthStore.getState().accessToken;
+    const currentUser = useAuthStore.getState().user;
+    const needsOtp = !token || currentUser?.phone !== values.customerPhone.trim();
+
+    if (needsOtp) {
+      setPendingValues(values);
+      setShowOtpModal(true);
+      return;
+    }
+
+    await placeOrder(values);
+  };
+
+  const placeOrder = async (values: CheckoutForm) => {
     setLoading(true);
     try {
       // 1. Save customer details in local store (auto-persists in browser)
@@ -108,18 +176,8 @@ export default function CheckoutScreen() {
         defaultAddress: values.addressLine.trim(),
       });
 
-      // 2. Ensure customer session is active for the current phone
-      const token = useAuthStore.getState().accessToken;
-      const currentUser = useAuthStore.getState().user;
-      if (!token || currentUser?.phone !== values.customerPhone.trim()) {
-        const { data: session } = await api.post('/auth/customer-session', {
-          name: values.customerName.trim(),
-          phone: values.customerPhone.trim(),
-        });
-        setTokens(session.accessToken, session.refreshToken);
-        if (session.user) setUser(session.user);
-      }
-
+      const lat = Number(values.lat);
+      const lng = Number(values.lng);
       const idempotencyKey = uuidv4();
 
       const { data: order } = await api.post(
@@ -132,10 +190,10 @@ export default function CheckoutScreen() {
             addOns: i.addOns,
           })),
           deliveryAddress: {
-            lat: Number(values.lat) || 31.5204,
-            lng: Number(values.lng) || 74.3587,
-            addressLine: values.addressLine,
-            landmark: values.landmark || undefined,
+            lat,
+            lng,
+            addressLine: values.addressLine.trim(),
+            landmark: values.landmark?.trim() || undefined,
           },
           payment: { method: 'cod' },
         },
@@ -317,7 +375,7 @@ export default function CheckoutScreen() {
               </MapContainer>
             </div>
 
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={handleUseMyLocation}
@@ -338,6 +396,15 @@ export default function CheckoutScreen() {
                 <Icon name="locate" size={16} />
                 Use my location
               </button>
+              {locConfirmed ? (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--ok)', fontWeight: 600 }}>
+                  <Icon name="check" size={14} /> Location confirmed
+                </span>
+              ) : (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, color: 'var(--bad)', fontWeight: 600 }}>
+                  Drag pin or use GPS to confirm
+                </span>
+              )}
             </div>
 
             {/* Address Input */}
@@ -578,6 +645,20 @@ export default function CheckoutScreen() {
           </button>
         </div>
       </form>
+
+      <OtpModal
+        isOpen={showOtpModal}
+        phone={pendingValues?.customerPhone || watch('customerPhone') || ''}
+        name={pendingValues?.customerName || watch('customerName') || ''}
+        title="Verify to Place Order"
+        subtitle="Please enter the verification code sent to your phone to confirm your order."
+        onClose={() => setShowOtpModal(false)}
+        onSuccess={() => {
+          if (pendingValues) {
+            void placeOrder(pendingValues);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -14,6 +14,7 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AuthController = void 0;
 const common_1 = require("@nestjs/common");
+const throttler_1 = require("@nestjs/throttler");
 const auth_service_1 = require("./auth.service");
 const jwt_auth_guard_1 = require("./guards/jwt-auth.guard");
 const class_validator_1 = require("class-validator");
@@ -46,6 +47,38 @@ __decorate([
     (0, class_validator_1.MaxLength)(20),
     __metadata("design:type", String)
 ], CustomerSessionDto.prototype, "phone", void 0);
+class RequestOtpDto {
+    phone;
+}
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(7),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", String)
+], RequestOtpDto.prototype, "phone", void 0);
+class VerifyOtpDto {
+    phone;
+    code;
+    name;
+}
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(7),
+    (0, class_validator_1.MaxLength)(20),
+    __metadata("design:type", String)
+], VerifyOtpDto.prototype, "phone", void 0);
+__decorate([
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MinLength)(4),
+    (0, class_validator_1.MaxLength)(10),
+    __metadata("design:type", String)
+], VerifyOtpDto.prototype, "code", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.MaxLength)(60),
+    __metadata("design:type", String)
+], VerifyOtpDto.prototype, "name", void 0);
 class RefreshDto {
     refreshToken;
 }
@@ -62,9 +95,16 @@ let AuthController = class AuthController {
     async login(dto) {
         return this.authService.login(dto.identifier, dto.password);
     }
-    // ── Customer Direct Session (No password, No OTP code) ──
+    // ── Customer Direct Session (Legacy fallback) ──────────
     async customerSession(dto) {
         return this.authService.customerSession(dto.name, dto.phone);
+    }
+    // ── Phone OTP endpoints (Phase 3 Guest Identity) ────────
+    async requestOtp(dto) {
+        return this.authService.requestOtp(dto.phone);
+    }
+    async verifyOtp(dto) {
+        return this.authService.verifyOtp(dto.phone, dto.code, dto.name);
     }
     async refresh(dto) {
         return this.authService.refresh(dto.refreshToken);
@@ -77,6 +117,7 @@ exports.AuthController = AuthController;
 __decorate([
     (0, common_1.Post)('login'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, common_1.UseGuards)(throttler_1.ThrottlerGuard),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [LoginDto]),
@@ -85,11 +126,30 @@ __decorate([
 __decorate([
     (0, common_1.Post)('customer-session'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, common_1.UseGuards)(throttler_1.ThrottlerGuard),
     __param(0, (0, common_1.Body)()),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [CustomerSessionDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "customerSession", null);
+__decorate([
+    (0, common_1.Post)('otp/request'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, common_1.UseGuards)(throttler_1.ThrottlerGuard),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [RequestOtpDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "requestOtp", null);
+__decorate([
+    (0, common_1.Post)('otp/verify'),
+    (0, common_1.HttpCode)(common_1.HttpStatus.OK),
+    (0, common_1.UseGuards)(throttler_1.ThrottlerGuard),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [VerifyOtpDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "verifyOtp", null);
 __decorate([
     (0, common_1.Post)('refresh'),
     (0, common_1.HttpCode)(common_1.HttpStatus.OK),

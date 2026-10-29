@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { BullModule } from '@nestjs/bullmq';
 import { Order, OrderSchema } from './order.schema';
+import { OrderCounter, OrderCounterSchema } from './order-counter.schema';
 import { OrdersService } from './orders.service';
 import { OrdersController } from './orders.controller';
 import { MenuModule } from '../menu/menu.module';
@@ -13,7 +14,10 @@ import { RIDER_DISPATCH_QUEUE } from '../../jobs/rider-dispatch.processor';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: Order.name, schema: OrderSchema }]),
+    MongooseModule.forFeature([
+      { name: Order.name, schema: OrderSchema },
+      { name: OrderCounter.name, schema: OrderCounterSchema },
+    ]),
     MenuModule,
     NotificationsModule,
     RealtimeModule,

@@ -11,11 +11,13 @@ const common_1 = require("@nestjs/common");
 const jwt_1 = require("@nestjs/jwt");
 const passport_1 = require("@nestjs/passport");
 const mongoose_1 = require("@nestjs/mongoose");
+const throttler_1 = require("@nestjs/throttler");
 const config_1 = require("@nestjs/config");
 const auth_service_1 = require("./auth.service");
 const auth_controller_1 = require("./auth.controller");
 const jwt_strategy_1 = require("./strategies/jwt.strategy");
 const refresh_token_schema_1 = require("./refresh-token.schema");
+const phone_otp_schema_1 = require("./phone-otp.schema");
 const users_module_1 = require("../users/users.module");
 let AuthModule = class AuthModule {
 };
@@ -26,6 +28,13 @@ exports.AuthModule = AuthModule = __decorate([
             users_module_1.UsersModule,
             passport_1.PassportModule,
             config_1.ConfigModule,
+            // Brute-force limits for login and customer-session (per IP, in memory per
+            // process). Declared here, not in AppModule, so only the routes that opt in
+            // with @UseGuards(ThrottlerGuard) are limited; sockets and health checks are not.
+            throttler_1.ThrottlerModule.forRoot([
+                { name: 'auth-minute', ttl: 60_000, limit: 5 },
+                { name: 'auth-hour', ttl: 3_600_000, limit: 30 },
+            ]),
             jwt_1.JwtModule.registerAsync({
                 imports: [config_1.ConfigModule],
                 useFactory: (cfg) => ({
@@ -36,6 +45,7 @@ exports.AuthModule = AuthModule = __decorate([
             }),
             mongoose_1.MongooseModule.forFeature([
                 { name: refresh_token_schema_1.RefreshToken.name, schema: refresh_token_schema_1.RefreshTokenSchema },
+                { name: phone_otp_schema_1.PhoneOtp.name, schema: phone_otp_schema_1.PhoneOtpSchema },
             ]),
         ],
         providers: [auth_service_1.AuthService, jwt_strategy_1.JwtStrategy],

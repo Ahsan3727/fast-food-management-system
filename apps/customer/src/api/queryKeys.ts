@@ -4,7 +4,7 @@
  */
 export const QK = {
   categories:  ['categories'] as const,
-  menu:        (catId?: string) => ['menu', catId ?? ''] as const,
+  menu:        (catId?: string, includeUnavailable?: boolean) => ['menu', catId ?? '', includeUnavailable ?? false] as const,
   menuItem:    (id: string)    => ['menu-item', id] as const,
   myOrders:    ['my-orders'] as const,
   order:       (id: string)    => ['order', id] as const,

@@ -27,8 +27,9 @@ let MenuController = class MenuController {
     getCategories() {
         return this.menuService.getCategories();
     }
-    getMenu(categoryId) {
-        return this.menuService.getMenu(categoryId);
+    getMenu(categoryId, includeUnavailable) {
+        const include = includeUnavailable === 'true';
+        return this.menuService.getMenu(categoryId, include);
     }
     search(q) {
         return this.menuService.searchMenu(q ?? '');
@@ -57,8 +58,9 @@ __decorate([
 __decorate([
     (0, common_1.Get)(),
     __param(0, (0, common_1.Query)('categoryId')),
+    __param(1, (0, common_1.Query)('includeUnavailable')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
+    __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", void 0)
 ], MenuController.prototype, "getMenu", null);
 __decorate([
