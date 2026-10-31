@@ -29,4 +29,11 @@ describe('CORS origins (Phase 0)', () => {
     expect(isOriginAllowed('https://evil.example', p)).toBe(false);
     expect(isOriginAllowed('https://evil.example', parseCorsOrigins('*', false))).toBe(true);
   });
+
+  it('supports wildcard origins such as https://*.vercel.app in production', () => {
+    const wild = parseCorsOrigins('https://*.vercel.app', true);
+    expect(isOriginAllowed('https://fast-food-management-system-amber.vercel.app', wild)).toBe(true);
+    expect(isOriginAllowed('https://random-preview-123.vercel.app', wild)).toBe(true);
+    expect(isOriginAllowed('https://evil.com', wild)).toBe(false);
+  });
 });
