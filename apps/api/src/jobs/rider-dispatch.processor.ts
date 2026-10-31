@@ -1,5 +1,5 @@
 import { Processor, WorkerHost } from '@nestjs/bullmq';
-import { Logger } from '@nestjs/common';
+import { Logger, OnModuleInit } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
@@ -23,7 +23,7 @@ export interface DispatchOfferPayload {
   drainDelay: 5_000,        // wait 5s before polling again when queue is empty
   skipVersionCheck: true,   // skip Redis version check on startup
 })
-export class RiderDispatchProcessor extends WorkerHost {
+export class RiderDispatchProcessor extends WorkerHost implements OnModuleInit {
   private readonly logger = new Logger(RiderDispatchProcessor.name);
 
   constructor(
@@ -32,6 +32,13 @@ export class RiderDispatchProcessor extends WorkerHost {
     private readonly notifications: NotificationsService,
   ) {
     super();
+  }
+
+  onModuleInit() {
+    this.worker.on('error', (err) => {
+      // Gracefully log message instead of unhandled exception dumps
+      this.logger.warn(`BullMQ worker notice: ${err.message}`);
+    });
   }
 
   async process(job: Job<DispatchOfferPayload>): Promise<void> {

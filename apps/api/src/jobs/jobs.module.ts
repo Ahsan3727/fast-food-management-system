@@ -9,24 +9,6 @@ import { NotificationsModule } from '../modules/notifications/notifications.modu
 
 @Module({
   imports: [
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      useFactory: (cfg: ConfigService) => {
-        const redisUrl = cfg.get<string>('REDIS_URL');
-        if (!redisUrl) {
-          return {
-            connection: {
-              host: 'localhost', port: 6379,
-              lazyConnect: true, enableOfflineQueue: false,
-              maxRetriesPerRequest: 0,
-              retryStrategy: () => null,
-            },
-          };
-        }
-        return { connection: { url: redisUrl } };
-      },
-      inject: [ConfigService],
-    }),
     BullModule.registerQueue({
       name: RIDER_DISPATCH_QUEUE,
       defaultJobOptions: {
