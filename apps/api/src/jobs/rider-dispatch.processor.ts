@@ -17,7 +17,12 @@ export interface DispatchOfferPayload {
   riderFcmTokens: Record<string, string>; // riderId → fcmToken
 }
 
-@Processor(RIDER_DISPATCH_QUEUE)
+@Processor(RIDER_DISPATCH_QUEUE, {
+  // Reduce Redis polling to stay within Upstash free tier (500k req/day)
+  stalledInterval: 30_000,  // check for stalled jobs every 30s (default: 5s)
+  drainDelay: 5_000,        // wait 5s before polling again when queue is empty
+  skipVersionCheck: true,   // skip Redis version check on startup
+})
 export class RiderDispatchProcessor extends WorkerHost {
   private readonly logger = new Logger(RiderDispatchProcessor.name);
 
