@@ -87,7 +87,14 @@ exports.AppModule = AppModule = __decorate([
                             },
                         };
                     }
-                    return { connection: { url: redisUrl } };
+                    return {
+                        connection: {
+                            url: redisUrl,
+                            enableOfflineQueue: false,
+                            maxRetriesPerRequest: null,
+                            retryStrategy: (times) => Math.min(times * 3000, 30000), // Backoff up to 30s instead of rapid spam
+                        },
+                    };
                 },
                 inject: [config_1.ConfigService],
             }),

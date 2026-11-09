@@ -447,6 +447,30 @@
   gap: var(--space-3);
   color: var(--text-muted);
   font-size: 14px;
+  text-align: center;
+  padding: var(--space-4);
+}
+
+.stateHint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-subtle);
+}
+
+.retryBtn {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: none;
+  border-radius: var(--r-md);
+  background: var(--action-bg);
+  color: var(--action-fg);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.retryBtn:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
 }
 
 /* ── Accessibility: reduced-motion ── */

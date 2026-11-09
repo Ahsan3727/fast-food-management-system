@@ -43,6 +43,7 @@ export function ItemDetailSheet({ item, onClose, onAdded }: Props) {
   const [selectedSize,   setSelectedSize  ] = useState<string | undefined>(undefined);
   const [selectedAddOns, setSelectedAddOns] = useState<string[]>([]);
   const [qty,            setQty           ] = useState(1);
+  const touchStartY = useRef(0);
 
   // Reset selections whenever a DIFFERENT item is opened
   useEffect(() => {
@@ -110,7 +111,6 @@ export function ItemDetailSheet({ item, onClose, onAdded }: Props) {
   };
 
   // ── Swipe-down to dismiss ────────────────────────────────────────────────
-  const touchStartY = useRef(0);
   const onDragTouchStart = (e: React.TouchEvent) => {
     touchStartY.current = e.touches[0].clientY;
   };

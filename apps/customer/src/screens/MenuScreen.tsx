@@ -34,6 +34,7 @@ import { QK } from '@/api/queryKeys';
 import { isNative } from '@/lib/platform';
 import { chooseLayout, partitionCategories } from '@/lib/chooseLayout';
 import type { LayoutMode } from '@/lib/chooseLayout';
+import { deriveMenuState } from './menu/menu.utils';
 import styles from './MenuScreen.module.css';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -433,18 +434,42 @@ export default function MenuScreen() {
   }, [cartItems]);
 
   // ── Data ──────────────────────────────────────────────────────────────────
-  const { data: cats = [] } = useQuery<Category[]>({
+  const catsQuery = useQuery<Category[]>({
     queryKey: QK.categories,
     queryFn:  () => api.get('/menu/categories').then(r => r.data),
     staleTime: 60_000,
   });
 
   // Fetch ALL items once (including unavailable to show dimmed sold-out rows)
-  const { data: items = [], isLoading } = useQuery<MenuItem[]>({
+  const itemsQuery = useQuery<MenuItem[]>({
     queryKey: QK.menu(undefined, true),
     queryFn:  () => api.get('/menu?includeUnavailable=true').then(r => r.data),
     staleTime: 60_000,
   });
+
+  const cats = catsQuery.data ?? [];
+  const items = itemsQuery.data ?? [];
+  const menuState = deriveMenuState({
+    cats: {
+      isPending: catsQuery.isPending,
+      isFetching: catsQuery.isFetching,
+      isError: catsQuery.isError,
+      fetchStatus: catsQuery.fetchStatus,
+      data: catsQuery.data,
+    },
+    items: {
+      isPending: itemsQuery.isPending,
+      isFetching: itemsQuery.isFetching,
+      isError: itemsQuery.isError,
+      fetchStatus: itemsQuery.fetchStatus,
+      data: itemsQuery.data,
+    },
+  });
+
+  const retryMenu = useCallback(() => {
+    void catsQuery.refetch();
+    void itemsQuery.refetch();
+  }, [catsQuery.refetch, itemsQuery.refetch]);
 
   // ── Group items by categoryId ─────────────────────────────────────────────
   const grouped = useMemo(() => {
@@ -556,7 +581,7 @@ export default function MenuScreen() {
   );
 
   // ── Skeleton ──────────────────────────────────────────────────────────────
-  if (isLoading) {
+  if (menuState === 'loading') {
     return (
       <div className={styles.page}>
         <ConnectionBanner />
@@ -595,8 +620,38 @@ export default function MenuScreen() {
     );
   }
 
+  if (menuState === 'offline') {
+    return (
+      <div className={styles.page}>
+        <ConnectionBanner />
+        <div className={styles.emptyState}>
+          <p>You&apos;re offline.</p>
+          <p className={styles.stateHint}>Connect to the internet to load the menu.</p>
+        </div>
+        <div className={styles.navSpacer} />
+        <BottomNav active="menu" />
+      </div>
+    );
+  }
+
+  if (menuState === 'error') {
+    return (
+      <div className={styles.page}>
+        <ConnectionBanner />
+        <div className={styles.emptyState}>
+          <p>Couldn&apos;t load the menu.</p>
+          <button type="button" className={styles.retryBtn} onClick={retryMenu}>
+            Try again
+          </button>
+        </div>
+        <div className={styles.navSpacer} />
+        <BottomNav active="menu" />
+      </div>
+    );
+  }
+
   // ── Empty state ───────────────────────────────────────────────────────────
-  if (!isLoading && activeCats.length === 0) {
+  if (menuState === 'empty') {
     return (
       <div className={styles.page}>
         <ConnectionBanner />

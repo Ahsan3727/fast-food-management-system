@@ -27,6 +27,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Lint Customer App
+        run: pnpm --filter @fastfood/customer lint
+
       - name: Check Design Tokens (Customer)
         run: node scripts/check-tokens.mjs --app customer
 
