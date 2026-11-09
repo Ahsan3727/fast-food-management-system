@@ -22,6 +22,19 @@ function parseCorsOrigins(raw, isProduction) {
 function isOriginAllowed(origin, cfg) {
     if (!origin)
         return true; // non-browser clients send no Origin header
-    return cfg.allowAll || cfg.origins.has(origin);
+    if (cfg.allowAll || cfg.origins.has(origin))
+        return true;
+    for (const allowed of cfg.origins) {
+        if (allowed.includes('*')) {
+            const escaped = allowed
+                .split('*')
+                .map((part) => part.replace(/[.+?^${}()|[\]\\]/g, '\\$&'))
+                .join('.*');
+            if (new RegExp(`^${escaped}$`).test(origin)) {
+                return true;
+            }
+        }
+    }
+    return false;
 }
 //# sourceMappingURL=cors.js.map

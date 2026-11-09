@@ -9,7 +9,6 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.JobsModule = void 0;
 const common_1 = require("@nestjs/common");
 const bullmq_1 = require("@nestjs/bullmq");
-const config_1 = require("@nestjs/config");
 const mongoose_1 = require("@nestjs/mongoose");
 const rider_dispatch_processor_1 = require("./rider-dispatch.processor");
 const order_schema_1 = require("../modules/orders/order.schema");
@@ -21,30 +20,31 @@ exports.JobsModule = JobsModule;
 exports.JobsModule = JobsModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            bullmq_1.BullModule.forRootAsync({
-                imports: [config_1.ConfigModule],
-                useFactory: (cfg) => {
-                    const redisUrl = cfg.get('REDIS_URL');
-                    if (!redisUrl) {
-                        return {
-                            connection: {
-                                host: 'localhost', port: 6379,
-                                lazyConnect: true, enableOfflineQueue: false,
-                                maxRetriesPerRequest: 0,
-                                retryStrategy: () => null,
-                            },
-                        };
-                    }
-                    return { connection: { url: redisUrl } };
+            bullmq_1.BullModule.registerQueue({
+                name: rider_dispatch_processor_1.RIDER_DISPATCH_QUEUE,
+                defaultJobOptions: {
+                    removeOnComplete: 50, // keep last 50 completed jobs only
+                    removeOnFail: 20, // keep last 20 failed jobs only
                 },
-                inject: [config_1.ConfigService],
             }),
-            bullmq_1.BullModule.registerQueue({ name: rider_dispatch_processor_1.RIDER_DISPATCH_QUEUE }),
             mongoose_1.MongooseModule.forFeature([{ name: order_schema_1.Order.name, schema: order_schema_1.OrderSchema }]),
             realtime_module_1.RealtimeModule,
             notifications_module_1.NotificationsModule,
         ],
-        providers: [rider_dispatch_processor_1.RiderDispatchProcessor],
+        providers: [
+            rider_dispatch_processor_1.RiderDispatchProcessor,
+            {
+                // Slow down BullMQ polling to stay within Upstash free tier (500k req/day)
+                // stalledInterval: how often to check for stalled jobs (ms) — default 30s
+                // drainDelay: how long to wait before polling again when queue is empty (ms)
+                provide: 'BULLMQ_WORKER_OPTIONS',
+                useValue: {
+                    stalledInterval: 30_000, // check stalled jobs every 30s (default: 5s)
+                    drainDelay: 5_000, // wait 5s between polls when queue is empty
+                    skipVersionCheck: true,
+                },
+            },
+        ],
         exports: [bullmq_1.BullModule],
     })
 ], JobsModule);

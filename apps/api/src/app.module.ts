@@ -26,20 +26,24 @@ import { JobsModule } from './jobs/jobs.module';
       isGlobal: true,
       envFilePath: '.env',
       validationSchema: Joi.object({
-        PORT: Joi.number().default(5000),
+        PORT: Joi.number().default(8080),
         NODE_ENV: Joi.string().valid('development', 'production', 'test').default('development'),
-        MONGO_URI: Joi.string().required(),
-        JWT_SECRET: Joi.string().min(16).required(),
-        JWT_REFRESH_SECRET: Joi.string().min(16).default('refresh_secret_change_me_in_prod'),
+        MONGO_URI: Joi.string().default(
+          'mongodb://Ahsan3727:%23Ahsan3145673727@ac-75haq23-shard-00-00.slngj0l.mongodb.net:27017,ac-75haq23-shard-00-01.slngj0l.mongodb.net:27017,ac-75haq23-shard-00-02.slngj0l.mongodb.net:27017/fastfood_platform?ssl=true&replicaSet=atlas-oi643h-shard-0&authSource=admin&appName=jewellerycalc',
+        ),
+        JWT_SECRET: Joi.string().min(16).default('superSecretKey123superSecretKey123superSecretKey123'),
+        JWT_REFRESH_SECRET: Joi.string().min(16).default('refreshSuperSecretKey123refreshSuperSecretKey123'),
         JWT_EXPIRES_IN: Joi.string().default('15m'),
         JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
-        CORS_ORIGINS: Joi.string().default('http://localhost:5173,http://localhost:5174,http://localhost:5175'),
+        CORS_ORIGINS: Joi.string().default(
+          'http://localhost:5173,http://localhost:5174,http://localhost:5175,https://*.vercel.app',
+        ),
         // Redis — optional; features degrade gracefully without it
-        REDIS_URL: Joi.string().uri().optional(),
+        REDIS_URL: Joi.string().uri().optional().default('rediss://default:gQAAAAAAAooGAAIgcDFmNjM2ZTNhOTBlYTM0OGIzYjA2YTRiMjgxZDYzNzQ4MA@sound-oarfish-166406.upstash.io:6379'),
         // Cloudinary
-        CLOUDINARY_CLOUD_NAME: Joi.string().optional().default(''),
-        CLOUDINARY_API_KEY: Joi.string().optional().default(''),
-        CLOUDINARY_API_SECRET: Joi.string().optional().default(''),
+        CLOUDINARY_CLOUD_NAME: Joi.string().optional().default('qqqoqjok'),
+        CLOUDINARY_API_KEY: Joi.string().optional().default('784954882844857'),
+        CLOUDINARY_API_SECRET: Joi.string().optional().default('w8L2i3O43t1vOretbv-papF1Qw8'),
         // Firebase FCM — optional; push disabled without it
         FCM_SERVICE_ACCOUNT_JSON: Joi.string().optional(),
       }),

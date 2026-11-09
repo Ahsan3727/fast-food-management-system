@@ -35,7 +35,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsInt)(),
     (0, class_validator_1.Min)(1),
-    (0, class_validator_1.Max)(20),
+    (0, class_validator_1.Max)(shared_types_1.MAX_LINE_QTY),
     __metadata("design:type", Number)
 ], OrderItemDto.prototype, "quantity", void 0);
 __decorate([

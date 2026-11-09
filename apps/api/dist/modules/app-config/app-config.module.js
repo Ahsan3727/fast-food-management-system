@@ -9,9 +9,10 @@ var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AppConfigModule = void 0;
+exports.AppConfigModule = exports.AppConfigController = void 0;
 const common_1 = require("@nestjs/common");
 const common_2 = require("@nestjs/common");
+const env_1 = require("../../common/env");
 let AppConfigController = class AppConfigController {
     getConfig() {
         return {
@@ -20,21 +21,22 @@ let AppConfigController = class AppConfigController {
             maintenanceMode: false,
             restaurantName: process.env.RESTAURANT_NAME ?? 'FastFood',
             restaurantPhone: process.env.RESTAURANT_PHONE ?? '+92 300 1234567',
-            restaurantLat: parseFloat(process.env.RESTAURANT_LAT ?? '31.5204'),
-            restaurantLng: parseFloat(process.env.RESTAURANT_LNG ?? '74.3587'),
-            deliveryFeePaisa: parseInt(process.env.DELIVERY_FEE_PAISA ?? '10000', 10),
-            freeDeliveryOverPaisa: parseInt(process.env.FREE_DELIVERY_OVER_PAISA ?? '100000', 10),
-            maxDeliveryRadiusKm: parseFloat(process.env.MAX_DELIVERY_RADIUS_KM ?? '25'),
+            restaurantLat: (0, env_1.envFloat)(process.env.RESTAURANT_LAT, 31.5204),
+            restaurantLng: (0, env_1.envFloat)(process.env.RESTAURANT_LNG, 74.3587),
+            deliveryFeePaisa: (0, env_1.envInt)(process.env.DELIVERY_FEE_PAISA, 10000),
+            freeDeliveryOverPaisa: (0, env_1.envInt)(process.env.FREE_DELIVERY_OVER_PAISA, 100000),
+            maxDeliveryRadiusKm: (0, env_1.envFloat)(process.env.MAX_DELIVERY_RADIUS_KM, 25),
         };
     }
 };
+exports.AppConfigController = AppConfigController;
 __decorate([
     (0, common_2.Get)(),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
     __metadata("design:returntype", void 0)
 ], AppConfigController.prototype, "getConfig", null);
-AppConfigController = __decorate([
+exports.AppConfigController = AppConfigController = __decorate([
     (0, common_2.Controller)('app-config')
 ], AppConfigController);
 let AppConfigModule = class AppConfigModule {

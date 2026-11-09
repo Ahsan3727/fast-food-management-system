@@ -4,7 +4,7 @@ FROM node:20-slim
 WORKDIR /app
 
 ENV NODE_ENV=production
-ENV PORT=5000
+ENV PORT=8080
 ENV NODE_PATH=/app/apps/api/node_modules
 
 # Install dumb-init to handle process signals cleanly
@@ -25,7 +25,7 @@ RUN npm ci --omit=dev --no-audit
 # Copy the pre-compiled NestJS JavaScript distribution
 COPY apps/api/dist ./dist
 
-EXPOSE 5000
+EXPOSE 5000 8080
 
 ENTRYPOINT ["dumb-init", "--"]
 CMD ["node", "dist/main.js"]

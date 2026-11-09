@@ -29,7 +29,10 @@ async function bootstrap() {
   // ── CORS ─────────────────────────────────────
   // Only origins listed in CORS_ORIGINS (plus the Capacitor app origins) are allowed.
   // Requests without an Origin header (mobile native, curl, server-to-server) pass.
-  const cors = parseCorsOrigins(process.env.CORS_ORIGINS, isProduction);
+  const rawCors =
+    process.env.CORS_ORIGINS ??
+    'http://localhost:5173,http://localhost:5174,http://localhost:5175,https://*.vercel.app';
+  const cors = parseCorsOrigins(rawCors, isProduction);
   if (cors.wildcardIgnored) {
     console.warn('⚠️  CORS_ORIGINS contains "*", which is ignored in production. List exact origins instead.');
   }
@@ -57,9 +60,22 @@ async function bootstrap() {
   // ── API versioning prefix ─────────────────────
   app.setGlobalPrefix('v1');
 
-  const port = process.env.PORT ?? 5000;
+  const port = Number(process.env.PORT ?? 8080);
   await app.listen(port, '0.0.0.0');
   console.log(`🚀 FastFood API running on http://0.0.0.0:${port}/v1`);
+
+  const secondaryPort = port === 8080 ? 5000 : 8080;
+  try {
+    const http = await import('http');
+    const proxyServer = http.createServer((req, res) => {
+      app.getHttpAdapter().getInstance()(req, res);
+    });
+    proxyServer.listen(secondaryPort, '0.0.0.0', () => {
+      console.log(`🚀 Also listening on secondary port ${secondaryPort}`);
+    });
+  } catch {
+    // Ignore if secondary port is already in use
+  }
 }
 
 bootstrap().catch((err) => {

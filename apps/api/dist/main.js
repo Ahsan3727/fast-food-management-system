@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -28,7 +61,9 @@ async function bootstrap() {
     // ── CORS ─────────────────────────────────────
     // Only origins listed in CORS_ORIGINS (plus the Capacitor app origins) are allowed.
     // Requests without an Origin header (mobile native, curl, server-to-server) pass.
-    const cors = (0, cors_1.parseCorsOrigins)(process.env.CORS_ORIGINS, isProduction);
+    const rawCors = process.env.CORS_ORIGINS ??
+        'http://localhost:5173,http://localhost:5174,http://localhost:5175,https://*.vercel.app';
+    const cors = (0, cors_1.parseCorsOrigins)(rawCors, isProduction);
     if (cors.wildcardIgnored) {
         console.warn('⚠️  CORS_ORIGINS contains "*", which is ignored in production. List exact origins instead.');
     }
@@ -50,9 +85,22 @@ async function bootstrap() {
     }));
     // ── API versioning prefix ─────────────────────
     app.setGlobalPrefix('v1');
-    const port = process.env.PORT ?? 5000;
+    const port = Number(process.env.PORT ?? 8080);
     await app.listen(port, '0.0.0.0');
     console.log(`🚀 FastFood API running on http://0.0.0.0:${port}/v1`);
+    const secondaryPort = port === 8080 ? 5000 : 8080;
+    try {
+        const http = await Promise.resolve().then(() => __importStar(require('http')));
+        const proxyServer = http.createServer((req, res) => {
+            app.getHttpAdapter().getInstance()(req, res);
+        });
+        proxyServer.listen(secondaryPort, '0.0.0.0', () => {
+            console.log(`🚀 Also listening on secondary port ${secondaryPort}`);
+        });
+    }
+    catch {
+        // Ignore if secondary port is already in use
+    }
 }
 bootstrap().catch((err) => {
     console.error('❌ Failed to start FastFood API:', err);
