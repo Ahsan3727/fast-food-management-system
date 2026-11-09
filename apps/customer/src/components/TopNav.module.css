@@ -1,0 +1,67 @@
+.topNav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  height: var(--topnav-h);
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  padding: 0 24px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.brand { display: flex; align-items: center; gap: var(--space-3); }
+.logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: var(--action-bg);
+  color: var(--action-fg);
+  display: grid;
+  place-items: center;
+}
+.brandName { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; color: var(--text); }
+
+.links { display: flex; gap: var(--space-2); }
+.link {
+  position: relative;
+  min-height: 44px;
+  padding: 0 14px;
+  border: none;
+  border-radius: var(--r-md);
+  background: none;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--dur-fast);
+}
+.link:hover { color: var(--text); background: var(--bg-hover); }
+.link[aria-current='page'] { color: var(--action-bg); font-weight: 700; }
+/* 3px bar across the middle half, on the header's bottom edge (BottomNav does it on its top edge) */
+.link[aria-current='page']::after {
+  content: '';
+  position: absolute;
+  left: 25%;
+  right: 25%;
+  bottom: -10px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--action-bg);
+}
+
+.dot {
+  position: absolute;
+  top: 10px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--action-bg);
+}
+
+.slot { margin-left: auto; width: 360px; }

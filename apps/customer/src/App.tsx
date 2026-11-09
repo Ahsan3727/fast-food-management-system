@@ -1,11 +1,12 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { useAuthStore } from '@/store/auth.store';
 import { useEffect } from 'react';
-import { useQueryClient, useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { initPush } from '@/lib/push';
 import { registerAppLifecycle } from '@/lib/lifecycle';
 import { QK } from '@/api/queryKeys';
+import { useAppConfig } from '@/hooks/useAppConfig';
 
 // App screens
 import HomeScreen from '@/screens/HomeScreen';
@@ -21,20 +22,11 @@ import SearchScreen from '@/screens/SearchScreen';
 
 const CURRENT_VERSION = '1.0.0';
 
-interface AppConfig {
-  maintenanceMode?: boolean;
-  minVersion?: string;
-}
-
 export default function App() {
   const { refreshToken, setTokens, setUser, logout } = useAuthStore();
   const queryClient = useQueryClient();
 
-  const { data: config } = useQuery<AppConfig>({
-    queryKey: ['app-config'],
-    queryFn: () => api.get('/app-config').then(r => r.data),
-    staleTime: 5 * 60_000,
-  });
+  const { data: config } = useAppConfig();
 
   // App lifecycle registration (native pause/resume, network online/offline)
   useEffect(() => {

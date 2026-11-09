@@ -6,7 +6,7 @@ import { OrdersService } from './orders.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
-import { OrderStatus, Role } from '@fastfood/shared-types';
+import { MAX_LINE_QTY, OrderStatus, Role } from '@fastfood/shared-types';
 import {
   IsString, IsNumber, IsOptional, IsArray,
   IsMongoId, IsInt, Min, Max, MaxLength, MinLength,
@@ -21,7 +21,7 @@ export class OrderItemDto {
 
   @IsInt()
   @Min(1)
-  @Max(20)
+  @Max(MAX_LINE_QTY)
   quantity: number;
 
   @IsOptional()

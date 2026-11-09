@@ -1,70 +1,52 @@
 /**
- * MenuScreen — whole-menu-in-one-screen layout
+ * MenuScreen: the menu on one screen, no page scrolling.
  *
- * Bugs fixed vs the previous version:
- *  1. item.image (not item.imageUrl) — matches menu.schema.ts field name
- *  2. quick-add on items with sizes/addOns navigates to /menu/:id instead of
- *     silently adding at basePrice with no size selected
+ *  - Board: every category visible at once (2 columns of cards). Used while every
+ *    row can be at least 52px tall (a 44px add button + 4px above and below).
+ *  - Focus: for long menus, an accordion with one open category and a grid of
+ *    item cards. The page still never scrolls.
+ *  - Laptop (>= 900px): top nav, the board, and a cart panel beside it.
  *
- * Note: ProductDetailScreen.tsx also reads item.imageUrl (lines 99, 168).
- *       That bug is fixed in ProductDetailScreen.tsx (see separate edit).
- * Item detail is now shown in an in-page bottom sheet (ItemDetailSheet.tsx)
- * so the customer never leaves the menu while browsing.
+ * chooseLayout decides board vs focus from the real measured height. The state
+ * of the data (loading / offline / error / empty / ready) comes from
+ * deriveMenuState, so a failed or offline load is never shown as "empty".
  */
 
-import React, {
-  useState,
-  useRef,
-  useEffect,
-  useCallback,
-  useMemo,
-  type ReactNode,
+import {
+  useState, useRef, useEffect, useCallback, useMemo,
 } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
+import toast from 'react-hot-toast';
+import { MAX_LINE_QTY } from '@fastfood/shared-types';
 import { ItemDetailSheet } from './ItemDetailSheet';
 import api from '@/lib/api';
 import { useCartStore } from '@/store/cart.store';
-import { formatMoneyCompact } from '@fastfood/utils';
-import BottomNav from '@/components/BottomNav';
+import AppNav from '@/components/AppNav';
 import CartBar from '@/components/CartBar';
+import CartPanel from '@/components/CartPanel';
 import { ConnectionBanner } from '@/components/ConnectionBanner';
+import { FreeDeliveryStrip } from '@/components/FreeDeliveryStrip';
 import { Icon } from '@/components/Icon';
-import { Skeleton } from '@/components/Skeleton';
 import { QK } from '@/api/queryKeys';
+import { useAppConfig } from '@/hooks/useAppConfig';
+import { useIsLaptop } from '@/hooks/useBreakpoint';
 import { isNative } from '@/lib/platform';
 import { chooseLayout, partitionCategories } from '@/lib/chooseLayout';
 import type { LayoutMode } from '@/lib/chooseLayout';
-import { deriveMenuState } from './menu/menu.utils';
+import type { Category, MenuItem } from './menu/menu.types';
+import {
+  deriveMenuState, firstMatchingCategoryId, hasNoMatches, isComplex, matchesQuery, resolveCatParam,
+} from './menu/menu.utils';
+import { readBoardChrome } from './menu/boardChrome';
+import { Board } from './menu/CatBlock';
+import { FocusMode } from './menu/FocusMode';
+import { MenuSkeleton, MenuStateView, NoMatches } from './menu/MenuStates';
+import type { ItemHandlers } from './menu/MenuRow';
 import styles from './MenuScreen.module.css';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Local types (mirror the API response — not imported from shared-types because
-// the menu schema lives in the API package only)
-// ─────────────────────────────────────────────────────────────────────────────
-interface Category {
-  _id: string;
-  name: string;
-  icon?: string;
-  isActive: boolean;
-  sortOrder: number;
-}
-
-export interface MenuItem {
-  _id: string;
-  name: string;
-  description?: string;
-  categoryId: string;
-  basePrice: number;
-  image?: string;   // ← API field name (not imageUrl)
-  emoji?: string;
-  isAvailable: boolean;
-  sizes: { label: string; price: number }[];
-  addOns: { label: string; price: number }[];
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// HomeScreen, SearchScreen and the item sheet import this type from here.
+export type { MenuItem } from './menu/menu.types';
 
 /** Fire a light haptic only inside Capacitor native apps */
 async function lightHaptic(): Promise<void> {
@@ -72,357 +54,29 @@ async function lightHaptic(): Promise<void> {
   try {
     const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
     await Haptics.impact({ style: ImpactStyle.Light });
-  } catch { /* ignore — safe if not available */ }
+  } catch { /* ignore: safe if not available */ }
 }
 
-/** Returns the lowest displayable price for an item */
-function minDisplayPrice(item: MenuItem): number {
-  if (!item.sizes?.length) return item.basePrice;
-  return Math.min(item.basePrice, ...item.sizes.map(s => s.price));
-}
-
-/** True if the item requires the detail screen before adding to cart */
-function isComplex(item: MenuItem): boolean {
-  return (item.sizes?.length ?? 0) > 0 || (item.addOns?.length ?? 0) > 0;
-}
-
-/** Wrap the matching substring of `text` in <mark> for search highlighting */
-function highlight(text: string, q: string): ReactNode {
-  if (!q) return text;
-  const lo  = text.toLowerCase();
-  const idx = lo.indexOf(q.toLowerCase());
-  if (idx === -1) return text;
-  return (
-    <>
-      {text.slice(0, idx)}
-      <mark className={styles.searchHighlight}>{text.slice(idx, idx + q.length)}</mark>
-      {text.slice(idx + q.length)}
-    </>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Sub-components
-// ─────────────────────────────────────────────────────────────────────────────
-
-interface ItemHandlers {
-  onAdd: (item: MenuItem) => void;
-  onTap: (item: MenuItem) => void;
-  cartCounts: Map<string, number>;
-  searchQ: string;
-}
-
-// ── Add button (shared between board and focus rows) ──────────────────────────
-function AddBtn({
-  item,
-  cartCount,
-  onAdd,
-}: {
-  item: MenuItem;
-  cartCount: number;
-  onAdd: (item: MenuItem) => void;
-}) {
-  const complex = isComplex(item);
-  return (
-    <div className={styles.addBtnWrap}>
-      <button
-        type="button"
-        className={`${styles.addBtn} ${cartCount > 0 ? styles.addBtnHasItems : ''}`}
-        disabled={!item.isAvailable}
-        aria-label={!item.isAvailable ? `${item.name} is sold out` : complex ? `Customise ${item.name}` : `Add ${item.name} to cart`}
-        onClick={() => onAdd(item)}
-      >
-        {cartCount > 0 ? (
-          <span className={styles.addBtnCount}>{cartCount}</span>
-        ) : (
-          <Icon name="plus" size={13} />
-        )}
-      </button>
-    </div>
-  );
-}
-
-// ── Board-mode: one category block ───────────────────────────────────────────
-function BoardCatBlock({
-  cat,
-  items,
-  flexValue,
-  handlers,
-}: {
-  cat: Category;
-  items: MenuItem[];
-  flexValue: number;
-  handlers: ItemHandlers;
-}) {
-  const { searchQ, cartCounts, onAdd, onTap } = handlers;
-  const q = searchQ.toLowerCase().trim();
-
-  return (
-    <div className={styles.boardCatBlock} style={{ flex: flexValue }}>
-      <div className={styles.boardCatHeader} aria-label={`Category: ${cat.name}`}>
-        <span aria-hidden="true">{cat.icon || '🍽️'}</span>
-        <span className={styles.boardCatName}>{cat.name}</span>
-        <span className={styles.boardCatCount}>{items.length}</span>
-      </div>
-
-      <div className={styles.boardCatItems}>
-        {items.map(item => {
-          const match = !q
-            || item.name.toLowerCase().includes(q)
-            || (item.description?.toLowerCase().includes(q) ?? false);
-
-          return (
-            <div
-              key={item._id}
-              className={`${styles.boardItemRow} ${!match && q ? styles.dimmed : ''} ${!item.isAvailable ? styles.unavailable : ''}`}
-            >
-              <button
-                type="button"
-                className={styles.boardItemMainBtn}
-                onClick={() => onTap(item)}
-                aria-label={item.isAvailable ? item.name : `${item.name} — sold out`}
-              >
-                <div className={styles.thumb}>
-                  {item.image ? (
-                    <img
-                      src={item.image}
-                      alt=""
-                      className={styles.thumbImg}
-                      loading="lazy"
-                    />
-                  ) : (
-                    <span className={styles.thumbEmoji} aria-hidden="true">
-                      {item.emoji || '🍔'}
-                    </span>
-                  )}
-                </div>
-
-                <div className={styles.boardItemInfo}>
-                  <span className={styles.boardItemName}>{highlight(item.name, q)}</span>
-                  {!item.isAvailable && (
-                    <span className={styles.soldOutLabel}>Sold out</span>
-                  )}
-                  <span className={styles.boardItemPrice}>
-                    {isComplex(item) ? 'from ' : ''}
-                    {formatMoneyCompact(minDisplayPrice(item))}
-                  </span>
-                </div>
-              </button>
-
-              <AddBtn
-                item={item}
-                cartCount={cartCounts.get(item._id) ?? 0}
-                onAdd={onAdd}
-              />
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ── Board-mode: one column (flex-stacked category blocks) ─────────────────────
-function BoardColumn({
-  catIds,
-  allCats,
-  grouped,
-  handlers,
-  borderRight,
-}: {
-  catIds: string[];
-  allCats: Category[];
-  grouped: Map<string, MenuItem[]>;
-  handlers: ItemHandlers;
-  borderRight: boolean;
-}) {
-  // Column total weight for proportional flex distribution
-  const totalW = catIds.reduce((s, id) => {
-    return s + (grouped.get(id)?.length ?? 0) + 0.6;
-  }, 0);
-
-  return (
-    <div
-      className={styles.boardColumn}
-      style={borderRight ? { borderRight: '1px solid var(--border)' } : undefined}
-    >
-      {catIds.map(id => {
-        const cat = allCats.find(c => c._id === id);
-        if (!cat) return null;
-        const items = grouped.get(id) ?? [];
-        const flexValue = totalW > 0 ? (items.length + 0.6) / totalW : 1;
-        return (
-          <BoardCatBlock
-            key={id}
-            cat={cat}
-            items={items}
-            flexValue={flexValue}
-            handlers={handlers}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-// ── Focus-mode: accordion ─────────────────────────────────────────────────────
-function FocusMode({
-  cats,
-  grouped,
-  openCatId,
-  onOpen,
-  handlers,
-}: {
-  cats: Category[];
-  grouped: Map<string, MenuItem[]>;
-  openCatId: string;
-  onOpen: (id: string) => void;
-  handlers: ItemHandlers;
-}) {
-  const { searchQ, cartCounts, onAdd, onTap } = handlers;
-  const q = searchQ.toLowerCase().trim();
-
-  // ── Swipe left/right to navigate between categories ──────────────────────
-  // ── Swipe left/right to navigate between categories ──────────────────────
-  const touchStartX = useRef(0);
-  const touchStartY = useRef(0);
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    touchStartX.current = e.touches[0].clientX;
-    touchStartY.current = e.touches[0].clientY;
-  };
-  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
-    if (Math.abs(dx) >= 50 && Math.abs(dx) > 2 * Math.abs(dy)) {
-      const idx = cats.findIndex(c => c._id === openCatId);
-      if (dx < 0 && idx < cats.length - 1) onOpen(cats[idx + 1]._id); // left → next
-      if (dx > 0 && idx > 0)               onOpen(cats[idx - 1]._id); // right → prev
-    }
-  };
-
-  return (
-    <div
-      className={styles.focusContainer}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      {cats.map(cat => {
-        const items   = grouped.get(cat._id) ?? [];
-        const isOpen  = openCatId === cat._id;
-        const matches = q
-          ? items.filter(i =>
-              i.name.toLowerCase().includes(q) ||
-              (i.description?.toLowerCase().includes(q) ?? false)
-            ).length
-          : 0;
-
-        return (
-          <div
-            key={cat._id}
-            className={`${styles.focusCat} ${isOpen ? styles.focusCatOpen : ''}`}
-          >
-            {/* Accordion bar */}
-            <button
-              type="button"
-              className={styles.focusBar}
-              aria-expanded={isOpen}
-              onClick={() => onOpen(cat._id)}
-            >
-              <span aria-hidden="true">{cat.icon || '🍽️'}</span>
-              <span className={styles.focusBarName}>{cat.name}</span>
-              {!isOpen && cats.length <= 4 && items.length > 0 && (
-                <span className={styles.focusBarPreview}>
-                  {items.slice(0, 3).map(i => i.name).join(' · ')}
-                </span>
-              )}
-              {q && matches > 0 && (
-                <span className={styles.focusMatchBadge} aria-label={`${matches} matches`}>
-                  {matches}
-                </span>
-              )}
-              <Icon
-                name={isOpen ? 'minus' : 'plus'}
-                size={14}
-                className={styles.focusBarArrow}
-              />
-            </button>
-
-            {/* Expanded items — 2-col grid, inner-scroll only as last resort */}
-            <div className={styles.focusItems}>
-              {items.map(item => {
-                const match = !q
-                  || item.name.toLowerCase().includes(q)
-                  || (item.description?.toLowerCase().includes(q) ?? false);
-
-                return (
-                  <div
-                    key={item._id}
-                    className={`${styles.focusItemCell} ${!match && q ? styles.dimmed : ''} ${!item.isAvailable ? styles.unavailable : ''}`}
-                  >
-                    <button
-                      type="button"
-                      className={styles.focusItemMainBtn}
-                      onClick={() => onTap(item)}
-                      aria-label={item.isAvailable ? item.name : `${item.name} — sold out`}
-                    >
-                      <div className={styles.thumb}>
-                        {item.image ? (
-                          <img
-                            src={item.image}
-                            alt=""
-                            className={styles.thumbImg}
-                            loading="lazy"
-                          />
-                        ) : (
-                          <span className={styles.thumbEmoji} aria-hidden="true">
-                            {item.emoji || '🍔'}
-                          </span>
-                        )}
-                      </div>
-
-                      <div className={styles.focusItemInfo}>
-                        <span className={styles.focusItemName}>{highlight(item.name, q)}</span>
-                        {!item.isAvailable && (
-                          <span className={styles.soldOutLabel}>Sold out</span>
-                        )}
-                        <span className={styles.focusItemPrice}>
-                          {isComplex(item) ? 'from ' : ''}
-                          {formatMoneyCompact(minDisplayPrice(item))}
-                        </span>
-                      </div>
-                    </button>
-
-                    <AddBtn
-                      item={item}
-                      cartCount={cartCounts.get(item._id) ?? 0}
-                      onAdd={onAdd}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// MenuScreen
-// ─────────────────────────────────────────────────────────────────────────────
 export default function MenuScreen() {
+  const isLaptop = useIsLaptop();
+  const [searchParams] = useSearchParams();
+  const catParam = searchParams.get('cat');
 
-  const [searchQ,    setSearchQ   ] = useState('');
-  const [layoutMode, setLayoutMode ] = useState<LayoutMode>('board');
-  const [openCatId,  setOpenCatId  ] = useState('');
-  const [selectedItem, setSelectedItem] = useState<MenuItem | null>(null);
+  const [searchQ,       setSearchQ      ] = useState('');
+  const [layoutMode,    setLayoutMode   ] = useState<LayoutMode>('board');
+  const [columns,       setColumns      ] = useState<2 | 3 | 4>(2);
+  const [openCatId,     setOpenCatId    ] = useState('');
+  const [selectedItem,  setSelectedItem ] = useState<MenuItem | null>(null);
+  const [announcement,  setAnnouncement ] = useState('');
+  const [flashCatId,    setFlashCatId   ] = useState('');   // board: brief highlight after a ?cat= link
 
-  const { addItem, items: cartItems } = useCartStore();
+  const { addItem, items: cartItems, displayTotalPaisa } = useCartStore();
+  const { data: config } = useAppConfig();
 
-  const menuAreaRef      = useRef<HTMLDivElement>(null);
+  const menuAreaRef      = useRef<HTMLElement>(null);
   const cartBarSlotRef   = useRef<HTMLDivElement>(null);
-  const searchFocusedRef = useRef(false); // freeze layout recalc while typing
+  const searchFocusedRef = useRef(false);   // freeze layout recalc while typing
+  const appliedCatParam  = useRef<string | null>(null);
 
   // ── Cart counts map: menuItemId → total quantity ──────────────────────────
   const cartCounts = useMemo(() => {
@@ -439,37 +93,15 @@ export default function MenuScreen() {
     queryFn:  () => api.get('/menu/categories').then(r => r.data),
     staleTime: 60_000,
   });
+  const { data: cats = [] } = catsQuery;
 
-  // Fetch ALL items once (including unavailable to show dimmed sold-out rows)
+  // Fetch ALL items once (including unavailable to show sold-out rows)
   const itemsQuery = useQuery<MenuItem[]>({
     queryKey: QK.menu(undefined, true),
     queryFn:  () => api.get('/menu?includeUnavailable=true').then(r => r.data),
     staleTime: 60_000,
   });
-
-  const cats = catsQuery.data ?? [];
-  const items = itemsQuery.data ?? [];
-  const menuState = deriveMenuState({
-    cats: {
-      isPending: catsQuery.isPending,
-      isFetching: catsQuery.isFetching,
-      isError: catsQuery.isError,
-      fetchStatus: catsQuery.fetchStatus,
-      data: catsQuery.data,
-    },
-    items: {
-      isPending: itemsQuery.isPending,
-      isFetching: itemsQuery.isFetching,
-      isError: itemsQuery.isError,
-      fetchStatus: itemsQuery.fetchStatus,
-      data: itemsQuery.data,
-    },
-  });
-
-  const retryMenu = useCallback(() => {
-    void catsQuery.refetch();
-    void itemsQuery.refetch();
-  }, [catsQuery.refetch, itemsQuery.refetch]);
+  const { data: items = [] } = itemsQuery;
 
   // ── Group items by categoryId ─────────────────────────────────────────────
   const grouped = useMemo(() => {
@@ -482,26 +114,35 @@ export default function MenuScreen() {
     return m;
   }, [items]);
 
-  // Active categories that have at least one item in the fetched set
+  // Active categories that have at least one item (inactive / empty ones never render)
   const activeCats = useMemo(
     () => cats.filter(c => c.isActive && (grouped.get(c._id)?.length ?? 0) > 0),
     [cats, grouped],
   );
 
-  // ── Layout recalculation (using observed clientHeight) ─────────────────────
+  const menuState = deriveMenuState({
+    cats:  catsQuery,
+    items: itemsQuery,
+    activeCatCount: activeCats.length,
+  });
+  const ready = menuState === 'ready';
+
+  // ── Layout: board or focus, from the REAL measured height ─────────────────
   const recalcLayout = useCallback(() => {
-    if (searchFocusedRef.current) return; // don't jump mode while search is open
+    if (searchFocusedRef.current) return;   // don't jump mode while the keyboard is open
     const el = menuAreaRef.current;
-    const measuredHeight = el?.clientHeight || (window.innerHeight - 164);
+    if (!el || !ready) return;
     const counts = activeCats.map(c => grouped.get(c._id)?.length ?? 0);
     const result = chooseLayout({
       width:  window.innerWidth,
-      height: measuredHeight,
+      height: el.clientHeight,
       counts,
       prev:   layoutMode,
+      chrome: readBoardChrome(el),   // header / gap / padding come from the CSS
     });
     setLayoutMode(prev => (prev === result.mode ? prev : result.mode));
-  }, [activeCats, grouped, layoutMode]);
+    setColumns(prev => (prev === result.columns ? prev : result.columns));
+  }, [activeCats, grouped, layoutMode, ready]);
 
   useEffect(() => {
     recalcLayout();
@@ -510,45 +151,71 @@ export default function MenuScreen() {
     const ro = new ResizeObserver(recalcLayout);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [recalcLayout]);
+  }, [recalcLayout, isLaptop]);
 
-  // ── Auto-open first category (focus mode init / data arrival) ────────────
+  // ── Which category is open (focus mode) ───────────────────────────────────
+  // One effect so a ?cat= deep link and the "first category" default can't fight.
   useEffect(() => {
-    if (activeCats.length > 0 && !openCatId) {
+    if (activeCats.length === 0) return;
+    const fromUrl = resolveCatParam(catParam, activeCats);
+    if (fromUrl && appliedCatParam.current !== catParam) {
+      appliedCatParam.current = catParam;
+      setOpenCatId(fromUrl);        // focus mode opens it
+      setFlashCatId(fromUrl);       // board mode shows everything, so outline it for 1.5s
+      return;
+    }
+    if (!openCatId || !activeCats.some(c => c._id === openCatId)) {
       setOpenCatId(activeCats[0]._id);
     }
-  }, [activeCats, openCatId]);
+  }, [activeCats, catParam, openCatId]);
 
-  // ── Auto-open first matching category when searching in focus mode ────────
   useEffect(() => {
-    if (!searchQ.trim() || layoutMode !== 'focus') return;
-    const q = searchQ.toLowerCase();
-    const first = activeCats.find(c =>
-      (grouped.get(c._id) ?? []).some(
-        i => i.name.toLowerCase().includes(q) ||
-             (i.description?.toLowerCase().includes(q) ?? false),
-      ),
-    );
-    if (first) setOpenCatId(first._id);
+    if (!flashCatId) return;
+    const t = setTimeout(() => setFlashCatId(''), 1500);
+    return () => clearTimeout(t);
+  }, [flashCatId]);
+
+  // Searching in focus mode opens the first matching category
+  useEffect(() => {
+    if (layoutMode !== 'focus') return;
+    const first = firstMatchingCategoryId(activeCats, grouped, searchQ);
+    if (first) setOpenCatId(first);
   }, [searchQ, layoutMode, activeCats, grouped]);
 
-  // ── Board column partition (order-preserving contiguous split) ─────────────
-  const { col0Ids, col1Ids } = useMemo(() => {
-    const counts = activeCats.map(c => grouped.get(c._id)?.length ?? 0);
-    const part = partitionCategories(counts);
-    return {
-      col0Ids: part.left.map(i => activeCats[i]._id),
-      col1Ids: part.right.map(i => activeCats[i]._id),
-    };
+  // ── Search: matches, "nothing matches", and the polite announcement ───────
+  const searching = searchQ.trim() !== '';
+  const noMatches = ready && hasNoMatches(grouped, searchQ);
+  const matchTotal = useMemo(() => {
+    if (!searching) return 0;
+    let n = 0;
+    for (const c of activeCats) n += (grouped.get(c._id) ?? []).filter(i => matchesQuery(i, searchQ)).length;
+    return n;
+  }, [searching, activeCats, grouped, searchQ]);
+
+  useEffect(() => {
+    if (!ready || !searching) return;
+    setAnnouncement(matchTotal === 0 ? 'No items match' : `${matchTotal} ${matchTotal === 1 ? 'item matches' : 'items match'}`);
+  }, [ready, searching, matchTotal]);
+
+  // ── Board columns (order-preserving contiguous split) ─────────────────────
+  const boardColumns = useMemo(() => {
+    const part = partitionCategories(activeCats.map(c => grouped.get(c._id)?.length ?? 0));
+    const build = (idx: number[]) => idx.map(i => ({ cat: activeCats[i], items: grouped.get(activeCats[i]._id) ?? [] }));
+    return [build(part.left), build(part.right)].filter(col => col.length > 0);
   }, [activeCats, grouped]);
 
-  // ── Item action handlers ──────────────────────────────────────────────────
+  // ── Item actions ──────────────────────────────────────────────────────────
   const bumpCartBar = useCallback(() => {
     const slot = cartBarSlotRef.current;
     if (!slot) return;
     slot.classList.remove(styles.cartBarBump);
-    void slot.offsetWidth; // force reflow so animation restarts if already playing
+    void slot.offsetWidth; // force reflow so the animation restarts if already playing
     slot.classList.add(styles.cartBarBump);
+  }, []);
+
+  const announceCart = useCallback((what: string) => {
+    const n = useCartStore.getState().totalItems();
+    setAnnouncement(`${what}. ${n} ${n === 1 ? 'item' : 'items'} in cart`);
   }, []);
 
   const handleAdd = useCallback(async (item: MenuItem) => {
@@ -558,6 +225,10 @@ export default function MenuScreen() {
       return;
     }
     if (!item.isAvailable) return;
+    if ((cartCounts.get(item._id) ?? 0) >= MAX_LINE_QTY) {
+      toast(`You can order up to ${MAX_LINE_QTY} of one item`);
+      return;
+    }
     await lightHaptic();
     addItem({
       menuItemId:     item._id,
@@ -569,182 +240,111 @@ export default function MenuScreen() {
       quantity:       1,
     });
     bumpCartBar();
-  }, [addItem, bumpCartBar]);
+    announceCart(`${item.name} added`);
+  }, [addItem, bumpCartBar, announceCart, cartCounts]);
 
-  const handleTap = useCallback((item: MenuItem) => {
-    setSelectedItem(item);
-  }, []);
+  const handleTap = useCallback((item: MenuItem) => setSelectedItem(item), []);
+  const closeSheet = useCallback(() => setSelectedItem(null), []);
+  const handleSheetAdded = useCallback(() => { bumpCartBar(); announceCart('Added'); }, [bumpCartBar, announceCart]);
+
+  const handleRetry = () => {
+    if (catsQuery.isError)  void catsQuery.refetch();
+    if (itemsQuery.isError) void itemsQuery.refetch();
+  };
 
   const handlers: ItemHandlers = useMemo(
-    () => ({ onAdd: handleAdd, onTap: handleTap, cartCounts, searchQ }),
-    [handleAdd, handleTap, cartCounts, searchQ],
+    () => ({ onAdd: handleAdd, onTap: handleTap, cartCounts, searchQ, showThumb: isLaptop }),
+    [handleAdd, handleTap, cartCounts, searchQ, isLaptop],
   );
 
-  // ── Skeleton ──────────────────────────────────────────────────────────────
-  if (menuState === 'loading') {
-    return (
-      <div className={styles.page}>
-        <ConnectionBanner />
-        <div className={styles.searchBarWrap}>
-          <Skeleton h={36} r="var(--r-pill)" />
-        </div>
-        <div className={styles.menuArea} ref={menuAreaRef}>
-          <div className={styles.boardGrid}>
-            {[0, 1].map(col => (
-              <div
-                key={col}
-                className={styles.boardColumn}
-                style={col === 0 ? { borderRight: '1px solid var(--border)' } : undefined}
-              >
-                {[3, 4, 2].map((n, ci) => (
-                  <div key={ci} style={{ flex: n + 0.6, display: 'flex', flexDirection: 'column' }}>
-                    <Skeleton h={28} r="0" />
-                    {Array.from({ length: n }, (_, ri) => (
-                      <Skeleton
-                        key={ri}
-                        h={0}   /* height:0 + flex:1 fills remaining space */
-                        style={{ flex: 1, minHeight: 0, marginTop: 1 }}
-                        r="0"
-                      />
-                    ))}
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className={styles.cartBarSlot} />
-        <div className={styles.navSpacer} />
-        <BottomNav active="menu" />
-      </div>
-    );
-  }
+  // ── Search field: in the header on phones, in the top bar on laptops ──────
+  const searchField = (
+    <div className={styles.search}>
+      <Icon name="search" size={18} className={styles.searchIcon} />
+      <input
+        type="text"
+        inputMode="search"
+        className={styles.searchInput}
+        placeholder="Search the menu"
+        aria-label="Search the menu"
+        value={searchQ}
+        disabled={!ready}
+        onChange={e => setSearchQ(e.target.value)}
+        onFocus={() => { searchFocusedRef.current = true; }}
+        onBlur={()  => { searchFocusedRef.current = false; recalcLayout(); }}
+      />
+      {searchQ && (
+        <button type="button" className={styles.searchClear} aria-label="Clear search" onClick={() => setSearchQ('')}>
+          <Icon name="close" size={16} />
+        </button>
+      )}
+    </div>
+  );
 
-  if (menuState === 'offline') {
-    return (
-      <div className={styles.page}>
-        <ConnectionBanner />
-        <div className={styles.emptyState}>
-          <p>You&apos;re offline.</p>
-          <p className={styles.stateHint}>Connect to the internet to load the menu.</p>
-        </div>
-        <div className={styles.navSpacer} />
-        <BottomNav active="menu" />
-      </div>
-    );
-  }
+  // ── What goes in the board area ───────────────────────────────────────────
+  let content;
+  if (menuState === 'loading')      content = <MenuSkeleton />;
+  else if (menuState !== 'ready')   content = <MenuStateView state={menuState} onRetry={handleRetry} />;
+  else if (noMatches)               content = <NoMatches onClear={() => setSearchQ('')} />;
+  else if (layoutMode === 'focus')  content = (
+    <FocusMode
+      cats={activeCats}
+      grouped={grouped}
+      openCatId={openCatId}
+      onOpen={setOpenCatId}
+      columns={columns}
+      handlers={handlers}
+    />
+  );
+  else                              content = <Board columns={boardColumns} handlers={handlers} flashCatId={flashCatId} />;
 
-  if (menuState === 'error') {
-    return (
-      <div className={styles.page}>
-        <ConnectionBanner />
-        <div className={styles.emptyState}>
-          <p>Couldn&apos;t load the menu.</p>
-          <button type="button" className={styles.retryBtn} onClick={retryMenu}>
-            Try again
-          </button>
-        </div>
-        <div className={styles.navSpacer} />
-        <BottomNav active="menu" />
-      </div>
-    );
-  }
-
-  // ── Empty state ───────────────────────────────────────────────────────────
-  if (menuState === 'empty') {
-    return (
-      <div className={styles.page}>
-        <ConnectionBanner />
-        <div className={styles.emptyState}>
-          <span style={{ fontSize: 40 }}>🍽️</span>
-          <p>Menu is empty right now.</p>
-        </div>
-        <div className={styles.navSpacer} />
-        <BottomNav active="menu" />
-      </div>
-    );
-  }
-
-  // ── Main render ───────────────────────────────────────────────────────────
   return (
     <div className={styles.page}>
-      <ConnectionBanner />
+      <ConnectionBanner offlineMessage="You're offline. Showing the last menu we loaded." />
 
-      {/* Compact search bar */}
-      <div className={styles.searchBarWrap}>
-        <Icon name="search" size={15} className={styles.searchIcon} />
-        <input
-          type="search"
-          className={styles.searchInput}
-          placeholder="Search menu…"
-          value={searchQ}
-          onChange={e => setSearchQ(e.target.value)}
-          onFocus={() => { searchFocusedRef.current = true; }}
-          onBlur={()  => { searchFocusedRef.current = false; recalcLayout(); }}
-          aria-label="Search menu items"
+      {isLaptop ? (
+        <h1 className={styles.srOnly}>Menu</h1>
+      ) : (
+        <header className={styles.header}>
+          <h1 className={styles.title}>Menu</h1>
+          {searchField}
+        </header>
+      )}
+
+      {!isLaptop && (
+        <FreeDeliveryStrip
+          variant="compact"
+          subtotalPaisa={displayTotalPaisa()}
+          thresholdPaisa={config?.freeDeliveryOverPaisa}
+          feePaisa={config?.deliveryFeePaisa}
         />
-        {searchQ && (
-          <button
-            type="button"
-            className={styles.searchClearBtn}
-            onClick={() => setSearchQ('')}
-            aria-label="Clear search"
+      )}
+
+      <div className={styles.body}>
+        <main className={styles.menuArea} ref={menuAreaRef} aria-busy={menuState === 'loading'}>
+          {content}
+        </main>
+        {isLaptop && <CartPanel />}
+      </div>
+
+      {!isLaptop && (
+        <>
+          <div
+            ref={cartBarSlotRef}
+            className={styles.cartBarSlot}
+            onAnimationEnd={() => cartBarSlotRef.current?.classList.remove(styles.cartBarBump)}
           >
-            <Icon name="minus" size={13} />
-          </button>
-        )}
-      </div>
-
-      {/* Menu area — flex: 1, no outer scroll */}
-      <div className={styles.menuArea} ref={menuAreaRef}>
-        {layoutMode === 'board' ? (
-          <div className={styles.boardGrid}>
-            <BoardColumn
-              catIds={col0Ids}
-              allCats={activeCats}
-              grouped={grouped}
-              handlers={handlers}
-              borderRight
-            />
-            <BoardColumn
-              catIds={col1Ids}
-              allCats={activeCats}
-              grouped={grouped}
-              handlers={handlers}
-              borderRight={false}
-            />
+            <CartBar />
           </div>
-        ) : (
-          <FocusMode
-            cats={activeCats}
-            grouped={grouped}
-            openCatId={openCatId}
-            onOpen={setOpenCatId}
-            handlers={handlers}
-          />
-        )}
-      </div>
+          <div className={styles.navSpacer} />
+        </>
+      )}
 
-      {/* CartBar slot — always occupies its height so adding an item
-          never shifts the menu rows (no CartBar changes needed) */}
-      <div
-        ref={cartBarSlotRef}
-        className={styles.cartBarSlot}
-        onAnimationEnd={() => cartBarSlotRef.current?.classList.remove(styles.cartBarBump)}
-      >
-        <CartBar />
-      </div>
+      <AppNav active="menu" search={isLaptop ? searchField : undefined} />
 
-      {/* Spacer for the fixed-position BottomNav */}
-      <div className={styles.navSpacer} />
-      <BottomNav active="menu" />
+      <ItemDetailSheet item={selectedItem} onClose={closeSheet} onAdded={handleSheetAdded} />
 
-      {/* In-page item detail sheet — rendered over the menu, no navigation */}
-      <ItemDetailSheet
-        item={selectedItem}
-        onClose={() => setSelectedItem(null)}
-        onAdded={bumpCartBar}
-      />
+      <div className={styles.srOnly} role="status" aria-live="polite" aria-atomic="true">{announcement}</div>
     </div>
   );
 }

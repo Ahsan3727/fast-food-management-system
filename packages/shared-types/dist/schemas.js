@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.DeliveryRequestSchema = exports.RiderLocationSchema = exports.OrderSummarySchema = exports.CreateOrderSchema = exports.DeliveryAddressSchema = exports.CartItemSchema = exports.CategorySchema = exports.MenuItemSchema = exports.OtpVerifySchema = exports.OtpRequestSchema = exports.RegisterSchema = exports.LoginSchema = void 0;
 const zod_1 = require("zod");
+const constants_1 = require("./constants");
 const enums_1 = require("./enums");
 // ──────────────────────────────────────────
 // Auth
@@ -63,7 +64,7 @@ exports.CategorySchema = zod_1.z.object({
 // ──────────────────────────────────────────
 exports.CartItemSchema = zod_1.z.object({
     menuItemId: zod_1.z.string(),
-    quantity: zod_1.z.number().int().min(1).max(50),
+    quantity: zod_1.z.number().int().min(1).max(constants_1.MAX_LINE_QTY),
     sizeLabel: zod_1.z.string().optional(),
     addOns: zod_1.z.array(zod_1.z.string()).optional(),
     notes: zod_1.z.string().max(200).optional(),

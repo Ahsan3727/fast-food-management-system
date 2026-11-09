@@ -1,5 +1,4 @@
 import { WorkerHost } from '@nestjs/bullmq';
-import { OnModuleInit } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { Model } from 'mongoose';
 import { OrderDocument } from '../modules/orders/order.schema';
@@ -12,13 +11,12 @@ export interface DispatchOfferPayload {
     orderNumber: string;
     riderFcmTokens: Record<string, string>;
 }
-export declare class RiderDispatchProcessor extends WorkerHost implements OnModuleInit {
+export declare class RiderDispatchProcessor extends WorkerHost {
     private readonly orderModel;
     private readonly gateway;
     private readonly notifications;
     private readonly logger;
     constructor(orderModel: Model<OrderDocument>, gateway: RealtimeGateway, notifications: NotificationsService);
-    onModuleInit(): void;
     process(job: Job<DispatchOfferPayload>): Promise<void>;
 }
 //# sourceMappingURL=rider-dispatch.processor.d.ts.map

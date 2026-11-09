@@ -1,21 +1,30 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Icon } from './Icon';
 
-export function ConnectionBanner() {
+interface Props {
+  /** Shown while offline. Default suits the orders screens; the menu passes its own. */
+  offlineMessage?: string;
+}
+
+const DEFAULT_OFFLINE_MESSAGE = "You're offline — showing your last orders";
+
+export function ConnectionBanner({ offlineMessage = DEFAULT_OFFLINE_MESSAGE }: Props) {
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [showBackOnline, setShowBackOnline] = useState(false);
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       setShowBackOnline(true);
-      const timer = setTimeout(() => {
-        setShowBackOnline(false);
-      }, 2200); // hides after 2.2s per design.md §4.6
-      return () => clearTimeout(timer);
+      clearTimeout(hideTimer.current);
+      // hides after 2.2s per design.md §4.6. (The timer used to be created inside
+      // the event handler, so its cleanup was returned to nobody and never ran.)
+      hideTimer.current = setTimeout(() => setShowBackOnline(false), 2200);
     };
 
     const handleOffline = () => {
+      clearTimeout(hideTimer.current);
       setIsOnline(false);
       setShowBackOnline(false);
     };
@@ -24,6 +33,7 @@ export function ConnectionBanner() {
     window.addEventListener('offline', handleOffline);
 
     return () => {
+      clearTimeout(hideTimer.current);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
@@ -41,8 +51,9 @@ export function ConnectionBanner() {
       style={{
         width: '100%',
         padding: '10px 16px',
-        background: isSuccess ? 'var(--ok, #15803D)' : 'var(--bad, #B91C1C)',
-        color: '#ffffff',
+        // solid + matching foreground so white-on-light-red never happens in dark theme
+        background: isSuccess ? 'var(--success)' : 'var(--danger-solid)',
+        color: isSuccess ? 'var(--on-success)' : 'var(--on-danger)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -55,18 +66,7 @@ export function ConnectionBanner() {
       }}
     >
       <Icon name={isSuccess ? 'check' : 'ban'} size={16} />
-      <span>
-        {isSuccess
-          ? 'Back online'
-          : "You're offline — showing your last orders"}
-      </span>
-
-      <style>{`
-        @keyframes customerBannerSlideDown {
-          from { transform: translateY(-100%); }
-          to { transform: translateY(0); }
-        }
-      `}</style>
+      <span>{isSuccess ? 'Back online' : offlineMessage}</span>
     </div>
   );
 }

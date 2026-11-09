@@ -8,14 +8,40 @@
  *  mode: 'focus'  → accordion; one category expands at a time (multi-col grid inside)
  *
  * Hysteresis:
- *  - Board → Focus when estimated row height < 38px
- *  - Focus → Board only when estimated row height >= 42px
+ *  - Board → Focus when estimated row height < 52px
+ *  - Focus → Board only when estimated row height >= 56px
+ *
+ * Why 52/56: every row carries a 44px add button, so a row needs 44 + 4 above
+ * and below. The old 38/42 let a 44px button overflow its own row.
  */
 
-export const DEFAULT_CAT_HEADER_H = 28; // category header strip in board mode
-export const DEFAULT_FOCUS_BAR_H = 36;  // closed accordion bar height in focus mode
-export const MIN_BOARD_ROW_PX = 38;     // switch to focus under 38px
-export const HYSTERESIS_BOARD_ROW_PX = 42; // return to board at 42px or higher
+/**
+ * The fixed pixels around the rows of the board. The CSS owns these numbers
+ * (custom properties on the board area) and the screen reads them once, so
+ * this file stays pure and the estimate cannot drift from what is drawn.
+ */
+export interface BoardChrome {
+  /** Non-row height of ONE category card: its header plus its 2px of border. */
+  catHeaderH: number;
+  /** Vertical gap between category cards in the same column. */
+  gap: number;
+  /** Top + bottom padding of the board area (it is measured with padding in). */
+  padY: number;
+}
+
+/** Phone defaults (32px header + 2px border, 8px gaps, 8px padding top and bottom). */
+export const DEFAULT_BOARD_CHROME: BoardChrome = { catHeaderH: 34, gap: 8, padY: 16 };
+/**
+ * Laptop (>= 900px): 44px header + 2px border, 16px gaps. The 24px page padding
+ * sits on the page body, outside the measured board box, so padY is 0 here.
+ */
+export const LAPTOP_BOARD_CHROME: BoardChrome = { catHeaderH: 46, gap: 16, padY: 0 };
+
+export const DEFAULT_CAT_HEADER_H = DEFAULT_BOARD_CHROME.catHeaderH;
+export const FOCUS_OPEN_BAR_H = 56;   // the open accordion bar
+export const FOCUS_CLOSED_BAR_H = 60; // closed bars are taller: they carry a preview line
+export const MIN_BOARD_ROW_PX = 52;           // switch to focus under 52px
+export const HYSTERESIS_BOARD_ROW_PX = 56;    // return to board at 56px or higher
 
 export type LayoutMode = 'board' | 'focus';
 
@@ -34,8 +60,9 @@ export interface LayoutInput {
   categories?: number[]; // item count per category (in render order)
   counts?: number[];    // alias for categories
   prev?: LayoutMode;    // previous layout mode for hysteresis
-  catHeaderH?: number;  // optional measured header height
-  focusBarH?: number;   // optional measured accordion bar height
+  chrome?: Partial<BoardChrome>; // measured board chrome (defaults: phone)
+  focusOpenBarH?: number;   // optional measured open accordion bar height
+  focusClosedBarH?: number; // optional measured closed accordion bar height
 }
 
 export interface LayoutResult {
@@ -110,37 +137,60 @@ export function partitionCategories(counts: number[]): PartitionResult {
 }
 
 /**
- * Calculates estimated row pixel height for board mode using the exact partition.
+ * Estimated row height of the board, i.e. what the CSS will actually draw.
+ *
+ * Each column is a flex column: cards stack with `gap` between them, every
+ * card keeps its fixed chrome (header + border) and shares the remaining height
+ * in proportion to its row count, so rows are equal INSIDE a column. The two
+ * columns have different item counts, so their rows differ; the customer's
+ * tap targets are only as big as the SMALLER rows. That limiting column is
+ * what must clear the 52px floor. (The old formula took the column with more
+ * items but ignored gaps and padding.)
+ *
+ *   rowH(column) = (height - padY - (cats - 1) * gap - cats * catHeaderH) / items
+ *   estimate     = min over non-empty columns
  */
 export function boardEstRowPx(
   menuH: number,
   counts: number[],
-  catHeaderH: number = DEFAULT_CAT_HEADER_H,
+  chrome: Partial<BoardChrome> = {},
 ): number {
   if (counts.length === 0 || menuH <= 0) return 999;
 
+  const { catHeaderH, gap, padY } = { ...DEFAULT_BOARD_CHROME, ...chrome };
   const part = partitionCategories(counts);
-  const tallerItems = Math.max(part.leftItems, part.rightItems);
-  const tallerCats = part.leftItems >= part.rightItems ? part.leftCats : part.rightCats;
 
-  if (tallerItems === 0) return 999;
-  return Math.max(0, (menuH - tallerCats * catHeaderH) / tallerItems);
+  const columns = [
+    { items: part.leftItems,  cats: part.leftCats },
+    { items: part.rightItems, cats: part.rightCats },
+  ].filter(c => c.items > 0);
+
+  if (columns.length === 0) return 999;
+
+  const rowHeights = columns.map(
+    c => (menuH - padY - (c.cats - 1) * gap - c.cats * catHeaderH) / c.items,
+  );
+  return Math.max(0, Math.min(...rowHeights));
 }
 
 /**
- * Calculates estimated row pixel height for focus mode.
+ * Estimated row pixel height for focus mode: one open bar, the rest closed,
+ * gaps between the cards, then the open category's grid gets what is left.
  */
 export function focusEstRowPx(
   menuH: number,
   counts: number[],
   columns: number = 2,
-  focusBarH: number = DEFAULT_FOCUS_BAR_H,
+  openBarH: number = FOCUS_OPEN_BAR_H,
+  closedBarH: number = FOCUS_CLOSED_BAR_H,
+  chrome: Partial<BoardChrome> = {},
 ): number {
   if (counts.length === 0 || menuH <= 0) return 999;
   const largest = Math.max(...counts);
   if (largest === 0) return 999;
-  const barsH = counts.length * focusBarH;
-  const available = menuH - barsH;
+  const { gap, padY } = { ...DEFAULT_BOARD_CHROME, ...chrome };
+  const barsH = openBarH + (counts.length - 1) * closedBarH + (counts.length - 1) * gap;
+  const available = menuH - padY - barsH;
   if (available <= 0) return 0;
   return available / Math.ceil(largest / columns);
 }
@@ -162,8 +212,7 @@ export function chooseLayout(input: LayoutInput): LayoutResult {
   const width = input.width;
   const height = input.height;
   const prev = input.prev;
-  const catHeaderH = input.catHeaderH ?? DEFAULT_CAT_HEADER_H;
-  const focusBarH = input.focusBarH ?? DEFAULT_FOCUS_BAR_H;
+  const chrome = input.chrome ?? {};
 
   const columns = chooseColumns(width);
 
@@ -171,17 +220,22 @@ export function chooseLayout(input: LayoutInput): LayoutResult {
     return { mode: 'board', estRowPx: 0, columns };
   }
 
-  const bRow = boardEstRowPx(height, counts, catHeaderH);
+  const bRow = boardEstRowPx(height, counts, chrome);
 
   // Apply hysteresis:
-  // If previously in focus mode, need at least 42px to switch back to board.
-  // Otherwise switch to focus if under 38px.
+  // If previously in focus mode, need at least 56px to switch back to board.
+  // Otherwise switch to focus if under 52px.
   const threshold = prev === 'focus' ? HYSTERESIS_BOARD_ROW_PX : MIN_BOARD_ROW_PX;
 
   if (bRow >= threshold) {
     return { mode: 'board', estRowPx: Math.round(bRow), columns };
   }
 
-  const fRow = focusEstRowPx(height, counts, columns, focusBarH);
+  const fRow = focusEstRowPx(
+    height, counts, columns,
+    input.focusOpenBarH ?? FOCUS_OPEN_BAR_H,
+    input.focusClosedBarH ?? FOCUS_CLOSED_BAR_H,
+    chrome,
+  );
   return { mode: 'focus', estRowPx: Math.max(Math.round(fRow), 0), columns };
 }

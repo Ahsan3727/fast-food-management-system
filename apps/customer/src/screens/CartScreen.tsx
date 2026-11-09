@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import api from '@/lib/api';
+import { useAppConfig } from '@/hooks/useAppConfig';
+import { computeDelivery } from '@/lib/delivery';
 import { useCartStore, lineKey } from '@/store/cart.store';
 import { formatMoneyCompact } from '@fastfood/utils';
 import { Icon } from '@/components/Icon';
@@ -10,21 +10,15 @@ export default function CartScreen() {
   const navigate = useNavigate();
   const { items, updateQuantity, clear, displayTotalPaisa } = useCartStore();
 
-  const { data: appConfig } = useQuery<{
-    deliveryFeePaisa: number;
-    freeDeliveryOverPaisa: number;
-  }>({
-    queryKey: ['app-config'],
-    queryFn: () => api.get('/app-config').then(r => r.data),
-    staleTime: 5 * 60_000,
-  });
+  const { data: appConfig } = useAppConfig();
 
   const subtotalPaisa = displayTotalPaisa();
-  const freeThreshold = appConfig?.freeDeliveryOverPaisa ?? 100000;
-  const standardFee = appConfig?.deliveryFeePaisa ?? 10000;
-  const deliveryPaisa = subtotalPaisa >= freeThreshold ? 0 : standardFee;
+  // Same rule as before (free when subtotal >= threshold, fallbacks if config is
+  // missing), now shared with the menu's free-delivery strip.
+  const delivery = computeDelivery(subtotalPaisa, appConfig);
+  const deliveryPaisa = delivery.feePaisa;
   const totalWithDelivery = subtotalPaisa + deliveryPaisa;
-  const freeThresholdRemaining = Math.max(0, freeThreshold - subtotalPaisa);
+  const freeThresholdRemaining = delivery.remainingPaisa;
 
   if (items.length === 0) {
     return (
@@ -298,7 +292,7 @@ export default function CartScreen() {
                 <div
                   style={{
                     height: '100%',
-                    width: `${Math.min(100, (subtotalPaisa / 100000) * 100)}%`,
+                    width: `${delivery.progress * 100}%`,
                     background: 'var(--action)',
                     borderRadius: 3,
                   }}

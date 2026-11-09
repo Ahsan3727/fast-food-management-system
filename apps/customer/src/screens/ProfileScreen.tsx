@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
-import BottomNav from '@/components/BottomNav';
+import AppNav from '@/components/AppNav';
 import { Icon } from '@/components/Icon';
 import { ConnectionBanner } from '@/components/ConnectionBanner';
 
@@ -392,7 +392,7 @@ export default function ProfileScreen() {
         </p>
       </div>
 
-      <BottomNav active="profile" />
+      <AppNav active="profile" />
     </div>
   );
 }

@@ -80,6 +80,7 @@
 
   --success: #15803D;
   --success-bg: #F0FDF4;
+  --on-success: #FFFFFF;
 
   --warning: #B45309;
   --warning-bg: #FFFBEB;
@@ -91,6 +92,11 @@
 
   --chip-bg: var(--ember-100);
   --chip-fg: var(--ember-800);
+
+  /* Menu page */
+  --action-tint: #FFF4EC;            /* options-case add button, selected size card */
+  --highlight: #FDE68A;              /* search match */
+  --highlight-fg: var(--stone-900);
 
   --map-bg: var(--stone-100);
   --map-road: #FFFFFF;
@@ -139,6 +145,16 @@
   --strong:       var(--stone-300);
   /* Nav height — used in globals.css and screen padding */
   --nav-h:        56px;
+  /* Laptop top navigation height (>= 900px) */
+  --topnav-h:     64px;
+
+  /* Menu board layout (phone values; MenuScreen.module.css overrides them at >= 900px).
+     JS reads --board-cat-h and --board-gap so chooseLayout's estimate matches the CSS. */
+  --board-cat-h:  34px;   /* category card chrome: 32px header + 2px border */
+  --board-gap:    8px;    /* gap between cards in a column */
+  --row-max:      76px;   /* rows stop growing here */
+  --n:            1;      /* rows in a card; set inline per card */
+  --focus-cols:   2;      /* item columns in focus mode; set inline from chooseColumns */
 }
 
 /* ── Dark Theme Overrides ──────────────────────────────────── */
@@ -169,6 +185,7 @@
 
   --success: #4ADE80;
   --success-bg: rgba(34, 197, 94, 0.16);
+  --on-success: var(--stone-900);
 
   --warning: #FBBF24;
   --warning-bg: rgba(245, 158, 11, 0.16);
@@ -180,6 +197,10 @@
 
   --chip-bg: rgba(249, 115, 22, 0.18);
   --chip-fg: #FDBA74;
+
+  --action-tint: rgba(249, 115, 22, 0.14);
+  --highlight: rgba(251, 191, 36, 0.38);
+  --highlight-fg: var(--stone-50);
 
   --map-bg: #141210;
   --map-road: var(--stone-700);

@@ -4,7 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth.store';
 import { useCartStore } from '@/store/cart.store';
-import BottomNav from '@/components/BottomNav';
+import AppNav from '@/components/AppNav';
 import CartBar from '@/components/CartBar';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Icon } from '@/components/Icon';
@@ -391,7 +391,7 @@ export default function HomeScreen() {
       </div>
 
       <CartBar />
-      <BottomNav active="home" />
+      <AppNav active="home" />
 
       <ItemDetailSheet
         item={selectedItem}

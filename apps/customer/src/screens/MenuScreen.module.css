@@ -1,522 +1,545 @@
-/*
- * MenuScreen.module.css
- * All colours are design-system tokens — zero raw hex values.
- * Verified against apps/customer/src/styles/tokens.css
- */
+/* ══════════════════════════════════════════════════════════════════════════
+   MenuScreen: one screen, the page never scrolls.
 
-/* ── Page shell: non-scrolling full-viewport flex column ── */
+   Phone is the base. Laptop (>= 900px) is a layer at the bottom.
+   The board's fixed pixels live in custom properties on .menuArea
+   (--board-cat-h, --board-gap, plus its own padding). The screen reads them
+   once (boardChrome.ts) so chooseLayout's row-height estimate cannot drift
+   from what is drawn here. Change them here and it follows.
+   ══════════════════════════════════════════════════════════════════════════ */
+
 .page {
   display: flex;
   flex-direction: column;
   height: 100vh;          /* fallback for older WebViews */
   height: 100dvh;         /* respects mobile browser chrome */
+  padding-top: var(--safe-top);
   background: var(--bg);
   color: var(--text);
   overflow: hidden;       /* page itself never scrolls */
 }
 
-/* ── Compact search bar (44 px) ── */
-.searchBarWrap {
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Header: title + search on one row (phone) ───────────────────────────── */
+.header {
   flex-shrink: 0;
-  height: 44px;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-4);
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-2);
+}
+.title {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
 }
 
-.searchIcon {
-  color: var(--text-subtle);
-  flex-shrink: 0;
+.search {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  height: 44px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-pill);
+  color: var(--text-muted);
 }
-
+.search:focus-within { border-color: var(--action-bg); box-shadow: 0 0 0 3px var(--action-tint); }
+.searchIcon { position: absolute; left: 14px; pointer-events: none; }
 .searchInput {
   flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0 4px 0 42px;
   border: none;
-  background: none;
-  outline: none;
-  font-size: 14px;
+  background: transparent;
   color: var(--text);
   font-family: var(--font);
+  font-size: 15px;
+  outline: none;
 }
-
-/* Hide the native browser clear button — we render our own */
-.searchInput::-webkit-search-cancel-button { display: none; }
-
-.searchClearBtn {
-  background: none;
-  border: none;
-  padding: var(--space-1);
+.searchInput::placeholder { color: var(--text-muted); }
+.searchInput:disabled { opacity: 0.6; }
+.searchClear {
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
-  color: var(--text-subtle);
-  cursor: pointer;
-  min-width: 32px;
-  min-height: 32px;
-  border-radius: var(--r-pill);
-}
-.searchClearBtn:hover { background: var(--bg-hover); }
-
-/* ── Menu area: flex 1, no outer scroll ── */
-.menuArea {
-  flex: 1;
-  min-height: 0;    /* allow shrinking below content height */
-  overflow: hidden; /* outer scroll disabled; inner may scroll as last resort */
-  position: relative;
-}
-
-/* ── Board mode: 2-column grid ── */
-.boardGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  height: 100%;
-  overflow: hidden;
-}
-
-.boardColumn {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  overflow: hidden;
-}
-
-/* Category block inside a board column */
-.boardCatBlock {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  /* flex value set inline via JS (proportional to item count weight) */
-}
-
-/* 28 px category header strip */
-.boardCatHeader {
-  flex-shrink: 0;
-  height: 28px;
-  padding: 0 var(--space-2);
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  background: var(--action-bg);
-  color: var(--action-fg);
-  font-size: 11px;
-  font-weight: 700;
-  user-select: none;
-}
-
-.boardCatName {
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.boardCatCount {
-  font-size: 10px;
-  opacity: 0.75;
-  flex-shrink: 0;
-}
-
-/* Item rows container — shares available height among its flex children */
-.boardCatItems {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* One item row in board mode */
-.boardItemRow {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  border-top: 1px solid var(--border);
-  background: var(--bg);
-  width: 100%;
-  overflow: hidden;
-  transition: background var(--dur-fast) var(--ease);
-}
-.boardItemRow:hover  { background: var(--bg-hover); }
-
-.boardItemMainBtn {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: 0 var(--space-2);
   border: none;
   background: none;
+  border-radius: 50%;
+  color: var(--text-muted);
   cursor: pointer;
-  text-align: left;
-  color: inherit;
-  font-family: inherit;
-  overflow: hidden;
-}
-.boardItemMainBtn:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
 }
 
-.boardItemInfo {
+/* ── Body: board area (+ cart panel on laptop) ───────────────────────────── */
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+}
+
+.menuArea {
+  /* --board-cat-h, --board-gap and --row-max come from tokens.css (phone values)
+     and are overridden below at >= 900px. boardChrome.ts reads them from here. */
   flex: 1;
   min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  padding: var(--space-2) var(--space-4);
   overflow: hidden;
 }
 
-.boardItemName {
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text);
+/* ── Board ───────────────────────────────────────────────────────────────── */
+.board {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: var(--board-gap);
 }
-
-.boardItemPrice {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--action-bg);
-}
-
-/* ── Focus mode: full-width accordion ── */
-.focusContainer {
+.boardCol {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+  gap: var(--board-gap);
+  min-height: 0;
 }
 
-/* Category wrapper — closed = 36 px, open = flex 1 */
-.focusCat {
-  flex: 0 0 36px;
+/* Block height is proportional to its row count (--n), so rows come out equal. */
+.catBlock {
+  flex: var(--n) 1 var(--board-cat-h);
+  min-height: 0;
+  max-height: calc(var(--board-cat-h) + var(--n) * var(--row-max));
   display: flex;
   flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
   overflow: hidden;
-  transition: flex var(--dur-base) var(--ease-enter);
 }
 
-.focusCatOpen {
-  flex: 1 1 auto;
-}
+.catFlash { border-color: var(--action-bg); box-shadow: 0 0 0 2px var(--action-bg); }
+.catBlock { transition: box-shadow var(--dur-base) var(--ease), border-color var(--dur-base) var(--ease); }
 
-/* Accordion bar button */
-.focusBar {
+.catHeader {
   flex-shrink: 0;
-  height: 36px;
-  padding: 0 var(--space-4);
+  height: calc(var(--board-cat-h) - 2px);
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  border: none;
+  padding: 0 10px;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-surface);
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  transition: background var(--dur-fast) var(--ease);
 }
-.focusBar:hover  { background: var(--bg-hover); }
-.focusBar:active { background: var(--bg-pressed); }
-.focusBar:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: -2px;
-}
-
-.focusCatOpen .focusBar {
+.catIcon { display: inline-grid; place-items: center; font-size: 16px; line-height: 1; color: var(--tint-fg); }
+.catTitle { flex: 1; min-width: 0; margin: 0; font-size: 14.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.catCount { font-size: 12px; font-weight: 600; color: var(--text-muted); }
+.matchBadge {
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 11px;
   background: var(--action-bg);
   color: var(--action-fg);
-  border-bottom-color: var(--action-bg);
+  font-size: 12px;
+  font-weight: 700;
 }
 
-.focusBarName {
-  flex-shrink: 0;
+.rows {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.row {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.row + .row { border-top: 1px solid var(--border); }
+
+/* Row body: a button. Phone = name over price; laptop = thumb | name+line | price */
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "name" "price";
+  align-content: center;
+  row-gap: 1px;
+  padding: 0 4px 0 10px;
+  background: none;
+  border: none;
+  font-family: var(--font);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rowName {
+  grid-area: name;
   font-size: 13px;
   font-weight: 700;
-  white-space: nowrap;
+  line-height: 1.2;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;       /* long names: two lines, then an ellipsis */
+  line-clamp: 2;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
+.rowSecondary { grid-area: sec; display: none; }   /* phone has no room; the sheet shows it */
+.rowPrice { grid-area: price; font-size: 12.5px; font-weight: 700; color: var(--text); }
+.thumb { grid-area: thumb; }
 
-.focusBarPreview {
-  flex: 1;
-  min-width: 0;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-subtle);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  padding: 0 var(--space-2);
-}
-
-.focusMatchBadge {
-  flex-shrink: 0;
-  min-width: 18px;
-  height: 18px;
+.dim { opacity: 0.35; }
+.soldOut .rowName, .soldOut .rowPrice, .soldOut .cellName, .soldOut .cellPrice { color: var(--text-muted); }
+.chip {
+  display: inline-block;
+  padding: 1px 8px;
   border-radius: var(--r-pill);
-  background: var(--chip-bg);
-  color: var(--chip-fg);
-  font-size: 10px;
-  font-weight: 700;
+  background: var(--bg-sunken);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.mark {
+  padding: 0 1px;
+  border-radius: 3px;
+  background: var(--highlight);
+  color: var(--highlight-fg);
+}
+
+/* ── Add button: 44px hit area, four looks ───────────────────────────────── */
+.addBtn {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin-right: 6px;
   display: grid;
   place-items: center;
-  padding: 0 var(--space-1);
-}
-
-.focusBarArrow {
-  flex-shrink: 0;
-  color: currentColor;
-}
-
-/* Items area inside open accordion — 2-column grid */
-.focusItems {
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-content: start;
-  overflow-y: auto;      /* inner scroll as last-resort if items overflow */
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-
-/* Single item cell in focus 2-col grid */
-.focusItemCell {
-  display: flex;
-  align-items: center;
-  border-top: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  background: var(--bg);
-  overflow: hidden;
-  transition: background var(--dur-fast) var(--ease);
-  min-height: 44px;   /* accessible touch target */
-}
-.focusItemCell:nth-child(2n) { border-right: none; }
-.focusItemCell:hover  { background: var(--bg-hover); }
-
-.focusItemMainBtn {
-  flex: 1;
-  min-width: 0;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-2);
-  border: none;
-  background: none;
+  border-radius: 50%;
+  font-family: var(--font);
   cursor: pointer;
-  text-align: left;
-  color: inherit;
-  font-family: inherit;
-  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--dur-press) ease, background-color var(--dur-fast);
 }
-.focusItemMainBtn:focus-visible {
+.addBtn:active:not(:disabled) { transform: scale(0.94); }
+.add_quick   { background: var(--bg-surface); color: var(--action-bg); border: 1.5px solid var(--action-bg); }
+.add_options { background: var(--action-tint); color: var(--action-bg); border: 1.5px solid var(--action-bg); }
+.add_inCart  { background: var(--action-bg); color: var(--action-fg); border: 1.5px solid var(--action-bg); }
+.add_soldOut { background: var(--bg-sunken); color: var(--text-subtle); border: 1.5px solid var(--border); cursor: not-allowed; }
+.addCount { font-size: 16px; font-weight: 800; line-height: 1; }
+
+.rowMain:focus-visible, .addBtn:focus-visible, .cellMain:focus-visible,
+.focusBtn:focus-visible, .retryBtn:focus-visible, .searchClear:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: -2px;
 }
+.addBtn:focus-visible { outline-offset: 2px; }
 
-.focusItemInfo {
+/* ── Thumb / art (photo, or emoji on a tinted plate) ─────────────────────── */
+.thumb, .cellArt {
+  display: grid;
+  place-items: center;
+  background: var(--tint-bg);
+  overflow: hidden;
+}
+.thumb img, .cellArt img { width: 100%; height: 100%; object-fit: cover; }
+.thumbEmoji { font-size: 24px; line-height: 1; }
+.cellEmoji  { font-size: 36px; line-height: 1; }
+
+/* ── Focus mode (long menus): accordion + item cards ─────────────────────── */
+.focus {
   flex: 1;
-  min-width: 0;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--board-gap);
+}
+.focusCat {
+  flex: 0 0 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
   overflow: hidden;
 }
-
-.focusItemName {
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  color: var(--text);
+.focusOpen { flex: 1 1 0; }
+.focusHeading { margin: 0; font: inherit; flex-shrink: 0; }
+.focusBtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 60px;            /* closed: carries a preview line */
+  padding: 0 14px;
+  background: none;
+  border: none;
+  font-family: var(--font);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
 }
-
-.focusItemPrice {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--action-bg);
+.focusOpen .focusBtn { min-height: 56px; }
+.focusIconWell {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: var(--tint-bg);
 }
-
-/* ── Shared: thumbnail ── */
-.thumb {
+.focusIconWell .catIcon { font-size: 20px; }
+.focusLabel { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.focusName { font-size: 16px; font-weight: 700; }
+.focusPreview { font-size: 12.5px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.focusToggle {
   flex-shrink: 0;
   width: 28px;
   height: 28px;
-  border-radius: var(--r-sm);
-  background: var(--bg-sunken);
   display: grid;
   place-items: center;
+  border-radius: 50%;
+  background: var(--bg-sunken);
+  color: var(--text);
+  transition: background-color var(--dur-fast), color var(--dur-fast);
+}
+.focusOpen .focusToggle { background: var(--action-bg); color: var(--action-fg); }
+
+/* Height animation without measuring: grid track 0fr -> 1fr */
+.focusPanel {
+  display: grid;
+  grid-template-rows: 0fr;
+  min-height: 0;
+  transition: grid-template-rows var(--dur-base) var(--ease);
+}
+.focusOpen .focusPanel { grid-template-rows: 1fr; flex: 1 1 0; }
+.focusPanelInner { min-height: 0; overflow: hidden; display: flex; }
+.focusGrid {
+  flex: 1;
+  min-height: 0;
+  list-style: none;
+  margin: 0;
+  padding: 2px 12px 12px;
+  display: grid;
+  grid-template-columns: repeat(var(--focus-cols, 2), minmax(0, 1fr));
+  /* max-content, not auto: with a definite grid height, auto rows holding
+     overflow:hidden cards get squeezed to fit and clip the name/price/button.
+     Cards keep their natural height; the grid scrolls instead. */
+  grid-auto-rows: max-content;
+  align-content: start;
+  gap: 10px;
+  overflow-y: auto;            /* only when the cards truly cannot fit */
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: opacity var(--dur-fast) var(--ease);
+}
+.cellMain {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--font);
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.cellArt { height: 96px; }
+.cellName {
+  padding: 10px 10px 0 12px;
+  font-size: 14.5px;
+  font-weight: 700;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
 }
+.cellSecondary {
+  padding: 2px 10px 0 12px;
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: var(--text-muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+.cellFoot {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0 6px 12px;
+}
+.cellFoot .addBtn { margin-right: 6px; }
+.cellPrice { font-size: 14px; font-weight: 700; }
 
-.thumbImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.thumbEmoji {
-  font-size: 16px;
-  line-height: 1;
-}
-
-/* ── Shared: Add button ── */
-.addBtnWrap {
-  flex-shrink: 0;
-  /* Transparent padding expands touch target to 44×44 without visual change */
-  min-width: 44px;
-  min-height: 44px;
-  display: grid;
-  place-items: center;
-}
-
-.addBtn {
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: none;
-  background: var(--action-bg);
-  color: var(--action-fg);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  transition: transform var(--dur-press) ease, background var(--dur-fast) var(--ease);
-}
-.addBtn:hover  { background: var(--action-bg-hover); }
-.addBtn:active { transform: scale(0.88); }
-.addBtn:disabled {
-  background: var(--bg-sunken);
-  color: var(--text-subtle);
-  cursor: not-allowed;
-}
-.addBtn:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
-
-/* Cart badge variant — shows current quantity */
-.addBtnHasItems {
-  background: var(--chip-bg);
-  color: var(--chip-fg);
-}
-
-.addBtnCount {
-  font-size: 10px;
-  font-weight: 800;
-  line-height: 1;
-}
-
-/* ── Search dim: non-matching items ── */
-.dimmed {
-  opacity: 0.3;
-}
-
-/* ── CartBar slot: always reserved (64 px) ── */
-.cartBarSlot {
-  flex-shrink: 0;
-  min-height: 64px;
-  /* CartBar renders inside here with its own sticky logic;
-     in a non-scrolling column, it behaves as a normal in-flow element */
-}
-
-/* ── Spacer for fixed BottomNav (56 px) ── */
-.navSpacer {
-  flex-shrink: 0;
-  height: var(--nav-h);
-}
-
-/* ── Empty state ── */
-.emptyState {
+/* ── States (error / offline / empty / no matches) ───────────────────────── */
+.stateBox {
   flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--space-3);
-  color: var(--text-muted);
-  font-size: 14px;
+  gap: var(--space-2);
+  padding: var(--space-6);
   text-align: center;
-  padding: var(--space-4);
 }
-
-.stateHint {
-  margin: 0;
-  font-size: 13px;
-  color: var(--text-subtle);
-}
-
+.stateEmoji { font-size: 40px; line-height: 1; }
+.stateTitle { margin: var(--space-1) 0 0; font-size: 17px; font-weight: 700; }
+.stateHint  { margin: 0; max-width: 280px; font-size: 14px; color: var(--text-muted); }
 .retryBtn {
   min-height: 44px;
-  padding: 0 var(--space-4);
+  margin-top: var(--space-2);
+  padding: 0 var(--space-6);
   border: none;
-  border-radius: var(--r-md);
-  background: var(--action-bg);
-  color: var(--action-fg);
-  font: inherit;
+  border-radius: var(--r-pill);
+  background: var(--text);
+  color: var(--bg-surface);
+  font-family: var(--font);
+  font-size: 14px;
   font-weight: 700;
   cursor: pointer;
 }
-.retryBtn:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
-}
 
-/* ── Accessibility: reduced-motion ── */
-@media (prefers-reduced-motion: reduce) {
-  .focusCat,
-  .addBtn {
-    transition: none;
-  }
-}
+/* ── Loading skeleton ────────────────────────────────────────────────────── */
+.skelCard { pointer-events: none; }
+.skelHead { display: block; width: 45%; height: 12px; border-radius: 6px; }
+.skelRow { padding: 0 6px 0 10px; gap: var(--space-2); }
+.skelText { flex: 1; min-width: 0; display: grid; gap: 6px; }
+.skelLine { display: block; height: 11px; border-radius: 6px; }
+.skelShort { width: 55%; }
+.skelBtn { flex-shrink: 0; width: 44px; height: 44px; margin-right: 6px; border-radius: 50%; }
 
-/* ── Search match highlight (rendered inside item name span) ── */
-.searchHighlight {
-  background: var(--chip-bg);
-  color: var(--chip-fg);
-  border-radius: var(--r-xs);
-  padding: 0 1px;
-  font-style: normal;    /* <mark> defaults to italic in some browsers */
+/* ── Cart bar slot + nav spacer (phone) ──────────────────────────────────── */
+.cartBarSlot {
+  flex-shrink: 0;
+  height: 64px;             /* reserved even when the cart is empty: no layout jump */
 }
-
-/* ── Sold-out label (appears below item name) ── */
-.soldOutLabel {
-  font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--bad);
-  line-height: 1.2;
+.navSpacer {
+  flex-shrink: 0;
+  height: calc(var(--nav-h) + var(--safe-bottom));
 }
-
-/* ── Sold-out row: dim the whole button ── */
-.unavailable {
-  opacity: 0.5;
-}
-
-/* ── CartBar bump: subtle pulse when an item is added to cart ── */
-@keyframes cartBump {
-  0%   { transform: scale(1);     }
-  35%  { transform: scale(1.034); }
-  100% { transform: scale(1);     }
-}
-
 .cartBarBump {
   animation: cartBump 320ms var(--ease-enter);
   transform-origin: center bottom;
 }
+@keyframes cartBump {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
 
-@media (prefers-reduced-motion: reduce) {
-  .cartBarBump { animation: none; }
+/* ══════════════════════════════════════════════════════════════════════════
+   Tablet (600-899px): same board; only the focus grid gets 3 columns (JS sets
+   --focus-cols from chooseColumns).
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Laptop (>= 900px): top nav (fixed, outside this page), board + 360px cart
+   panel filling the rest of the height, 24px outer padding, 20px between.
+   ══════════════════════════════════════════════════════════════════════════ */
+@media (min-width: 900px) {
+  .page {
+    padding-top: 0;
+    height: calc(100vh - var(--topnav-h));
+    height: calc(100dvh - var(--topnav-h));
+  }
+  .body { padding: 24px; gap: 20px; }
+
+  .menuArea {
+    --board-cat-h: 46px;    /* 44px header + 2px border */
+    --board-gap: 16px;
+    padding: 0;
+  }
+
+  .catBlock { border-radius: 16px; }
+  .catHeader { padding: 0 12px; gap: var(--space-3); }
+  .catIcon {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+    background: var(--tint-bg);
+    font-size: 16px;
+  }
+  .catTitle { font-size: 17px; }
+  .catCount {
+    min-width: 22px;
+    height: 22px;
+    display: inline-grid;
+    place-items: center;
+    padding: 0 6px;
+    border-radius: 11px;
+    background: var(--bg-sunken);
+  }
+
+  .rowMain {
+    /* price column sizes to its text ("from Rs. 350" stays on one line) */
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "thumb name price" "thumb sec price";
+    column-gap: var(--space-3);
+    align-items: center;
+    padding: 0 12px;
+  }
+  .thumb { width: 48px; height: 48px; border-radius: 12px; grid-row: 1 / span 2; }
+  .rowName {
+    font-size: 15px;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    align-self: end;
+  }
+  .rowSecondary {
+    display: block;
+    align-self: start;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  /* No description line: centre the name against the thumbnail instead of the upper half */
+  .rowMain[data-secondary='no'] .rowName { grid-row: 1 / span 2; align-self: center; }
+  .rowPrice { font-size: 14.5px; text-align: right; white-space: nowrap; grid-row: 1 / span 2; align-self: center; }
+  .row:hover:not(.soldOut) { background: var(--bg-hover); }
+
+  .cell:hover:not(.soldOut) { border-color: var(--border-strong); }
 }

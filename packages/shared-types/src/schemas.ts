@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_LINE_QTY } from './constants';
 import { OrderStatus, PaymentMethod, Role } from './enums';
 
 // ──────────────────────────────────────────
@@ -74,7 +75,7 @@ export const CategorySchema = z.object({
 
 export const CartItemSchema = z.object({
   menuItemId: z.string(),
-  quantity: z.number().int().min(1).max(50),
+  quantity: z.number().int().min(1).max(MAX_LINE_QTY),
   sizeLabel: z.string().optional(),
   addOns: z.array(z.string()).optional(),
   notes: z.string().max(200).optional(),

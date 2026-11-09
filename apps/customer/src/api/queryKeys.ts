@@ -3,6 +3,7 @@
  * Import QK from here instead of writing inline arrays.
  */
 export const QK = {
+  appConfig:   ['app-config'] as const,
   categories:  ['categories'] as const,
   menu:        (catId?: string, includeUnavailable?: boolean) => ['menu', catId ?? '', includeUnavailable ?? false] as const,
   menuItem:    (id: string)    => ['menu-item', id] as const,

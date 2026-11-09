@@ -35,12 +35,6 @@ let RiderDispatchProcessor = RiderDispatchProcessor_1 = class RiderDispatchProce
         this.gateway = gateway;
         this.notifications = notifications;
     }
-    onModuleInit() {
-        this.worker.on('error', (err) => {
-            // Gracefully log message instead of unhandled exception dumps
-            this.logger.warn(`BullMQ worker notice: ${err.message}`);
-        });
-    }
     async process(job) {
         if (job.name !== exports.JOB_DISPATCH_OFFER)
             return;
@@ -67,12 +61,7 @@ let RiderDispatchProcessor = RiderDispatchProcessor_1 = class RiderDispatchProce
 };
 exports.RiderDispatchProcessor = RiderDispatchProcessor;
 exports.RiderDispatchProcessor = RiderDispatchProcessor = RiderDispatchProcessor_1 = __decorate([
-    (0, bullmq_1.Processor)(exports.RIDER_DISPATCH_QUEUE, {
-        // Reduce Redis polling to stay within Upstash free tier (500k req/day)
-        stalledInterval: 30_000, // check for stalled jobs every 30s (default: 5s)
-        drainDelay: 5_000, // wait 5s before polling again when queue is empty
-        skipVersionCheck: true, // skip Redis version check on startup
-    }),
+    (0, bullmq_1.Processor)(exports.RIDER_DISPATCH_QUEUE),
     __param(0, (0, mongoose_1.InjectModel)(order_schema_1.Order.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
         realtime_gateway_1.RealtimeGateway,

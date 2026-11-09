@@ -4,33 +4,36 @@ import { Icon, IconName } from '@/components/Icon';
 import { QK } from '@/api/queryKeys';
 import { STATUS_META, OrderStatus } from '@fastfood/shared-types';
 
-interface Props {
+export interface NavProps {
   active: 'home' | 'menu' | 'orders' | 'profile';
 }
+type Props = NavProps;
 
-interface NavItem {
+export interface NavItem {
   key: Props['active'];
   label: string;
   icon: IconName;
   path: string;
 }
 
-const items: NavItem[] = [
+export const NAV_ITEMS: NavItem[] = [
   { key: 'home',    label: 'Home',    icon: 'home',     path: '/' },
   { key: 'menu',    label: 'Menu',    icon: 'utensils', path: '/menu' },
   { key: 'orders',  label: 'Orders',  icon: 'receipt',  path: '/orders' },
   { key: 'profile', label: 'Profile', icon: 'user',     path: '/profile' },
 ];
 
-export default function BottomNav({ active }: Props) {
-  const navigate = useNavigate();
+/** Dot on "Orders" while an order is in progress. Reads the cache only: no extra request. */
+export function useHasActiveOrders(): boolean {
   const qc = useQueryClient();
-
   // Read from existing cache — no independent fetch (WP4: eliminates duplicate polling)
   const myOrders: any[] = qc.getQueryData(QK.myOrders) ?? [];
-  const hasActiveOrders = myOrders.some(
-    (o) => STATUS_META[o.status as OrderStatus]?.isActive,
-  );
+  return myOrders.some((o) => STATUS_META[o.status as OrderStatus]?.isActive);
+}
+
+export default function BottomNav({ active }: Props) {
+  const navigate = useNavigate();
+  const hasActiveOrders = useHasActiveOrders();
 
   return (
     <nav
@@ -40,7 +43,9 @@ export default function BottomNav({ active }: Props) {
         bottom: 0,
         left: 0,
         right: 0,
-        height: 56,
+        // 56px of buttons PLUS the safe-area inset (it used to be 56 in total, which
+        // squeezed the buttons on phones with a home indicator)
+        height: 'calc(var(--nav-h, 56px) + env(safe-area-inset-bottom, 0px))',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
         display: 'grid',
         gridTemplateColumns: 'repeat(4, 1fr)',
@@ -50,7 +55,7 @@ export default function BottomNav({ active }: Props) {
         boxShadow: '0 -2px 10px rgba(0,0,0,0.06)',
       }}
     >
-      {items.map((item) => {
+      {NAV_ITEMS.map((item) => {
         const isCurrent = active === item.key;
         return (
           <button

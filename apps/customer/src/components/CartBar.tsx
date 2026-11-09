@@ -53,13 +53,6 @@ export default function CartBar() {
           <Icon name="right" size={16} />
         </span>
       </button>
-
-      <style>{`
-        @keyframes cartRise {
-          from { opacity: 0; transform: translateY(16px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
     </div>
   );
 }

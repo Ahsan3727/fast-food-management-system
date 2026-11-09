@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { MAX_LINE_QTY } from '@fastfood/shared-types';
 
 export interface CartItem {
   menuItemId: string;
@@ -14,6 +15,36 @@ export interface CartItem {
 
 export const lineKey = (i: { menuItemId: string; sizeLabel?: string; addOns?: string[] }) =>
   `${i.menuItemId}|${i.sizeLabel ?? ''}|${[...(i.addOns ?? [])].sort().join(',')}`;
+
+/** Cap a running quantity at what the API will accept (it rejects > MAX_LINE_QTY with a 400). */
+const capQty = (n: number) => Math.min(MAX_LINE_QTY, n);
+
+/**
+ * Upgrade a cart saved by an older app version. Exported so it can be tested
+ * without touching localStorage.
+ *  v1 -> v2: lines gained an `addOns` array.
+ *  v2 -> v3: quantities are clamped to MAX_LINE_QTY. Before this, a cart could
+ *            hold 21+ of one line and then fail checkout with a 400.
+ */
+export function migrateCart(persistedState: any, version: number): any {
+  if (!persistedState?.items) return persistedState;
+  let items = persistedState.items as any[];
+  if (version < 2) {
+    items = items.map((item) => ({
+      ...item,
+      addOns: Array.isArray(item.addOns) ? item.addOns : [],
+    }));
+  }
+  if (version < 3) {
+    items = items.map((item) => ({
+      ...item,
+      quantity: Number.isFinite(item.quantity) && item.quantity >= 1
+        ? Math.min(MAX_LINE_QTY, Math.floor(item.quantity))
+        : 1,
+    }));
+  }
+  return { ...persistedState, items };
+}
 
 interface CartState {
   items: CartItem[];
@@ -47,12 +78,17 @@ export const useCartStore = create<CartState>()(
             return {
               items: state.items.map((i) =>
                 lineKey(i) === key
-                  ? { ...i, quantity: i.quantity + itemWithDefaults.quantity }
+                  ? { ...i, quantity: capQty(i.quantity + itemWithDefaults.quantity) }
                   : i,
               ),
             };
           }
-          return { items: [...state.items, itemWithDefaults] };
+          return {
+            items: [
+              ...state.items,
+              { ...itemWithDefaults, quantity: capQty(itemWithDefaults.quantity) },
+            ],
+          };
         });
       },
 
@@ -81,7 +117,7 @@ export const useCartStore = create<CartState>()(
             items: state.items
               .map((i) =>
                 i.menuItemId === keyOrMenuItemId && i.sizeLabel === deltaOrSizeLabel
-                  ? { ...i, quantity: i.quantity + delta }
+                  ? { ...i, quantity: capQty(i.quantity + delta) }
                   : i,
               )
               .filter((i) => i.quantity > 0),
@@ -93,7 +129,7 @@ export const useCartStore = create<CartState>()(
           items: state.items
             .map((i) =>
               lineKey(i) === targetKey
-                ? { ...i, quantity: i.quantity + delta }
+                ? { ...i, quantity: capQty(i.quantity + delta) }
                 : i,
             )
             .filter((i) => i.quantity > 0),
@@ -109,17 +145,8 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: 'fastfood-cart',
-      version: 2,
-      migrate: (persistedState: any, version: number) => {
-        if (version < 2 && persistedState?.items) {
-          const items = (persistedState.items as any[]).map((item) => ({
-            ...item,
-            addOns: Array.isArray(item.addOns) ? item.addOns : [],
-          }));
-          return { ...persistedState, items };
-        }
-        return persistedState;
-      },
+      version: 3,
+      migrate: migrateCart,
     },
   ),
 );

@@ -7,7 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { formatMoneyCompact } from '@fastfood/utils';
-import BottomNav from '@/components/BottomNav';
+import AppNav from '@/components/AppNav';
 import { Icon } from '@/components/Icon';
 import { SkeletonRow } from '@/components/Skeleton';
 import { ItemDetailSheet } from './ItemDetailSheet';
@@ -201,7 +201,7 @@ export default function SearchScreen() {
         )}
       </div>
 
-      <BottomNav active="menu" />
+      <AppNav active="menu" />
 
       {/* In-place detail sheet — same as MenuScreen */}
       <ItemDetailSheet

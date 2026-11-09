@@ -162,3 +162,10 @@ html, body, #root {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: var(--r-pill); }
+
+/* Laptop (>= 900px): the fixed TopNav replaces the BottomNav; AppNav sets .has-topnav.
+   Pad #root (border-box, min-height 100dvh), not body: padding on body would push
+   #root's own 100dvh minimum past the viewport and make the page scroll. */
+@media (min-width: 900px) {
+  html.has-topnav #root { padding-top: var(--topnav-h); }
+}

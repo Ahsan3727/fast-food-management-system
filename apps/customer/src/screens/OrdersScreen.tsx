@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '@/lib/api';
 import { formatMoneyCompact, timeAgo } from '@fastfood/utils';
 import { STATUS_META, OrderStatus } from '@fastfood/shared-types';
-import BottomNav from '@/components/BottomNav';
+import AppNav from '@/components/AppNav';
 import { StatusBadge } from '@/components/StatusBadge';
 import { Icon } from '@/components/Icon';
 import { SkeletonRow } from '@/components/Skeleton';
@@ -279,7 +279,7 @@ export default function OrdersScreen() {
         )}
       </div>
 
-      <BottomNav active="orders" />
+      <AppNav active="orders" />
 
       <OtpModal
         isOpen={showOtpModal}

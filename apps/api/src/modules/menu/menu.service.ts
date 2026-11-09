@@ -45,7 +45,9 @@ export class MenuService {
       filter['isAvailable'] = true;
     }
     if (categoryId) filter['categoryId'] = categoryId;
-    return this.menuItemModel.find(filter).lean();
+    // Mongo returns documents in no guaranteed order, so rows could shuffle
+    // between loads. Oldest first, _id as the tie-breaker, is stable.
+    return this.menuItemModel.find(filter).sort({ createdAt: 1, _id: 1 }).lean();
   }
 
   async getItemById(id: string) {

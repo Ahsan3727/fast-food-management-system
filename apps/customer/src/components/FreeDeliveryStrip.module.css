@@ -1,0 +1,60 @@
+/* One grid, two sizes. Phone: icon + one text line, 4px bar under it (36px tall).
+   Card (laptop cart panel): icon well 32px, 6px bar, radius 14. */
+.strip {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: var(--space-2);
+  row-gap: 4px;
+  color: var(--text);
+}
+
+.well {
+  display: inline-grid;
+  place-items: center;
+  color: var(--tint-fg);
+}
+
+.text {
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.25;
+  min-width: 0;
+}
+
+.track {
+  grid-column: 1 / -1;
+  display: block;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--action-bg);
+  transition: width var(--dur-base) var(--ease), background-color var(--dur-base) var(--ease);
+}
+
+.unlocked .fill { background: var(--success); }
+.unlocked .well { color: var(--success); }
+
+.compact { padding: 0 var(--space-4); min-height: 36px; align-content: center; }
+
+.card {
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: var(--bg-sunken);
+  column-gap: var(--space-3);
+}
+.card .well {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--r-md);
+  background: var(--tint-bg);
+}
+.card .track { height: 6px; }
+.card .text { font-size: 13.5px; }

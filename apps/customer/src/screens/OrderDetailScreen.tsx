@@ -45,6 +45,15 @@ export default function OrderDetailScreen() {
     refetchInterval: 8_000,
   });
 
+  // Declared BEFORE the early returns below: hooks must run in the same order on
+  // every render. (It used to sit after them, which crashed the screen the moment
+  // the order finished loading.)
+  const { data: currentMenuItems } = useQuery<any[]>({
+    queryKey: ['menu'],
+    queryFn:  () => api.get('/menu').then(r => r.data),
+    staleTime: 60_000,
+  });
+
   if (isLoading) {
     return (
       <div className={styles.loading}>
@@ -66,12 +75,6 @@ export default function OrderDetailScreen() {
     (order.items?.reduce((s: number, i: any) => s + (i.lineTotalPaisa || 0), 0) ?? 0);
   const deliveryFee: number =
     order.deliveryFeePaisa ?? (itemsTotal >= 100_000 ? 0 : 10_000);
-
-  const { data: currentMenuItems } = useQuery<any[]>({
-    queryKey: ['menu'],
-    queryFn:  () => api.get('/menu').then(r => r.data),
-    staleTime: 60_000,
-  });
 
   // ── Reorder ──────────────────────────────────────────────────────────────
   const handleReorder = async () => {

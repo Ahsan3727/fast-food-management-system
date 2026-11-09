@@ -11,6 +11,8 @@ export type IconName =
   | 'right'
   | 'plus'
   | 'minus'
+  | 'close'
+  | 'truck'
   | 'pin'
   | 'trash'
   | 'check'
@@ -105,6 +107,16 @@ export const Icon: React.FC<IconProps> = ({ name, size = 20, className = '', sty
       {name === 'right' && <path d="m9 18 6-6-6-6" />}
       {name === 'plus' && <path d="M5 12h14M12 5v14" />}
       {name === 'minus' && <path d="M5 12h14" />}
+      {name === 'close' && <path d="M18 6 6 18M6 6l12 12" />}
+      {name === 'truck' && (
+        <>
+          <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
+          <path d="M15 18H9" />
+          <path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14" />
+          <circle cx="17" cy="18" r="2" />
+          <circle cx="7" cy="18" r="2" />
+        </>
+      )}
       {name === 'pin' && (
         <>
           <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
