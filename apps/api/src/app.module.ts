@@ -117,4 +117,4 @@ import { JobsModule } from './jobs/jobs.module';
     UploadsModule,
   ],
 })
-export class AppModule {}
+export class AppModule { }
