@@ -1,28 +1,27 @@
 # Render deployment configuration
-# This deploys ONLY the API (NestJS backend)
-# Frontend apps go to Vercel separately
-
+# Full FastFood Platform (API + Customer + Admin + Rider)
 services:
+  # ─── NestJS Backend API ───────────────────────
   - type: web
     name: fastfood-api
     runtime: node
-    region: singapore  # Change to: oregon, frankfurt, ohio, singapore — pick closest to your users
-    plan: free          # Free tier ($0). Upgrade to "starter" ($7/month) when in production for 24/7 uptime without sleep
+    region: singapore
+    plan: free
     rootDir: apps/api
     buildCommand: npm install && npm run build
     startCommand: node dist/main
     healthCheckPath: /v1/health
-    autoDeploy: true    # Auto redeploy on every GitHub push to main branch
+    autoDeploy: true
 
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: 10000    # Render assigns this automatically, but set it explicitly
+        value: 10000
 
-      # ── Secrets — set these in Render dashboard, NOT here ──
+      # ── Secrets — configured in Render dashboard ──
       - key: MONGO_URI
-        sync: false     # "sync: false" means you must set it manually in the dashboard
+        sync: false
 
       - key: JWT_SECRET
         sync: false
@@ -45,14 +44,60 @@ services:
       - key: CLOUDINARY_API_SECRET
         sync: false
 
-      # ── Non-secret config — safe to set here ──
+      # ── Non-secret config ──
       - key: JWT_EXPIRES_IN
         value: 15m
 
       - key: JWT_REFRESH_EXPIRES_IN
         value: 7d
 
-      # IMPORTANT: Add your Vercel URLs here after deploying frontend
-      # Format: https://your-customer.vercel.app,https://your-rider.vercel.app,https://your-admin.vercel.app,https://localhost
       - key: CORS_ORIGINS
-        sync: false
+        value: https://*.vercel.app,https://*.onrender.com,http://localhost:5173,http://localhost:5174,http://localhost:5175,https://localhost
+
+  # ─── Customer App (Static Site) ───────────────
+  - type: static
+    name: fastfood-customer
+    rootDir: apps/customer
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://fast-food-management-system.onrender.com
+      - key: VITE_SOCKET_URL
+        value: https://fast-food-management-system.onrender.com
+
+  # ─── Admin Dashboard (Static Site) ────────────
+  - type: static
+    name: fastfood-admin
+    rootDir: apps/admin
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://fast-food-management-system.onrender.com
+      - key: VITE_SOCKET_URL
+        value: https://fast-food-management-system.onrender.com
+
+  # ─── Rider App (Static Site) ──────────────────
+  - type: static
+    name: fastfood-rider
+    rootDir: apps/rider
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_URL
+        value: https://fast-food-management-system.onrender.com
+      - key: VITE_SOCKET_URL
+        value: https://fast-food-management-system.onrender.com

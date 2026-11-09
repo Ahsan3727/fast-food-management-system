@@ -1,10 +1,24 @@
 import axios from 'axios';
 import { useRiderAuthStore } from '@/store/auth.store';
 
-const RAW_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:5000/v1';
+const envUrl = import.meta.env.VITE_API_URL;
+const isDeadHyperlift = envUrl && envUrl.includes('hyperlift.io');
+const RAW_URL =
+  !envUrl || isDeadHyperlift
+    ? import.meta.env.PROD
+      ? 'https://fast-food-management-system.onrender.com/v1'
+      : 'http://localhost:5000/v1'
+    : envUrl;
 export const API_ORIGIN = RAW_URL.replace(/\/v1\/?$/, '');
 export const BASE_URL = RAW_URL.endsWith('/v1') ? RAW_URL : `${RAW_URL.replace(/\/$/, '')}/v1`;
-export const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? API_ORIGIN;
+
+const socketEnv = import.meta.env.VITE_SOCKET_URL;
+export const SOCKET_URL =
+  !socketEnv || socketEnv.includes('hyperlift.io')
+    ? import.meta.env.PROD
+      ? 'https://fast-food-management-system.onrender.com'
+      : API_ORIGIN
+    : socketEnv;
 
 export const api = axios.create({
   baseURL: BASE_URL,

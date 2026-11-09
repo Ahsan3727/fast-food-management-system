@@ -36,7 +36,7 @@ import { JobsModule } from './jobs/jobs.module';
         JWT_EXPIRES_IN: Joi.string().default('15m'),
         JWT_REFRESH_EXPIRES_IN: Joi.string().default('7d'),
         CORS_ORIGINS: Joi.string().default(
-          'http://localhost:5173,http://localhost:5174,http://localhost:5175,https://*.vercel.app',
+          'http://localhost:5173,http://localhost:5174,http://localhost:5175,https://*.vercel.app,https://*.onrender.com',
         ),
         // Redis — optional; features degrade gracefully without it
         REDIS_URL: Joi.string().uri().optional().default('rediss://default:gQAAAAAAAooGAAIgcDFmNjM2ZTNhOTBlYTM0OGIzYjA2YTRiMjgxZDYzNzQ4MA@sound-oarfish-166406.upstash.io:6379'),

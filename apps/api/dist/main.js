@@ -62,7 +62,7 @@ async function bootstrap() {
     // Only origins listed in CORS_ORIGINS (plus the Capacitor app origins) are allowed.
     // Requests without an Origin header (mobile native, curl, server-to-server) pass.
     const rawCors = process.env.CORS_ORIGINS ??
-        'http://localhost:5173,http://localhost:5174,http://localhost:5175,https://*.vercel.app';
+        'http://localhost:5173,http://localhost:5174,http://localhost:5175,https://*.vercel.app,https://*.onrender.com';
     const cors = (0, cors_1.parseCorsOrigins)(rawCors, isProduction);
     if (cors.wildcardIgnored) {
         console.warn('⚠️  CORS_ORIGINS contains "*", which is ignored in production. List exact origins instead.');
